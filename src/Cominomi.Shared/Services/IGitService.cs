@@ -15,4 +15,7 @@ public interface IGitService
     Task<GitResult> RenameBranchAsync(string workingDir, string oldName, string newName, CancellationToken ct = default);
     Task<GitResult> DeleteBranchAsync(string repoDir, string branchName, CancellationToken ct = default);
     Task<bool> IsBranchMergedAsync(string repoDir, string branchName, string baseBranch, CancellationToken ct = default);
+    Task<GitResult> PushBranchAsync(string repoDir, string branchName, CancellationToken ct = default);
+    Task<GitResult> PushForceBranchAsync(string repoDir, string branchName, CancellationToken ct = default);
+    Task<GitResult> FetchAsync(string repoDir, CancellationToken ct = default);
 }
