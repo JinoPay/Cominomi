@@ -1,46 +1,51 @@
-<MudPaper Class="pa-2 my-1" Outlined="true" Style="border-radius: 8px;">
-    <MudStack Spacing="1">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1"
-                  Style="cursor: pointer;" @onclick="@(() => _expanded = !_expanded)">
-            @if (!Tool.IsComplete)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-            }
-            else if (Tool.IsError)
-            {
-                <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Color="Color.Error" />
-            }
-            else
-            {
-                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
-            }
-            <MudIcon Icon="@GetToolIcon()" Size="Size.Small" />
-            <MudText Typo="Typo.body2" Style="font-weight: 600;">@Tool.Name</MudText>
-            <MudSpacer />
-            <MudIcon Icon="@(_expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                     Size="Size.Small" />
-        </MudStack>
-
-        @if (_expanded)
+<div class="tool-card @(!Tool.IsComplete ? "running" : "")">
+    <div class="tool-card-header" @onclick="@(() => _expanded = !_expanded)">
+        @if (!Tool.IsComplete)
         {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                 Style="width: 14px; height: 14px;" Color="Color.Warning" />
+        }
+        else if (Tool.IsError)
+        {
+            <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Color="Color.Error"
+                     Style="width: 16px; height: 16px;" />
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success"
+                     Style="width: 16px; height: 16px;" />
+        }
+        <MudIcon Icon="@GetToolIcon()" Size="Size.Small" Style="width: 16px; height: 16px; opacity: 0.6;" />
+        <span class="tool-card-name">@Tool.Name</span>
+        <MudIcon Icon="@(_expanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                 Size="Size.Small" Style="opacity: 0.4; width: 16px; height: 16px;" />
+    </div>
+
+    @if (_expanded)
+    {
+        <div class="tool-card-body">
             @if (!string.IsNullOrEmpty(Tool.Input))
             {
-                <MudText Typo="Typo.caption" Color="Color.Secondary">Input</MudText>
-                <MudPaper Class="pa-2" Style="background: var(--mud-palette-background); border-radius: 4px; overflow-x: auto;">
-                    <pre style="margin: 0; font-size: 12px; white-space: pre-wrap; word-break: break-all;">@Tool.Input</pre>
-                </MudPaper>
+                <div class="tool-card-section">
+                    <div class="tool-card-section-label">Input</div>
+                    <div class="tool-card-content">
+                        <pre>@Tool.Input</pre>
+                    </div>
+                </div>
             }
 
             @if (!string.IsNullOrEmpty(Tool.Output))
             {
-                <MudText Typo="Typo.caption" Color="Color.Secondary">Output</MudText>
-                <MudPaper Class="pa-2" Style="background: var(--mud-palette-background); border-radius: 4px; overflow-x: auto; max-height: 300px; overflow-y: auto;">
-                    <pre style="margin: 0; font-size: 12px; white-space: pre-wrap; word-break: break-all;">@Tool.Output</pre>
-                </MudPaper>
+                <div class="tool-card-section">
+                    <div class="tool-card-section-label">Output</div>
+                    <div class="tool-card-content">
+                        <pre>@Tool.Output</pre>
+                    </div>
+                </div>
             }
-        }
-    </MudStack>
-</MudPaper>
+        </div>
+    }
+</div>
 
 @code {
     [Parameter, EditorRequired]

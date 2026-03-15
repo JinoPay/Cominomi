@@ -1,34 +1,42 @@
 @using Cominomi.Shared.Services
 
-<div class="streaming-status">
-    @switch (Phase)
-    {
-        case StreamingPhase.Sending:
+@switch (Phase)
+{
+    case StreamingPhase.Sending:
+        <div class="streaming-pill">
             <span class="pulse-dot"></span>
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Sending...</MudText>
-            break;
+            <span style="font-size: 0.78rem; opacity: 0.7;">Sending...</span>
+        </div>
+        break;
 
-        case StreamingPhase.Thinking:
-            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" Style="width: 16px; height: 16px;" />
-            <MudText Typo="Typo.caption" Color="Color.Secondary">Thinking...</MudText>
-            break;
+    case StreamingPhase.Thinking:
+        <div class="streaming-pill thinking">
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary"
+                                 Style="width: 14px; height: 14px;" />
+            <span style="font-size: 0.78rem; opacity: 0.7;">Thinking...</span>
+        </div>
+        break;
 
-        case StreamingPhase.UsingTool:
-            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Warning" Style="width: 16px; height: 16px;" />
-            <MudIcon Icon="@GetToolIcon()" Size="Size.Small" Color="Color.Secondary" />
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@GetToolLabel()</MudText>
-            break;
+    case StreamingPhase.UsingTool:
+        <div class="streaming-pill using-tool">
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Warning"
+                                 Style="width: 14px; height: 14px;" />
+            <MudIcon Icon="@GetToolIcon()" Size="Size.Small" Style="opacity: 0.7; width: 16px; height: 16px;" />
+            <span class="tool-badge">@GetToolLabel()</span>
+        </div>
+        break;
 
-        case StreamingPhase.WritingText:
+    case StreamingPhase.WritingText:
+        <div class="streaming-pill" style="background: rgba(166, 227, 161, 0.06); border-color: rgba(166, 227, 161, 0.1);">
             <span class="typing-dots">
                 <span></span><span></span><span></span>
             </span>
-            break;
+        </div>
+        break;
 
-        default:
-            break;
-    }
-</div>
+    default:
+        break;
+}
 
 @code {
     [Parameter] public StreamingPhase Phase { get; set; }
