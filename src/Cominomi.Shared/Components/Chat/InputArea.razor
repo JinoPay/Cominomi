@@ -1,6 +1,7 @@
 @using Cominomi.Shared.Models
 @using Cominomi.Shared.Services
 @inject IFilePickerService FilePickerService
+@inject ISkillRegistry SkillRegistry
 @inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
 
@@ -269,15 +270,30 @@
         }
     }
 
+    [Parameter] public Session? CurrentSession { get; set; }
+
     private async Task Send()
     {
         _forceRender = true;
         if (Disabled || (string.IsNullOrWhiteSpace(_inputText) && _pendingAttachments.Count == 0))
             return;
 
+        var text = _inputText.Trim();
+
+        // Try to expand slash commands
+        var skillName = SkillRegistry.TryParseSkillCommand(text, out var skillArgs);
+        if (skillName != null)
+        {
+            var skill = SkillRegistry.Find(skillName);
+            if (skill != null && CurrentSession != null)
+            {
+                text = SkillRegistry.ExpandSkill(skill, skillArgs, CurrentSession);
+            }
+        }
+
         var input = new ChatInputMessage
         {
-            Text = _inputText.Trim(),
+            Text = text,
             Attachments = new List<PendingAttachment>(_pendingAttachments)
         };
 

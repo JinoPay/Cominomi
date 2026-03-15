@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Cominomi.Shared.Models;
 
 namespace Cominomi.Shared.Services;
@@ -11,18 +12,45 @@ public enum StreamingPhase
     UsingTool
 }
 
+public class SessionStreamingState
+{
+    public bool IsStreaming { get; set; }
+    public StreamingPhase Phase { get; set; }
+    public string? ActiveToolName { get; set; }
+}
+
 public class ChatState
 {
     public Workspace? CurrentWorkspace { get; private set; }
     public Session? CurrentSession { get; private set; }
-    public bool IsStreaming { get; private set; }
-    public StreamingPhase Phase { get; private set; }
-    public string? ActiveToolName { get; private set; }
     public bool IsSpotlightActive { get; private set; }
     public string? PendingMessage { get; private set; }
     public bool IsDiffPanelOpen { get; private set; }
 
+    private readonly ConcurrentDictionary<string, SessionStreamingState> _streamingStates = new();
+
     public event Action? OnChange;
+
+    // Current session streaming shortcuts (backward compatible)
+    public bool IsStreaming => CurrentSession != null && IsSessionStreaming(CurrentSession.Id);
+    public StreamingPhase Phase => CurrentSession != null ? GetSessionPhase(CurrentSession.Id) : StreamingPhase.None;
+    public string? ActiveToolName => CurrentSession != null ? GetSessionToolName(CurrentSession.Id) : null;
+
+    // Per-session streaming state
+    public bool IsSessionStreaming(string sessionId)
+        => _streamingStates.TryGetValue(sessionId, out var s) && s.IsStreaming;
+
+    public StreamingPhase GetSessionPhase(string sessionId)
+        => _streamingStates.TryGetValue(sessionId, out var s) ? s.Phase : StreamingPhase.None;
+
+    public string? GetSessionToolName(string sessionId)
+        => _streamingStates.TryGetValue(sessionId, out var s) ? s.ActiveToolName : null;
+
+    public bool HasAnyStreaming()
+        => _streamingStates.Values.Any(s => s.IsStreaming);
+
+    public IReadOnlyList<string> GetStreamingSessionIds()
+        => _streamingStates.Where(kv => kv.Value.IsStreaming).Select(kv => kv.Key).ToList();
 
     public void SetWorkspace(Workspace workspace)
     {
@@ -37,22 +65,30 @@ public class ChatState
         NotifyStateChanged();
     }
 
-    public void SetStreaming(bool streaming)
+    public void SetStreaming(bool streaming, string? sessionId = null)
     {
-        IsStreaming = streaming;
+        var key = sessionId ?? CurrentSession?.Id;
+        if (key == null) return;
+
+        var state = _streamingStates.GetOrAdd(key, _ => new SessionStreamingState());
+        state.IsStreaming = streaming;
         if (!streaming)
         {
-            Phase = StreamingPhase.None;
-            ActiveToolName = null;
+            state.Phase = StreamingPhase.None;
+            state.ActiveToolName = null;
         }
         NotifyStateChanged();
     }
 
-    public void SetPhase(StreamingPhase phase, string? toolName = null)
+    public void SetPhase(StreamingPhase phase, string? toolName = null, string? sessionId = null)
     {
-        if (Phase == phase && ActiveToolName == toolName) return;
-        Phase = phase;
-        ActiveToolName = toolName;
+        var key = sessionId ?? CurrentSession?.Id;
+        if (key == null) return;
+
+        var state = _streamingStates.GetOrAdd(key, _ => new SessionStreamingState());
+        if (state.Phase == phase && state.ActiveToolName == toolName) return;
+        state.Phase = phase;
+        state.ActiveToolName = toolName;
         NotifyStateChanged();
     }
 
@@ -131,7 +167,6 @@ public class ChatState
         IsDiffPanelOpen = !IsDiffPanelOpen;
         NotifyStateChanged();
     }
-
 
     public void NotifyStateChanged() => OnChange?.Invoke();
 }

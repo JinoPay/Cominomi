@@ -5,6 +5,9 @@
 @inject IGitService GitService
 @inject IWorkspaceService WorkspaceService
 @inject IAttachmentService AttachmentService
+@inject IContextService ContextService
+@inject IMemoryService MemoryService
+@inject IHooksEngine HooksEngine
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -91,7 +94,8 @@
                PermissionModeChanged="HandlePermissionModeChanged"
                Model="@(ChatState.CurrentSession?.Model ?? "")"
                OnModelChanged="HandleModelChanged"
-               ResolvedModel="@(ChatState.CurrentSession?.ResolvedModel)" />
+               ResolvedModel="@(ChatState.CurrentSession?.ResolvedModel)"
+               CurrentSession="@ChatState.CurrentSession" />
 </MudStack>
 
 @code {
@@ -238,8 +242,8 @@
         else
             ChatState.AddUserMessage(input.Text);
 
-        ChatState.SetStreaming(true);
-        ChatState.SetPhase(StreamingPhase.Sending);
+        ChatState.SetStreaming(true, session.Id);
+        ChatState.SetPhase(StreamingPhase.Sending, sessionId: session.Id);
 
         var assistantMsg = ChatState.StartAssistantMessage();
         ToolCall? currentToolCall = null;
@@ -247,22 +251,33 @@
 
         try
         {
+            // Build full system prompt: workspace prompt + context + memory
+            var conversationId = session.ConversationId;
+            var systemPrompt = await BuildSystemPromptAsync(session);
+
             await foreach (var evt in ClaudeService.SendMessageAsync(
                 messageForClaude,
                 session.WorktreePath,
                 session.Model,
-                session.PermissionMode))
+                session.PermissionMode,
+                sessionId: session.Id,
+                conversationId: conversationId,
+                systemPrompt: systemPrompt))
             {
                 if (firstEvent)
                 {
-                    ChatState.SetPhase(StreamingPhase.Thinking);
+                    ChatState.SetPhase(StreamingPhase.Thinking, sessionId: session.Id);
                     firstEvent = false;
                 }
 
                 switch (evt.Type)
                 {
-                    case "system" when evt.Subtype == "init" && evt.Model != null:
-                        ChatState.CurrentSession!.ResolvedModel = evt.Model;
+                    case "system" when evt.Subtype == "init":
+                        if (evt.Model != null)
+                            ChatState.CurrentSession!.ResolvedModel = evt.Model;
+                        // Capture conversation ID for resume
+                        if (!string.IsNullOrEmpty(evt.SessionId))
+                            session.ConversationId = evt.SessionId;
                         break;
 
                     case "content_block_start" when evt.ContentBlock?.Type == "tool_use":
@@ -272,14 +287,14 @@
                             Name = evt.ContentBlock.Name ?? ""
                         };
                         ChatState.AddToolCall(assistantMsg, currentToolCall);
-                        ChatState.SetPhase(StreamingPhase.UsingTool, evt.ContentBlock.Name);
+                        ChatState.SetPhase(StreamingPhase.UsingTool, evt.ContentBlock.Name, session.Id);
                         break;
 
                     case "content_block_delta":
                         if (evt.Delta?.Type == "text_delta" && evt.Delta.Text != null)
                         {
                             ChatState.AppendText(assistantMsg, evt.Delta.Text);
-                            ChatState.SetPhase(StreamingPhase.WritingText);
+                            ChatState.SetPhase(StreamingPhase.WritingText, sessionId: session.Id);
                         }
                         else if (evt.Delta?.Type == "input_json_delta" && evt.Delta.PartialJson != null && currentToolCall != null)
                         {
@@ -294,10 +309,13 @@
                             currentToolCall = null;
                             ChatState.NotifyStateChanged();
                         }
-                        ChatState.SetPhase(StreamingPhase.Thinking);
+                        ChatState.SetPhase(StreamingPhase.Thinking, sessionId: session.Id);
                         break;
 
                     case "result":
+                        // Capture conversation ID from result if not already set
+                        if (string.IsNullOrEmpty(session.ConversationId) && !string.IsNullOrEmpty(evt.SessionId))
+                            session.ConversationId = evt.SessionId;
                         if (string.IsNullOrEmpty(assistantMsg.Text) && evt.Message?.Content != null)
                         {
                             foreach (var block in evt.Message.Content)
@@ -341,10 +359,17 @@
         finally
         {
             ChatState.FinishMessage(assistantMsg);
-            ChatState.SetStreaming(false);
+            ChatState.SetStreaming(false, session.Id);
             _shouldAutoScroll = true;
             StateHasChanged();
             await SessionService.SaveSessionAsync(session);
+
+            // Fire hooks
+            _ = HooksEngine.FireAsync(HookEvent.OnMessageComplete, new Dictionary<string, string>
+            {
+                ["COMINOMI_SESSION_ID"] = session.Id,
+                ["COMINOMI_CITY_NAME"] = session.CityName
+            });
 
             // Auto-rename branch after first message
             if (isFirstMessage && session.Status == SessionStatus.Ready)
@@ -370,9 +395,52 @@
         }
     }
 
+    private async Task<string?> BuildSystemPromptAsync(Session session)
+    {
+        var parts = new List<string>();
+
+        // Workspace system prompt
+        var wsPrompt = ChatState.CurrentWorkspace?.SystemPrompt;
+        if (!string.IsNullOrWhiteSpace(wsPrompt))
+            parts.Add(wsPrompt);
+
+        // Agent type context
+        if (session.AgentType == AgentType.Explore)
+            parts.Add("You are in Explore mode. Only read and search — do not modify any files.");
+        else if (session.AgentType == AgentType.Plan)
+            parts.Add("You are in Plan mode. Create a detailed implementation plan and save it to .context/plans/.");
+
+        // Workspace context (.context/ notes, todos, plans)
+        if (!string.IsNullOrEmpty(session.WorktreePath) && Directory.Exists(session.WorktreePath))
+        {
+            try
+            {
+                var context = await ContextService.LoadContextAsync(session.WorktreePath);
+                var contextPrompt = ContextService.BuildContextPrompt(context);
+                if (!string.IsNullOrWhiteSpace(contextPrompt))
+                    parts.Add(contextPrompt);
+            }
+            catch { }
+        }
+
+        // Persistent memory
+        try
+        {
+            var memories = await MemoryService.GetAllAsync();
+            if (memories.Count > 0)
+            {
+                var memoryPrompt = MemoryService.BuildMemoryPrompt(memories);
+                parts.Add(memoryPrompt);
+            }
+        }
+        catch { }
+
+        return parts.Count > 0 ? string.Join("\n\n", parts) : null;
+    }
+
     private void HandleCancel()
     {
-        ClaudeService.Cancel();
+        ClaudeService.Cancel(ChatState.CurrentSession?.Id);
     }
 
     public void Dispose()

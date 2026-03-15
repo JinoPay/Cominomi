@@ -16,18 +16,28 @@ public partial class SessionService : ISessionService
     private readonly IGhService _ghService;
     private readonly IWorkspaceService _workspaceService;
     private readonly ISettingsService _settingsService;
+    private readonly IContextService _contextService;
+    private readonly IHooksEngine _hooksEngine;
     private readonly string _sessionsDir;
+    private readonly string _archiveDir;
 
-    public SessionService(IGitService gitService, IGhService ghService, IWorkspaceService workspaceService, ISettingsService settingsService)
+    public SessionService(IGitService gitService, IGhService ghService, IWorkspaceService workspaceService,
+        ISettingsService settingsService, IContextService contextService, IHooksEngine hooksEngine)
     {
         _gitService = gitService;
         _ghService = ghService;
         _workspaceService = workspaceService;
         _settingsService = settingsService;
+        _contextService = contextService;
+        _hooksEngine = hooksEngine;
         _sessionsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Cominomi", "sessions");
+        _archiveDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Cominomi", "archived-contexts");
         Directory.CreateDirectory(_sessionsDir);
+        Directory.CreateDirectory(_archiveDir);
     }
 
     public async Task<List<Session>> GetSessionsAsync()
@@ -55,6 +65,8 @@ public partial class SessionService : ISessionService
                         Model = ModelDefinitions.NormalizeModelId(session.Model),
                         WorkspaceId = session.WorkspaceId,
                         PermissionMode = session.PermissionMode,
+                        AgentType = session.AgentType,
+                        CityName = session.CityName,
                         Status = session.Status,
                         ErrorMessage = session.ErrorMessage,
                         PrUrl = session.PrUrl,
@@ -130,14 +142,25 @@ public partial class SessionService : ISessionService
         if (workspace == null)
             throw new InvalidOperationException($"Workspace '{workspaceId}' not found.");
 
+        var cityName = CityNames.GetRandom();
         var session = new Session
         {
             Model = model,
             WorkspaceId = workspaceId,
+            CityName = cityName,
+            Title = cityName,
             Status = SessionStatus.Pending
         };
 
         await SaveSessionAsync(session);
+
+        await _hooksEngine.FireAsync(HookEvent.OnSessionCreate, new Dictionary<string, string>
+        {
+            ["COMINOMI_SESSION_ID"] = session.Id,
+            ["COMINOMI_CITY_NAME"] = cityName,
+            ["COMINOMI_WORKSPACE_ID"] = workspaceId
+        });
+
         return session;
     }
 
@@ -172,6 +195,8 @@ public partial class SessionService : ISessionService
             else
             {
                 session.Status = SessionStatus.Ready;
+                // Initialize .context/ directory for collaboration
+                await _contextService.EnsureContextDirectoryAsync(session.WorktreePath);
             }
         }
         catch (Exception ex)
@@ -246,6 +271,18 @@ public partial class SessionService : ISessionService
         if (workspace == null)
             return;
 
+        // Archive .context/ before removing worktree
+        if (!string.IsNullOrEmpty(session.WorktreePath) && Directory.Exists(session.WorktreePath))
+        {
+            try
+            {
+                var archiveName = !string.IsNullOrEmpty(session.CityName) ? session.CityName : session.Id;
+                var archivePath = Path.Combine(_archiveDir, workspace.Name, archiveName);
+                await _contextService.ArchiveContextAsync(session.WorktreePath, archivePath);
+            }
+            catch { }
+        }
+
         // Remove worktree
         if (!string.IsNullOrEmpty(session.WorktreePath))
         {
@@ -268,6 +305,12 @@ public partial class SessionService : ISessionService
 
         session.Status = SessionStatus.Archived;
         await SaveSessionAsync(session);
+
+        await _hooksEngine.FireAsync(HookEvent.OnSessionArchive, new Dictionary<string, string>
+        {
+            ["COMINOMI_SESSION_ID"] = session.Id,
+            ["COMINOMI_CITY_NAME"] = session.CityName
+        });
     }
 
     public async Task<bool> CheckMergeStatusAsync(string sessionId)
@@ -324,6 +367,12 @@ public partial class SessionService : ISessionService
         {
             session.Status = SessionStatus.Pushed;
             session.ErrorMessage = null;
+
+            _ = _hooksEngine.FireAsync(HookEvent.OnBranchPush, new Dictionary<string, string>
+            {
+                ["COMINOMI_SESSION_ID"] = session.Id,
+                ["COMINOMI_BRANCH"] = session.BranchName
+            });
         }
         else
         {

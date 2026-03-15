@@ -27,6 +27,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<IGitService, GitService>();
         builder.Services.AddSingleton<IGhService, GhService>();
         builder.Services.AddSingleton<IClaudeService, ClaudeService>();
+        builder.Services.AddSingleton<IContextService, ContextService>();
+        builder.Services.AddSingleton<IMemoryService, MemoryService>();
+        builder.Services.AddSingleton<IHooksEngine, HooksEngine>();
+        builder.Services.AddSingleton<ISkillRegistry, SkillRegistry>();
+        builder.Services.AddSingleton<ITaskService, TaskService>();
         builder.Services.AddSingleton<ISessionService, SessionService>();
         builder.Services.AddSingleton<IWorkspaceService, WorkspaceService>();
         builder.Services.AddSingleton<ISettingsService, SettingsService>();
