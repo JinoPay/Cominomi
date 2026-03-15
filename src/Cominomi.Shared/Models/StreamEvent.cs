@@ -32,6 +32,9 @@ public class StreamEvent
     [JsonPropertyName("result")]
     public string? Result { get; set; }
 
+    [JsonPropertyName("session_id")]
+    public string? SessionId { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 }

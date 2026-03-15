@@ -16,6 +16,12 @@
         <StatusBar />
         @if (ChatState.CurrentSession != null && ChatState.CurrentSession.Status != SessionStatus.Pending)
         {
+            <MudTooltip Text="Context (notes, plans, tasks)">
+                <MudIconButton Icon="@Icons.Material.Filled.Folder"
+                               Color="@(_contextPanelOpen ? Color.Primary : Color.Inherit)"
+                               Size="Size.Small"
+                               OnClick="@(() => _contextPanelOpen = !_contextPanelOpen)" />
+            </MudTooltip>
             <MudTooltip Text="View changes">
                 <MudIconButton Icon="@Icons.Material.Filled.Difference"
                                Color="@(ChatState.IsDiffPanelOpen ? Color.Primary : Color.Inherit)"
@@ -44,6 +50,7 @@
     </MudMainContent>
 
     <DiffPanel />
+    <ContextPanel @bind-IsOpen="_contextPanelOpen" />
 </MudLayout>
 
 <SettingsDialog @bind-IsOpen="_settingsOpen" />
@@ -54,6 +61,7 @@
     private bool _isDarkMode = true;
     private bool _settingsOpen;
     private bool _setupOpen;
+    private bool _contextPanelOpen;
 
     private readonly MudTheme _theme = new()
     {
