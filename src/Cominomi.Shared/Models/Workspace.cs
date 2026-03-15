@@ -23,4 +23,5 @@ public class Workspace
     public string RepoUrl { get; set; } = "";
     public string RepoLocalPath { get; set; } = "";
     public string? ErrorMessage { get; set; }
+    public string? SystemPrompt { get; set; }
 }

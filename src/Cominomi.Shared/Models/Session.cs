@@ -26,12 +26,15 @@ public class Session
     public string Model { get; set; } = ModelDefinitions.Default.Id;
     public string WorkspaceId { get; set; } = "default";
     public string PermissionMode { get; set; } = "default";
+    public AgentType AgentType { get; set; } = AgentType.Code;
+    public string CityName { get; set; } = "";
     public SessionStatus Status { get; set; } = SessionStatus.Initializing;
     public string? ErrorMessage { get; set; }
     public List<ChatMessage> Messages { get; set; } = [];
     public string? PrUrl { get; set; }
     public int? PrNumber { get; set; }
     public List<string>? ConflictFiles { get; set; }
+    public string? ConversationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

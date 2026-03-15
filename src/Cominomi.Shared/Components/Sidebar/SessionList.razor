@@ -75,7 +75,16 @@
 
                                 <div style="display: flex; align-items: center; gap: 6px;">
                                     <span class="status-dot @GetStatusDotClass(session.Status)"></span>
+                                    @if (ChatState.IsSessionStreaming(session.Id))
+                                    {
+                                        <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                                             Style="width: 12px; height: 12px;" Color="Color.Primary" />
+                                    }
                                     <span class="session-title">@session.Title</span>
+                                    @if (!string.IsNullOrEmpty(session.CityName) && session.Title != session.CityName)
+                                    {
+                                        <span style="font-size: 0.65rem; opacity: 0.35;">@session.CityName</span>
+                                    }
                                 </div>
 
                                 <div class="session-meta">

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -10,10 +11,11 @@ namespace Cominomi.Shared.Services;
 public class ClaudeService : IClaudeService
 {
     private readonly ISettingsService _settingsService;
-    private volatile CancellationTokenSource? _internalCts;
-    private volatile Process? _currentProcess;
+    private readonly ConcurrentDictionary<string, AgentProcess> _agents = new();
     private CliCapabilities? _capabilities;
     private readonly SemaphoreSlim _capLock = new(1, 1);
+
+    private const string DefaultAgentKey = "__default__";
 
     public ClaudeService(ISettingsService settingsService)
     {
@@ -25,20 +27,32 @@ public class ClaudeService : IClaudeService
         string workingDir,
         string model,
         string permissionMode = "default",
+        string? sessionId = null,
+        string? conversationId = null,
+        string? systemPrompt = null,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
+        var agentKey = sessionId ?? DefaultAgentKey;
+
         var settings = await _settingsService.LoadAsync();
         var (fileName, baseArgs) = ResolveClaudeCommand(settings.ClaudePath);
         var caps = await DetectCapabilitiesAsync(fileName, baseArgs);
 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var previous = Interlocked.Exchange(ref _internalCts, cts);
-        previous?.Cancel();
 
-        var arguments = BuildArguments(baseArgs, model, permissionMode, caps);
+        // Cancel any previous process for this specific session
+        if (_agents.TryRemove(agentKey, out var previous))
+        {
+            previous.Cancel();
+        }
+
+        var arguments = BuildArguments(baseArgs, model, permissionMode, caps, conversationId, systemPrompt);
         var token = cts.Token;
 
-        var process = StartClaudeProcess(fileName, arguments, workingDir);
+        var process = StartProcess(fileName, arguments, workingDir);
+        var agent = new AgentProcess(process, cts);
+        _agents[agentKey] = agent;
+
         await process.StandardInput.WriteAsync(message);
         process.StandardInput.Close();
 
@@ -80,10 +94,12 @@ public class ClaudeService : IClaudeService
             caps.RequiresVerboseForStreamJson = true;
             caps.SupportsVerbose = true;
             process.Dispose();
-            Interlocked.CompareExchange(ref _currentProcess, null, process);
 
-            arguments = BuildArguments(baseArgs, model, permissionMode, caps);
-            process = StartClaudeProcess(fileName, arguments, workingDir);
+            arguments = BuildArguments(baseArgs, model, permissionMode, caps, conversationId, systemPrompt);
+            process = StartProcess(fileName, arguments, workingDir);
+            agent = new AgentProcess(process, cts);
+            _agents[agentKey] = agent;
+
             await process.StandardInput.WriteAsync(message);
             process.StandardInput.Close();
 
@@ -122,10 +138,10 @@ public class ClaudeService : IClaudeService
         }
 
         process.Dispose();
-        Interlocked.CompareExchange(ref _currentProcess, null, process);
+        _agents.TryRemove(agentKey, out _);
     }
 
-    private Process StartClaudeProcess(string fileName, string arguments, string workingDir)
+    private static Process StartProcess(string fileName, string arguments, string workingDir)
     {
         var process = new Process
         {
@@ -142,13 +158,6 @@ public class ClaudeService : IClaudeService
                 Environment = { ["NO_COLOR"] = "1" }
             }
         };
-
-        var previousProcess = Interlocked.Exchange(ref _currentProcess, process);
-        if (previousProcess is { HasExited: false })
-        {
-            try { previousProcess.Kill(entireProcessTree: true); } catch { }
-            previousProcess.Dispose();
-        }
 
         process.Start();
         return process;
@@ -181,17 +190,36 @@ public class ClaudeService : IClaudeService
         }
     }
 
-    private static string BuildArguments(string baseArgs, string model, string permissionMode, CliCapabilities caps)
+    private static string BuildArguments(
+        string baseArgs,
+        string model,
+        string permissionMode,
+        CliCapabilities caps,
+        string? conversationId = null,
+        string? systemPrompt = null)
     {
         var sb = new StringBuilder(baseArgs);
         sb.Append("--print --output-format stream-json ");
         if (caps.RequiresVerboseForStreamJson)
             sb.Append("--verbose ");
         sb.Append($"--model {model}");
+
         if (permissionMode == "plan")
             sb.Append(" --permission-mode plan");
         else if (permissionMode == "bypassAll")
             sb.Append(" --dangerously-skip-permissions");
+
+        // Resume existing conversation
+        if (!string.IsNullOrEmpty(conversationId))
+            sb.Append($" --resume {conversationId}");
+
+        // System prompt injection
+        if (!string.IsNullOrEmpty(systemPrompt))
+        {
+            var escaped = systemPrompt.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            sb.Append($" --append-system-prompt \"{escaped}\"");
+        }
+
         return sb.ToString();
     }
 
@@ -255,9 +283,13 @@ public class ClaudeService : IClaudeService
         }
     }
 
-    public void Cancel()
+    public void Cancel(string? sessionId = null)
     {
-        _internalCts?.Cancel();
+        var key = sessionId ?? DefaultAgentKey;
+        if (_agents.TryRemove(key, out var agent))
+        {
+            agent.Cancel();
+        }
     }
 
     private static (string fileName, string argPrefix) ResolveClaudeCommand(string? configuredPath)
@@ -328,5 +360,27 @@ public class ClaudeService : IClaudeService
         catch { }
 
         return null;
+    }
+
+    private sealed class AgentProcess
+    {
+        private readonly Process _process;
+        private readonly CancellationTokenSource _cts;
+
+        public AgentProcess(Process process, CancellationTokenSource cts)
+        {
+            _process = process;
+            _cts = cts;
+        }
+
+        public void Cancel()
+        {
+            _cts.Cancel();
+            if (_process is { HasExited: false })
+            {
+                try { _process.Kill(entireProcessTree: true); } catch { }
+                _process.Dispose();
+            }
+        }
     }
 }
