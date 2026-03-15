@@ -8,25 +8,34 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Dense="true">
+    <MudAppBar Elevation="0" Dense="true" Style="background: transparent;">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                       OnClick="@ToggleDrawer" />
-        <MudText Typo="Typo.h6" Class="ml-3">Cominomi</MudText>
+                       Size="Size.Small" OnClick="@ToggleDrawer" />
+        <span class="app-title ml-3">Cominomi</span>
         <MudSpacer />
         <StatusBar />
         @if (ChatState.CurrentSession != null && ChatState.CurrentSession.Status != SessionStatus.Pending)
         {
-            <MudIconButton Icon="@Icons.Material.Filled.Difference"
-                           Color="@(ChatState.IsDiffPanelOpen ? Color.Primary : Color.Inherit)"
-                           OnClick="@(() => ChatState.ToggleDiffPanel())" />
+            <MudTooltip Text="View changes">
+                <MudIconButton Icon="@Icons.Material.Filled.Difference"
+                               Color="@(ChatState.IsDiffPanelOpen ? Color.Primary : Color.Inherit)"
+                               Size="Size.Small"
+                               OnClick="@(() => ChatState.ToggleDiffPanel())" />
+            </MudTooltip>
         }
-        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                       Color="Color.Inherit" OnClick="@ToggleDarkMode" />
-        <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit"
-                       OnClick="@OpenSettings" />
+        <MudTooltip Text="@(_isDarkMode ? "Light mode" : "Dark mode")">
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit" Size="Size.Small" OnClick="@ToggleDarkMode" />
+        </MudTooltip>
+        <MudTooltip Text="Settings">
+            <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit"
+                           Size="Size.Small" OnClick="@OpenSettings" />
+        </MudTooltip>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Variant="DrawerVariant.Responsive">
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0"
+               Variant="DrawerVariant.Responsive" Width="260px"
+               Style="border-right: 1px solid var(--cominomi-border-subtle);">
         <SessionList />
     </MudDrawer>
 
@@ -64,9 +73,10 @@
             AppbarText = "#cdd6f4",
             Background = "#1e1e2e",
             Surface = "#313244",
-            DrawerBackground = "#181825",
+            DrawerBackground = "#11111b",
             TextPrimary = "#cdd6f4",
             TextSecondary = "#a6adc8",
+            LinesDefault = "rgba(166,173,200,0.08)",
         }
     };
 
