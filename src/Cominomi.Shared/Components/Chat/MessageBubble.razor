@@ -3,65 +3,58 @@
 @inject ChatState ChatState
 
 <div class="message-bubble @(Message.Role == MessageRole.User ? "user-message" : "assistant-message")">
-    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
-        <MudAvatar Size="Size.Small"
-                   Color="@(Message.Role == MessageRole.User ? Color.Primary : Color.Secondary)"
-                   Variant="Variant.Filled">
-            @(Message.Role == MessageRole.User ? "U" : "A")
-        </MudAvatar>
+    <div style="max-width: 900px; margin: 0 auto;">
+        <div class="message-role">
+            <span class="role-name">@(Message.Role == MessageRole.User ? "You" : "Claude")</span>
+            <span class="message-time">@Message.Timestamp.ToLocalTime().ToString("HH:mm")</span>
+        </div>
 
-        <MudStack Spacing="1" Style="flex: 1; min-width: 0;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                @(Message.Role == MessageRole.User ? "You" : "Claude")
-                <span style="margin-left: 8px; opacity: 0.6;">@Message.Timestamp.ToLocalTime().ToString("HH:mm")</span>
-            </MudText>
-
-            @if (Message.Attachments.Count > 0)
-            {
-                <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap;">
-                    @foreach (var attachment in Message.Attachments)
-                    {
-                        @if (attachment.IsImage)
-                        {
-                            <div style="margin: 4px 0;">
-                                <img src="@GetImageSrc(attachment)"
-                                     alt="@attachment.OriginalFileName"
-                                     style="max-width: 300px; max-height: 200px; border-radius: 8px; object-fit: contain;" />
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">@attachment.OriginalFileName</MudText>
-                            </div>
-                        }
-                        else
-                        {
-                            <MudChip T="string" Icon="@Icons.Material.Filled.InsertDriveFile"
-                                     Size="Size.Small" Variant="Variant.Outlined">
-                                @attachment.OriginalFileName @($"({FormatFileSize(attachment.SizeBytes)})")
-                            </MudChip>
-                        }
-                    }
-                </MudStack>
-            }
-
-            @if (Message.ToolCalls.Count > 0)
-            {
-                @foreach (var tool in Message.ToolCalls)
+        @if (Message.Attachments.Count > 0)
+        {
+            <MudStack Row="true" Spacing="1" Style="flex-wrap: wrap; margin-bottom: 8px;">
+                @foreach (var attachment in Message.Attachments)
                 {
-                    <ToolCallCard Tool="tool" />
+                    @if (attachment.IsImage)
+                    {
+                        <div style="margin: 4px 0;">
+                            <img src="@GetImageSrc(attachment)"
+                                 alt="@attachment.OriginalFileName"
+                                 style="max-width: 300px; max-height: 200px; border-radius: 8px; object-fit: contain;" />
+                            <div style="font-size: 0.7rem; opacity: 0.4; margin-top: 2px;">@attachment.OriginalFileName</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Icon="@Icons.Material.Filled.InsertDriveFile"
+                                 Size="Size.Small" Variant="Variant.Outlined"
+                                 Style="font-size: 0.75rem;">
+                            @attachment.OriginalFileName @($"({FormatFileSize(attachment.SizeBytes)})")
+                        </MudChip>
+                    }
                 }
-            }
+            </MudStack>
+        }
 
-            @if (!string.IsNullOrEmpty(Message.Text))
+        @if (Message.ToolCalls.Count > 0)
+        {
+            @foreach (var tool in Message.ToolCalls)
             {
-                <div class="markdown-body">
-                    @((MarkupString)Markdown.ToHtml(Message.Text, _pipeline))
-                </div>
+                <ToolCallCard Tool="tool" />
             }
+        }
 
-            @if (Message.IsStreaming)
-            {
-                <StreamingIndicator Phase="ChatState.Phase" ActiveToolName="ChatState.ActiveToolName" />
-            }
-        </MudStack>
-    </MudStack>
+        @if (!string.IsNullOrEmpty(Message.Text))
+        {
+            <div class="markdown-body">
+                @((MarkupString)Markdown.ToHtml(Message.Text, _pipeline))
+            </div>
+        }
+
+        @if (Message.IsStreaming)
+        {
+            <StreamingIndicator Phase="ChatState.Phase" ActiveToolName="ChatState.ActiveToolName" />
+        }
+    </div>
 </div>
 
 @code {

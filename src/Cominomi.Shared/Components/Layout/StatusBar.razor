@@ -1,19 +1,12 @@
 @inject ChatState ChatState
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mr-4">
-    @if (!string.IsNullOrEmpty(ChatState.CurrentSession?.BranchName))
-    {
-        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary"
-                 Icon="@Icons.Material.Filled.AccountTree">
-            @ChatState.CurrentSession.BranchName
-        </MudChip>
-    }
     <SpotlightToggle />
     @if (!string.IsNullOrEmpty(ChatState.CurrentSession?.Model))
     {
-        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">
+        <span style="font-size: 0.75rem; opacity: 0.5; font-weight: 500;">
             @GetModelDisplayName(ChatState.CurrentSession.Model)
-        </MudChip>
+        </span>
     }
 </MudStack>
 
