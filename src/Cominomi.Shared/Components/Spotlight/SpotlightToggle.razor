@@ -5,7 +5,7 @@
      ChatState.CurrentSession?.Status == SessionStatus.Ready &&
      !string.IsNullOrEmpty(ChatState.CurrentWorkspace.RepoLocalPath))
 {
-    <MudTooltip Text="@(_isActive ? $"Spotlight: syncing to {ShortenPath(ChatState.CurrentWorkspace.RepoLocalPath)}" : "Spotlight Testing")">
+    <MudTooltip Text="@(_isActive ? $"Spotlight: {ShortenPath(ChatState.CurrentWorkspace.RepoLocalPath)}에 동기화 중" : "Spotlight 테스트")">
         <MudIconButton Icon="@Icons.Material.Filled.Sync"
                        Color="@(_isActive ? Color.Success : Color.Default)"
                        Size="Size.Small"

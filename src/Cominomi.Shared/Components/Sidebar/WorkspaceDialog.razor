@@ -8,7 +8,7 @@
     <TitleContent>
         <MudText Typo="Typo.h6">
             <MudIcon Icon="@Icons.Material.Filled.Workspaces" Class="mr-2" />
-            Workspaces
+            워크스페이스
         </MudText>
     </TitleContent>
     <DialogContent>
@@ -64,20 +64,20 @@
                 <MudStack Row="true" Spacing="2">
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" Style="flex: 1;"
                                StartIcon="@Icons.Material.Filled.Cloud" OnClick="@(() => StartCreate(WizardStep.GitHubForm))">
-                        Clone from URL
+                        URL에서 클론
                     </MudButton>
                     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Style="flex: 1;"
                                StartIcon="@Icons.Material.Filled.Folder" OnClick="@(() => StartCreate(WizardStep.LocalForm))">
-                        Local Repository
+                        로컬 저장소
                     </MudButton>
                 </MudStack>
             }
             else if (_step == WizardStep.EditForm)
             {
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Edit Workspace</MudText>
-                <MudTextField @bind-Value="_editName" Label="Name" Variant="Variant.Outlined"
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">워크스페이스 편집</MudText>
+                <MudTextField @bind-Value="_editName" Label="이름" Variant="Variant.Outlined"
                               Margin="Margin.Dense" />
-                <MudSelect T="string" @bind-Value="_editModel" Label="Default Model"
+                <MudSelect T="string" @bind-Value="_editModel" Label="기본 모델"
                            Variant="Variant.Outlined" Margin="Margin.Dense">
                     @foreach (var model in ModelDefinitions.All)
                     {
@@ -85,20 +85,20 @@
                     }
                 </MudSelect>
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1">
-                    <MudButton Size="Size.Small" OnClick="BackToList">Cancel</MudButton>
+                    <MudButton Size="Size.Small" OnClick="BackToList">취소</MudButton>
                     <MudButton Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled"
-                               OnClick="SaveEdit">Save</MudButton>
+                               OnClick="SaveEdit">저장</MudButton>
                 </MudStack>
             }
             else if (_step == WizardStep.GitHubForm)
             {
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Clone from URL</MudText>
-                <MudTextField @bind-Value="_repoUrl" Label="Repository URL" Variant="Variant.Outlined"
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">URL에서 클론</MudText>
+                <MudTextField @bind-Value="_repoUrl" Label="저장소 URL" Variant="Variant.Outlined"
                               Margin="Margin.Dense" Placeholder="https://github.com/org/repo"
                               Immediate="true" TextChanged="OnUrlChanged" />
-                <MudTextField @bind-Value="_editName" Label="Workspace Name" Variant="Variant.Outlined"
+                <MudTextField @bind-Value="_editName" Label="워크스페이스 이름" Variant="Variant.Outlined"
                               Margin="Margin.Dense" />
-                <MudSelect T="string" @bind-Value="_editModel" Label="Default Model"
+                <MudSelect T="string" @bind-Value="_editModel" Label="기본 모델"
                            Variant="Variant.Outlined" Margin="Margin.Dense">
                     @foreach (var model in ModelDefinitions.All)
                     {
@@ -106,22 +106,22 @@
                     }
                 </MudSelect>
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1">
-                    <MudButton Size="Size.Small" OnClick="BackToList">Cancel</MudButton>
+                    <MudButton Size="Size.Small" OnClick="BackToList">취소</MudButton>
                     <MudButton Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled"
                                OnClick="CreateFromUrl"
                                Disabled="@(string.IsNullOrWhiteSpace(_repoUrl) || string.IsNullOrWhiteSpace(_editName))">
-                        Create
+                        만들기
                     </MudButton>
                 </MudStack>
             }
             else if (_step == WizardStep.LocalForm)
             {
-                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">Local Repository</MudText>
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">로컬 저장소</MudText>
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                    <MudTextField @bind-Value="_localPath" Label="Repository Path" Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" Placeholder="/path/to/repo" Style="flex: 1;" />
+                    <MudTextField @bind-Value="_localPath" Label="저장소 경로" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" Placeholder="/경로/저장소" Style="flex: 1;" />
                     <MudIconButton Icon="@Icons.Material.Filled.FolderOpen" Color="Color.Primary"
-                                   OnClick="BrowseLocalFolder" Title="Browse..." />
+                                   OnClick="BrowseLocalFolder" Title="찾아보기..." />
                 </MudStack>
                 @if (_localPathValidation != null)
                 {
@@ -129,9 +129,9 @@
                         @_localPathValidation
                     </MudAlert>
                 }
-                <MudTextField @bind-Value="_editName" Label="Workspace Name" Variant="Variant.Outlined"
+                <MudTextField @bind-Value="_editName" Label="워크스페이스 이름" Variant="Variant.Outlined"
                               Margin="Margin.Dense" />
-                <MudSelect T="string" @bind-Value="_editModel" Label="Default Model"
+                <MudSelect T="string" @bind-Value="_editModel" Label="기본 모델"
                            Variant="Variant.Outlined" Margin="Margin.Dense">
                     @foreach (var model in ModelDefinitions.All)
                     {
@@ -139,11 +139,11 @@
                     }
                 </MudSelect>
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1">
-                    <MudButton Size="Size.Small" OnClick="BackToList">Cancel</MudButton>
+                    <MudButton Size="Size.Small" OnClick="BackToList">취소</MudButton>
                     <MudButton Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled"
                                OnClick="CreateFromLocal"
                                Disabled="@(string.IsNullOrWhiteSpace(_localPath) || string.IsNullOrWhiteSpace(_editName))">
-                        Create
+                        만들기
                     </MudButton>
                 </MudStack>
             }
@@ -162,7 +162,7 @@
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Close">Close</MudButton>
+        <MudButton OnClick="Close">닫기</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -244,13 +244,13 @@
         var isGitRepo = await GitService.IsGitRepoAsync(path);
         if (!isGitRepo)
         {
-            _localPathValidation = "This folder is not a git repository.";
+            _localPathValidation = "이 폴더는 git 저장소가 아닙니다.";
             _isLocalPathGitRepo = false;
             return;
         }
 
         _isLocalPathGitRepo = true;
-        _localPathValidation = "Valid git repository";
+        _localPathValidation = "유효한 git 저장소";
 
         // Auto-fill workspace name from folder name
         if (string.IsNullOrEmpty(_editName))
@@ -286,7 +286,7 @@
     {
         _errorMessage = null;
         _step = WizardStep.Creating;
-        _progressMessage = "Starting...";
+        _progressMessage = "시작하는 중...";
         StateHasChanged();
 
         var progress = new Progress<string>(msg =>
@@ -303,7 +303,7 @@
 
             if (ws.Status == WorkspaceStatus.Error)
             {
-                _errorMessage = ws.ErrorMessage ?? "Failed to create workspace.";
+                _errorMessage = ws.ErrorMessage ?? "워크스페이스 생성에 실패했습니다.";
                 _step = WizardStep.GitHubForm;
             }
             else
@@ -315,7 +315,7 @@
         }
         catch (OperationCanceledException)
         {
-            _errorMessage = "Operation cancelled.";
+            _errorMessage = "작업이 취소되었습니다.";
             _step = WizardStep.GitHubForm;
         }
         catch (Exception ex)
@@ -329,7 +329,7 @@
     {
         _errorMessage = null;
         _step = WizardStep.Creating;
-        _progressMessage = "Setting up workspace...";
+        _progressMessage = "워크스페이스 설정 중...";
         StateHasChanged();
 
         try
@@ -340,7 +340,7 @@
 
             if (ws.Status == WorkspaceStatus.Error)
             {
-                _errorMessage = ws.ErrorMessage ?? "Failed to create workspace.";
+                _errorMessage = ws.ErrorMessage ?? "워크스페이스 생성에 실패했습니다.";
                 _step = WizardStep.LocalForm;
             }
             else

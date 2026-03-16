@@ -37,7 +37,7 @@
                                    Disabled="Disabled || IsStreaming" />
                 </MudTooltip>
 
-                <MudTooltip Text="Attach files">
+                <MudTooltip Text="파일 첨부">
                     <MudIconButton Icon="@Icons.Material.Filled.AttachFile"
                                    Color="Color.Default"
                                    Size="Size.Small"
@@ -68,7 +68,7 @@
                            OnClick="@(() => OnCancel.InvokeAsync())"
                            Class="stop-button-glow"
                            Style="border-radius: 20px; text-transform: none; min-width: 80px;">
-                    Stop
+                    중지
                 </MudButton>
             }
             else
@@ -130,9 +130,9 @@
 
     private string GetPermissionModeTooltip() => PermissionMode switch
     {
-        "plan" => "Plan Mode (read-only)",
-        "bypassAll" => "Full Access (auto-approve all)",
-        _ => "Code Mode (default)"
+        "plan" => "플랜 모드 (읽기 전용)",
+        "bypassAll" => "풀 액세스 (전체 자동 승인)",
+        _ => "코드 모드 (기본)"
     };
 
     private string GetPermissionModeIcon() => PermissionMode switch
@@ -245,13 +245,13 @@
 
     private string GetPlaceholder()
     {
-        if (Disabled) return "Select or create a session first...";
-        if (IsStreaming) return "Claude is responding...";
+        if (Disabled) return "먼저 세션을 선택하거나 만드세요...";
+        if (IsStreaming) return "Claude가 응답 중...";
         return PermissionMode switch
         {
-            "plan" => "Plan mode: Claude will read and research only...",
-            "bypassAll" => "Full access: Claude will auto-approve all actions...",
-            _ => "Type a message..."
+            "plan" => "플랜 모드: Claude가 읽기와 조사만 합니다...",
+            "bypassAll" => "풀 액세스: Claude가 모든 작업을 자동 승인합니다...",
+            _ => "메시지를 입력하세요..."
         };
     }
 
