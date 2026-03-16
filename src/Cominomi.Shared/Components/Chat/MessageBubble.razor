@@ -5,7 +5,7 @@
 <div class="message-bubble @(Message.Role == MessageRole.User ? "user-message" : "assistant-message")">
     <div style="max-width: 900px; margin: 0 auto;">
         <div class="message-role">
-            <span class="role-name">@(Message.Role == MessageRole.User ? "You" : "Claude")</span>
+            <span class="role-name">@(Message.Role == MessageRole.User ? "나" : "Claude")</span>
             <span class="message-time">@Message.Timestamp.ToLocalTime().ToString("HH:mm")</span>
         </div>
 

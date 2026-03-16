@@ -2,19 +2,19 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">Create Pull Request</MudText>
+        <MudText Typo="Typo.h6">풀 리퀘스트 생성</MudText>
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudTextField @bind-Value="_title" Label="Title" Variant="Variant.Outlined"
+            <MudTextField @bind-Value="_title" Label="제목" Variant="Variant.Outlined"
                           Margin="Margin.Dense" />
-            <MudTextField @bind-Value="_body" Label="Description" Variant="Variant.Outlined"
+            <MudTextField @bind-Value="_body" Label="설명" Variant="Variant.Outlined"
                           Margin="Margin.Dense" Lines="4" />
-            <MudSelect T="string" @bind-Value="_mergeMethod" Label="Merge Method"
+            <MudSelect T="string" @bind-Value="_mergeMethod" Label="병합 방식"
                        Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
-                <MudSelectItem T="string" Value="@("squash")">Squash and merge</MudSelectItem>
-                <MudSelectItem T="string" Value="@("merge")">Create a merge commit</MudSelectItem>
-                <MudSelectItem T="string" Value="@("rebase")">Rebase and merge</MudSelectItem>
+                <MudSelectItem T="string" Value="@("squash")">스쿼시 후 병합</MudSelectItem>
+                <MudSelectItem T="string" Value="@("merge")">병합 커밋 생성</MudSelectItem>
+                <MudSelectItem T="string" Value="@("rebase")">리베이스 후 병합</MudSelectItem>
             </MudSelect>
             @if (!string.IsNullOrEmpty(_error))
             {
@@ -23,14 +23,14 @@
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel" Disabled="_isCreating">Cancel</MudButton>
+        <MudButton OnClick="Cancel" Disabled="_isCreating">취소</MudButton>
         <MudButton Color="Color.Primary" Variant="Variant.Filled"
                    OnClick="Create" Disabled="_isCreating">
             @if (_isCreating)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="width: 16px; height: 16px;" Class="mr-2" />
             }
-            Create PR
+            PR 생성
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -63,7 +63,7 @@
     {
         if (string.IsNullOrWhiteSpace(_title))
         {
-            _error = "Title is required.";
+            _error = "제목을 입력해주세요.";
             return;
         }
 
