@@ -224,7 +224,7 @@
         if (ChatState.CurrentSession == null || (string.IsNullOrWhiteSpace(input.Text) && input.Attachments.Count == 0))
             return Task.CompletedTask;
 
-        _ = ProcessMessageAsync(input);
+        _ = Task.Run(() => ProcessMessageAsync(input));
         return Task.CompletedTask;
     }
 

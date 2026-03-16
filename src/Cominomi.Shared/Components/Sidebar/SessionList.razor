@@ -10,22 +10,19 @@
     {
         @* Workspace selector *@
         <div class="workspace-selector">
-            <MudSelect T="string" Value="@_expandedWorkspaceId" ValueChanged="OnWorkspaceSelected"
-                       Variant="Variant.Text" Dense="true" Margin="Margin.Dense"
-                       Style="font-size: var(--text-sm);"
-                       AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft">
-                @foreach (var ws in _workspaces)
-                {
-                    <MudSelectItem T="string" Value="@ws.Id">
-                        @ws.Name
-                        @if (ws.Status == WorkspaceStatus.Error)
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Color="Color.Error"
-                                     Style="width: 12px; height: 12px; margin-left: 4px;" />
-                        }
-                    </MudSelectItem>
-                }
-            </MudSelect>
+            @foreach (var ws in _workspaces)
+            {
+                var isActive = _expandedWorkspaceId == ws.Id;
+                <div class="workspace-item @(isActive ? "active" : "")"
+                     @onclick="@(() => OnWorkspaceSelected(ws.Id))">
+                    <span class="workspace-name">@ws.Name</span>
+                    @if (ws.Status == WorkspaceStatus.Error)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Color="Color.Error"
+                                 Style="width: 12px; height: 12px;" />
+                    }
+                </div>
+            }
         </div>
 
         @* New chat button *@
