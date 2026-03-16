@@ -15,6 +15,10 @@ public class ClaudeService : IClaudeService
     private CliCapabilities? _capabilities;
     private readonly SemaphoreSlim _capLock = new(1, 1);
 
+    private (string fileName, string argPrefix)? _resolvedCommand;
+    private string? _resolvedCommandPath;
+    private readonly SemaphoreSlim _resolveLock = new(1, 1);
+
     private const string DefaultAgentKey = "__default__";
 
     public ClaudeService(ISettingsService settingsService)
@@ -35,7 +39,7 @@ public class ClaudeService : IClaudeService
         var agentKey = sessionId ?? DefaultAgentKey;
 
         var settings = await _settingsService.LoadAsync();
-        var (fileName, baseArgs) = ResolveClaudeCommand(settings.ClaudePath);
+        var (fileName, baseArgs) = await ResolveClaudeCommandCachedAsync(settings.ClaudePath);
         var caps = await DetectCapabilitiesAsync(fileName, baseArgs);
 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -295,7 +299,26 @@ public class ClaudeService : IClaudeService
         }
     }
 
-    private static (string fileName, string argPrefix) ResolveClaudeCommand(string? configuredPath)
+    private async Task<(string fileName, string argPrefix)> ResolveClaudeCommandCachedAsync(string? configuredPath)
+    {
+        await _resolveLock.WaitAsync();
+        try
+        {
+            if (_resolvedCommand.HasValue && _resolvedCommandPath == configuredPath)
+                return _resolvedCommand.Value;
+
+            var result = await ResolveClaudeCommandAsync(configuredPath);
+            _resolvedCommand = result;
+            _resolvedCommandPath = configuredPath;
+            return result;
+        }
+        finally
+        {
+            _resolveLock.Release();
+        }
+    }
+
+    private static async Task<(string fileName, string argPrefix)> ResolveClaudeCommandAsync(string? configuredPath)
     {
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
@@ -309,7 +332,7 @@ public class ClaudeService : IClaudeService
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var resolved = TryWhich("where.exe", "claude");
+            var resolved = await TryWhichAsync("where.exe", "claude");
             if (resolved != null)
             {
                 if (resolved.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase))
@@ -319,7 +342,7 @@ public class ClaudeService : IClaudeService
             return ("claude.exe", "");
         }
 
-        var path = TryWhich("/usr/bin/which", "claude");
+        var path = await TryWhichAsync("/usr/bin/which", "claude");
         if (path != null)
             return (path, "");
 
@@ -339,7 +362,7 @@ public class ClaudeService : IClaudeService
         return ("claude", "");
     }
 
-    private static string? TryWhich(string whichCommand, string target)
+    private static async Task<string?> TryWhichAsync(string whichCommand, string target)
     {
         try
         {
@@ -355,8 +378,10 @@ public class ClaudeService : IClaudeService
                 }
             };
             proc.Start();
-            var output = proc.StandardOutput.ReadLine()?.Trim();
-            proc.WaitForExit(3000);
+            var output = (await proc.StandardOutput.ReadLineAsync())?.Trim();
+            using var cts = new CancellationTokenSource(3000);
+            try { await proc.WaitForExitAsync(cts.Token); }
+            catch (OperationCanceledException) { try { proc.Kill(); } catch { } }
             if (proc.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
                 return output;
         }
