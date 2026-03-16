@@ -190,12 +190,18 @@
 
     private bool _shouldAutoScroll;
 
-    private async Task HandleSend(ChatInputMessage input)
+    private Task HandleSend(ChatInputMessage input)
     {
         if (ChatState.CurrentSession == null || (string.IsNullOrWhiteSpace(input.Text) && input.Attachments.Count == 0))
-            return;
+            return Task.CompletedTask;
 
-        var session = ChatState.CurrentSession;
+        _ = ProcessMessageAsync(input);
+        return Task.CompletedTask;
+    }
+
+    private async Task ProcessMessageAsync(ChatInputMessage input)
+    {
+        var session = ChatState.CurrentSession!;
 
         // Initialize worktree on first message if session is Pending
         if (session.Status == SessionStatus.Pending)

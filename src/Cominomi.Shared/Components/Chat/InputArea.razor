@@ -191,6 +191,7 @@
             _dotNetRef = DotNetObjectReference.Create(this);
             await JSRuntime.InvokeVoidAsync("registerPasteHandler", "input-area", _dotNetRef);
             await JSRuntime.InvokeVoidAsync("registerDropHandler", "input-area", _dotNetRef);
+            await JSRuntime.InvokeVoidAsync("registerEnterHandler", "input-area");
             _handlersRegistered = true;
         }
     }
@@ -301,6 +302,13 @@
         _pendingAttachments.Clear();
         StateHasChanged();
         await OnSend.InvokeAsync(input);
+        // Double-clear: guard against oninput re-binding a newline after Enter
+        if (!string.IsNullOrEmpty(_inputText))
+        {
+            _inputText = string.Empty;
+            _forceRender = true;
+            StateHasChanged();
+        }
     }
 
     private static string TruncateFileName(string name)
@@ -313,6 +321,8 @@
         if (_handlersRegistered)
         {
             try { await JSRuntime.InvokeVoidAsync("unregisterFileHandlers", "input-area"); }
+            catch { }
+            try { await JSRuntime.InvokeVoidAsync("unregisterEnterHandler", "input-area"); }
             catch { }
         }
         _dotNetRef?.Dispose();
