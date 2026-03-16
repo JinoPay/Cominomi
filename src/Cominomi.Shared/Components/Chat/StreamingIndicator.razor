@@ -5,7 +5,7 @@
     case StreamingPhase.Sending:
         <div class="streaming-pill">
             <span class="pulse-dot"></span>
-            <span style="font-size: 0.78rem; opacity: 0.7;">Sending...</span>
+            <span style="font-size: 0.78rem; opacity: 0.7;">전송 중...</span>
         </div>
         break;
 
@@ -13,7 +13,7 @@
         <div class="streaming-pill thinking">
             <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary"
                                  Style="width: 14px; height: 14px;" />
-            <span style="font-size: 0.78rem; opacity: 0.7;">Thinking...</span>
+            <span style="font-size: 0.78rem; opacity: 0.7;">생각 중...</span>
         </div>
         break;
 
@@ -56,13 +56,13 @@
 
     private string GetToolLabel() => (ActiveToolName?.ToLowerInvariant()) switch
     {
-        "bash" or "execute_bash" => "Running command...",
-        "read" or "read_file" => "Reading file...",
-        "write" or "write_file" => "Writing file...",
-        "edit" or "edit_file" => "Editing file...",
-        "glob" => "Searching files...",
-        "grep" => "Searching content...",
-        "agent" => "Running agent...",
-        _ => $"Using {ActiveToolName}..."
+        "bash" or "execute_bash" => "명령 실행 중...",
+        "read" or "read_file" => "파일 읽는 중...",
+        "write" or "write_file" => "파일 작성 중...",
+        "edit" or "edit_file" => "파일 수정 중...",
+        "glob" => "파일 검색 중...",
+        "grep" => "내용 검색 중...",
+        "agent" => "에이전트 실행 중...",
+        _ => $"{ActiveToolName} 사용 중..."
     };
 }

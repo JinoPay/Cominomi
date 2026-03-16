@@ -10,7 +10,7 @@
         <div style="display: flex; align-items: center; padding: 12px 16px; flex-shrink: 0; gap: 8px;">
             <MudIcon Icon="@Icons.Material.Filled.Difference" Size="Size.Small" Color="Color.Primary"
                      Style="width: 16px; height: 16px;" />
-            <span class="diff-header-label" style="flex: 1;">Changes</span>
+            <span class="diff-header-label" style="flex: 1;">변경사항</span>
             <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
                            Style="width: 24px; height: 24px;"
                            OnClick="LoadDiffAsync" Disabled="_isLoading" />
@@ -35,14 +35,14 @@
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 12px;">
                     <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline" Size="Size.Large"
                              Style="opacity: 0.2;" />
-                    <span style="font-size: 0.82rem; opacity: 0.35;">No changes detected</span>
+                    <span style="font-size: 0.82rem; opacity: 0.35;">변경사항이 없습니다</span>
                 </div>
             }
             else
             {
                 <div style="display: flex; align-items: center; padding: 4px 12px 12px; gap: 8px;">
                     <span style="font-size: 0.75rem; opacity: 0.5;">
-                        @(_diff.Files.Count) file@(_diff.Files.Count != 1 ? "s" : "") changed
+                        @(_diff.Files.Count)개 파일 변경됨
                     </span>
                     <span style="flex: 1;"></span>
                     <div class="diff-stats">
@@ -78,7 +78,7 @@
                                 @if (string.IsNullOrWhiteSpace(file.UnifiedDiff))
                                 {
                                     <div style="padding: 12px; font-size: 0.78rem; opacity: 0.35;">
-                                        No diff available (binary or empty)
+                                        비교할 수 없음 (바이너리 또는 빈 파일)
                                     </div>
                                 }
                                 else

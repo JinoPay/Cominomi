@@ -16,24 +16,24 @@
         <StatusBar />
         @if (ChatState.CurrentSession != null && ChatState.CurrentSession.Status != SessionStatus.Pending)
         {
-            <MudTooltip Text="Context (notes, plans, tasks)">
+            <MudTooltip Text="컨텍스트 (메모, 계획, 작업)">
                 <MudIconButton Icon="@Icons.Material.Filled.Folder"
                                Color="@(_contextPanelOpen ? Color.Primary : Color.Inherit)"
                                Size="Size.Small"
                                OnClick="@(() => _contextPanelOpen = !_contextPanelOpen)" />
             </MudTooltip>
-            <MudTooltip Text="View changes">
+            <MudTooltip Text="변경사항 보기">
                 <MudIconButton Icon="@Icons.Material.Filled.Difference"
                                Color="@(ChatState.IsDiffPanelOpen ? Color.Primary : Color.Inherit)"
                                Size="Size.Small"
                                OnClick="@(() => ChatState.ToggleDiffPanel())" />
             </MudTooltip>
         }
-        <MudTooltip Text="@(_isDarkMode ? "Light mode" : "Dark mode")">
+        <MudTooltip Text="@(_isDarkMode ? "라이트 모드" : "다크 모드")">
             <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                            Color="Color.Inherit" Size="Size.Small" OnClick="@ToggleDarkMode" />
         </MudTooltip>
-        <MudTooltip Text="Settings">
+        <MudTooltip Text="설정">
             <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit"
                            Size="Size.Small" OnClick="@OpenSettings" />
         </MudTooltip>
