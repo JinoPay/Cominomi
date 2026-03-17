@@ -455,6 +455,27 @@
 
         var isFirstMessage = session.Messages.Count(m => m.Role == MessageRole.User) == 0;
 
+        // Summarize with Haiku before main model processing to set title & branch name
+        if (isFirstMessage && session.Status == SessionStatus.Ready && !string.IsNullOrWhiteSpace(input.Text))
+        {
+            try
+            {
+                var summary = await ClaudeService.SummarizeAsync(input.Text, session.WorktreePath);
+                if (!string.IsNullOrEmpty(summary))
+                {
+                    session.Title = summary;
+                    var newBranchName = Services.SessionService.GenerateBranchName(summary);
+                    await SessionService.RenameBranchAsync(session.Id, newBranchName);
+                    session.BranchName = newBranchName;
+                    ChatState.NotifyStateChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Haiku summarization failed, will use fallback title");
+            }
+        }
+
         var fileAttachments = new List<FileAttachment>();
         foreach (var pending in input.Attachments)
         {
@@ -689,17 +710,7 @@
                 });
             }
 
-            if (!isWorkflow && isFirstMessage && session.Status == SessionStatus.Ready)
-            {
-                try
-                {
-                    var newBranchName = Services.SessionService.GenerateBranchName(input.Text);
-                    await SessionService.RenameBranchAsync(session.Id, newBranchName);
-                    session.BranchName = newBranchName;
-                    ChatState.NotifyStateChanged();
-                }
-                catch (Exception ex) { Logger.LogDebug(ex, "Failed to rename branch after first message"); }
-            }
+            // Branch rename is now done before main model processing (via Haiku summarization)
 
             // Workflow completion: restore model/permission, verify result, update status
             if (isWorkflow)
