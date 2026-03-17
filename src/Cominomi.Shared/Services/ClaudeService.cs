@@ -35,7 +35,6 @@ public class ClaudeService : IClaudeService
         string? sessionId = null,
         string? conversationId = null,
         string? systemPrompt = null,
-        string? sessionName = null,
         bool continueMode = false,
         bool forkSession = false,
         int? maxTurns = null,
