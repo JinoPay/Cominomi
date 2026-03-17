@@ -4,32 +4,34 @@
 @implements IDisposable
 
 <div class="sidebar-changes">
-    <div class="sidebar-section-header">
-        <span>변경사항</span>
-        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
-                       Style="width: 20px; height: 20px; opacity: 0.5;"
-                       OnClick="LoadDiffAsync" Disabled="_loading" />
+    <div class="tree-header">
+        <span class="tree-header-label">Changes</span>
+        <div class="tree-header-actions">
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
+                           Style="width: 22px; height: 22px; opacity: 0.5;"
+                           OnClick="LoadDiffAsync" Disabled="_loading" />
+        </div>
     </div>
 
     @if (_loading)
     {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Style="margin: 4px 8px;" />
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="my-2" />
     }
     else if (_error != null)
     {
-        <div style="padding: 8px; font-size: var(--text-xs); color: var(--mud-palette-error);">@_error</div>
+        <MudAlert Severity="Severity.Error" Dense="true" Class="my-2">@_error</MudAlert>
     }
     else if (_diff == null || _diff.Files.Count == 0)
     {
-        <div class="sidebar-empty">
-            <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline" Size="Size.Small" Style="opacity: 0.2;" />
-            <span>변경사항 없음</span>
+        <div class="sidebar-explorer-empty">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline" Size="Size.Large" Style="opacity: 0.15;" />
+            <span>No changes</span>
         </div>
     }
     else
     {
         <div class="sidebar-changes-summary">
-            <span>@(_diff.Files.Count)개 파일</span>
+            <span>@(_diff.Files.Count) files</span>
             <div class="diff-stats">
                 <span class="additions">+@(_diff.TotalAdditions)</span>
                 <span class="deletions">-@(_diff.TotalDeletions)</span>
@@ -39,11 +41,11 @@
         <div class="sidebar-changes-list">
             @foreach (var file in _diff.Files)
             {
-                <div class="sidebar-change-item" @onclick="@(() => OpenDiff(file))">
+                <div class="sidebar-file-item file" @onclick="@(() => OpenFileDiff(file))">
                     <MudIcon Icon="@GetFileIcon(file.ChangeType)" Size="Size.Small"
-                             Style="@($"width: 14px; height: 14px; flex-shrink: 0; {GetIconColor(file.ChangeType)}")" />
-                    <span class="sidebar-change-name" title="@file.FilePath">@GetFileName(file.FilePath)</span>
-                    <div class="diff-stats" style="margin-left: auto; flex-shrink: 0;">
+                             Style="@($"width: 14px; height: 14px; {GetFileIconStyle(file.ChangeType)}")" />
+                    <span class="sidebar-file-name">@GetFileName(file.FilePath)</span>
+                    <div class="diff-stats" style="margin-left: auto;">
                         @if (file.Additions > 0) { <span class="additions">+@file.Additions</span> }
                         @if (file.Deletions > 0) { <span class="deletions">-@file.Deletions</span> }
                     </div>
@@ -65,24 +67,21 @@
         await LoadDiffAsync();
     }
 
-    private async void HandleStateChanged()
+    protected override async Task OnParametersSetAsync()
     {
         var sessionId = ChatState.CurrentSession?.Id;
         if (sessionId != _lastSessionId)
         {
             _lastSessionId = sessionId;
-            await InvokeAsync(async () =>
-            {
-                await LoadDiffAsync();
-                StateHasChanged();
-            });
+            await LoadDiffAsync();
         }
     }
 
     private async Task LoadDiffAsync()
     {
         var session = ChatState.CurrentSession;
-        if (session == null || session.Status == SessionStatus.Pending || string.IsNullOrEmpty(session.WorktreePath))
+        if (session == null || session.Status == SessionStatus.Pending ||
+            string.IsNullOrEmpty(session.WorktreePath))
         {
             _diff = null;
             _error = null;
@@ -90,7 +89,6 @@
             return;
         }
 
-        _lastSessionId = session.Id;
         _loading = true;
         _error = null;
         StateHasChanged();
@@ -114,7 +112,7 @@
         }
     }
 
-    private void OpenDiff(FileDiff file)
+    private void OpenFileDiff(FileDiff file)
     {
         ChatState.OpenFileDiffTab(file.FilePath, file);
     }
@@ -133,13 +131,18 @@
         _ => Icons.Material.Filled.EditNote
     };
 
-    private static string GetIconColor(FileChangeType type) => type switch
+    private static string GetFileIconStyle(FileChangeType type) => type switch
     {
         FileChangeType.Added => "color: #a6e3a1;",
         FileChangeType.Deleted => "color: #f38ba8;",
         FileChangeType.Renamed => "color: #fab387;",
         _ => "color: #89b4fa;"
     };
+
+    private async void HandleStateChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
 
     public void Dispose()
     {
