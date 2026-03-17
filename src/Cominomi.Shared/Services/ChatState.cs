@@ -76,6 +76,13 @@ public class ChatState : IDisposable
     {
         CurrentSession = session;
         Tabs.Reset(session?.Title);
+
+        // 세션 선택 시 기본으로 파일 탐색기 열기
+        if (session != null && session.Status != SessionStatus.Pending)
+            RightPanel = RightPanelMode.Explorer;
+        else
+            RightPanel = RightPanelMode.None;
+
         NotifyStateChanged();
     }
 
