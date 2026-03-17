@@ -242,8 +242,8 @@ public partial class SessionService : ISessionService
     {
         session.UpdatedAt = DateTime.UtcNow;
 
-        // Auto-generate title from first user message
-        if (session.Title == "New Chat" && session.Messages.Count > 0)
+        // Fallback title: only if title is still the initial city name (Haiku summary not yet applied)
+        if (session.Title == session.CityName && session.Messages.Count > 0)
         {
             var firstMessage = session.Messages.FirstOrDefault(m => m.Role == MessageRole.User);
             if (firstMessage != null)

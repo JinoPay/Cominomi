@@ -419,6 +419,64 @@ public class ClaudeService : IClaudeService
         return null;
     }
 
+    public async Task<string?> SummarizeAsync(string message, string workingDir)
+    {
+        try
+        {
+            var settings = await _settingsService.LoadAsync();
+            var (fileName, baseArgs) = await ResolveClaudeCommandCachedAsync(settings.ClaudePath);
+
+            var sb = new StringBuilder(baseArgs);
+            sb.Append("--print --output-format text ");
+            sb.Append("--model haiku ");
+            sb.Append("--dangerously-skip-permissions ");
+            sb.Append("--max-turns 1 ");
+            sb.Append("--append-system-prompt \"Summarize the user message into a concise title (max 5 words, English). Output only the title, nothing else.\"");
+
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = sb.ToString(),
+                    WorkingDirectory = workingDir,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    RedirectStandardInput = true,
+                    CreateNoWindow = true,
+                    StandardInputEncoding = new UTF8Encoding(false),
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8,
+                    Environment = { ["NO_COLOR"] = "1" }
+                }
+            };
+
+            process.Start();
+            await process.StandardInput.WriteAsync(message);
+            process.StandardInput.Close();
+
+            var output = await process.StandardOutput.ReadToEndAsync();
+            using var cts = new CancellationTokenSource(15000);
+            try { await process.WaitForExitAsync(cts.Token); }
+            catch (OperationCanceledException) { try { process.Kill(entireProcessTree: true); } catch { } }
+            process.Dispose();
+
+            var summary = output.Trim();
+            if (string.IsNullOrEmpty(summary))
+                return null;
+
+            // Take only the first line in case of extra output
+            var firstLine = summary.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+            return string.IsNullOrEmpty(firstLine) ? null : firstLine;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to summarize message with Haiku");
+            return null;
+        }
+    }
+
     private sealed class AgentProcess
     {
         private readonly Process _process;
