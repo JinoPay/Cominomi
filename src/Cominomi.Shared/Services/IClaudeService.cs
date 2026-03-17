@@ -18,4 +18,9 @@ public interface IClaudeService
     void Cancel(string? sessionId = null);
 
     Task<(bool found, string resolvedPath)> DetectCliAsync();
+
+    /// <summary>
+    /// Summarize a user message into a short title using Haiku.
+    /// </summary>
+    Task<string?> SummarizeAsync(string message, string workingDir);
 }
