@@ -82,6 +82,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IUsageService, UsageService>();
         builder.Services.AddSingleton<IMcpService, McpService>();
         builder.Services.AddSingleton<INotificationService, NotificationService>();
+        builder.Services.AddSingleton<IActivityService, ActivityService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

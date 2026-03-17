@@ -26,6 +26,7 @@ public interface IGitService
     Task<string> GetUnifiedDiffAsync(string workingDir, string baseBranch, CancellationToken ct = default);
     Task<List<string>> ListTrackedFilesAsync(string workingDir, CancellationToken ct = default);
     Task<GitResult> GetCommitLogAsync(string repoDir, string baseBranch, CancellationToken ct = default);
+    Task<GitResult> GetFormattedCommitLogAsync(string repoDir, string baseBranch, int maxCount = 50, CancellationToken ct = default);
     Task<string> ReadFileAsync(string workingDir, string relativePath, CancellationToken ct = default);
     Task<(int Additions, int Deletions)> GetDiffStatAsync(string workingDir, string baseBranch, CancellationToken ct = default);
     Task<GitResult> RunAsync(string arguments, string workingDir, CancellationToken ct = default);

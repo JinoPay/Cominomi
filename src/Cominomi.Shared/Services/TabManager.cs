@@ -130,6 +130,22 @@ public class TabManager
         OnTabChanged?.Invoke();
     }
 
+    public void OpenActivityTab()
+    {
+        var existing = OpenTabs.FirstOrDefault(t => t.Type == MainTabType.Activity);
+        if (existing != null)
+        {
+            ActiveTab = existing;
+        }
+        else
+        {
+            var tab = new MainTab { Id = "activity", Type = MainTabType.Activity, Title = "Activity" };
+            OpenTabs.Add(tab);
+            ActiveTab = tab;
+        }
+        OnTabChanged?.Invoke();
+    }
+
     public void UpdateChatTabTitle(string title)
     {
         var chatTab = OpenTabs.FirstOrDefault(t => t.Type == MainTabType.Chat);

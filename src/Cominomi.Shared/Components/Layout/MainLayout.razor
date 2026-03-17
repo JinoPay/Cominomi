@@ -31,6 +31,10 @@ else
                     <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                                    Color="Color.Inherit" Size="Size.Small" OnClick="@ToggleDarkMode"
                                    Style="width: 28px; height: 28px; opacity: 0.5;" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Timeline" Color="Color.Inherit"
+                                   Size="Size.Small" OnClick="@OpenActivity"
+                                   Style="width: 28px; height: 28px; opacity: 0.5;"
+                                   Title="Activity" />
                     <MudIconButton Icon="@Icons.Material.Filled.Analytics" Color="Color.Inherit"
                                    Size="Size.Small" OnClick="@OpenUsageDashboard"
                                    Style="width: 28px; height: 28px; opacity: 0.5;"
@@ -102,7 +106,11 @@ else
             }
 
             <div class="main-content">
-                @if (ChatState.Tabs.ActiveTab?.Type == MainTabType.FileContent && ChatState.Tabs.ActiveTab.FilePath != null)
+                @if (ChatState.Tabs.ActiveTab?.Type == MainTabType.Activity)
+                {
+                    <ActivityView />
+                }
+                else if (ChatState.Tabs.ActiveTab?.Type == MainTabType.FileContent && ChatState.Tabs.ActiveTab.FilePath != null)
                 {
                     <FileContentView FilePath="ChatState.Tabs.ActiveTab.FilePath"
                                      Content="@(ChatState.Tabs.ActiveTab.FileContent ?? "")" />
@@ -220,6 +228,7 @@ else
 
     private void OpenSettings() => ChatState.OpenSettings();
     private void OpenUsageDashboard() => _usageDashboardOpen = true;
+    private void OpenActivity() => ChatState.Tabs.OpenActivityTab();
 
     public void Dispose()
     {
