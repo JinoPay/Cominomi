@@ -3,9 +3,16 @@
 > 이 문서는 Cominomi의 모든 시스템을 해부하여 **현재 동작**, **데이터 흐름**, **의존관계**, **빠진 것/문제점**을 기술합니다.
 > 각 섹션을 가리켜 "이 부분은 이렇게 변경되어야 한다"고 지휘하는 데 사용하세요.
 
-**코드 규모**: 129개 소스 파일, ~14,600줄 (Cominomi.Shared에 집중)
+**코드 규모**: ~135개 소스 파일, ~15,000줄 (Cominomi.Shared에 집중)
 **프레임워크**: .NET 10.0, MAUI + Blazor, MudBlazor UI
 **외부 도구**: Claude CLI (subprocess), Git CLI, GitHub CLI (gh)
+
+### 최근 도입된 구조 개선 (2026-03-18)
+| 새 파일 | 역할 |
+|---------|------|
+| `AtomicFileWriter.cs` | 임시파일→원자적 이동 패턴으로 파일 손상 방지 |
+| `StreamEventProcessor.cs` + `IStreamEventProcessor.cs` | ChatView에서 추출한 스트림 이벤트 처리 + 사용량 기록 + 플랜 감지 |
+| `ProcessRunner.cs` + `IProcessRunner.cs` | 프로세스 실행 공통 추상화 (ArgumentList, 타임아웃, UTF8) |
 
 ---
 
@@ -149,7 +156,7 @@
 - `LoadSessionAsync()`: 전체 파일 읽기 (메시지 포함) + `MigrateToParts()` 호출
 
 ### 빠진 것 / 문제점
-- **파일 락 없음**: 병렬 세션이 동시에 `SaveSessionAsync()`를 호출하면 데이터 손상 가능. 특히 스트리밍 중 `content_block_stop`마다 중간 저장 (`ChatView.razor:747`)
+- ~~**파일 락 없음**: 병렬 세션이 동시에 `SaveSessionAsync()`를 호출하면 데이터 손상 가능~~ → ✅ **해결**: `AtomicFileWriter` (임시파일→원자적 이동) + per-session `SemaphoreSlim` 락 도입. 전체 서비스(Session/Workspace/Settings/Task/Memory/Hooks/Skill)에 적용.
 - **세션 파일 무한 성장**: 100턴 대화 + 도구 호출 결과가 하나의 JSON 파일에 전부 포함. 수 MB까지 성장 가능
 - **인덱싱 없음**: `GetSessionsAsync()`가 모든 파일을 역직렬화 — O(n) 성능. 세션 수 증가 시 사이드바 로딩 느려짐
 - **백업/마이그레이션 없음**: JSON 스키마 변경 시 기존 파일이 역직렬화 실패 → 데이터 손실
@@ -259,7 +266,7 @@ HooksEngine.cs:66-103     — FireAsync(): ShellService 통해 셸 래핑
 4가지 서비스가 각각 `Process`를 직접 생성하며, 타임아웃/에러처리/환경변수 설정이 전부 다름.
 
 ### 빠진 것 / 문제점
-- **통합 프로세스 실행 추상화 없음**: `RunProcessAsync(fileName, args, workDir, timeout, envVars)` 같은 공통 메서드가 없어서, 동일한 보일러플레이트가 4곳에 복붙
+- ~~**통합 프로세스 실행 추상화 없음**~~ → ✅ **부분 해결**: `IProcessRunner` / `ProcessRunner` 공통 추상화 도입. `ArgumentList` 기반 안전한 인자 전달, 통합 타임아웃(기본 30초), UTF8 인코딩, 프로세스 트리 킬. GhService 마이그레이션 완료. Git/Claude/Hooks 서비스는 후속 마이그레이션 필요.
 - **셸 감지 1회 캐싱**: 앱 실행 후 Git 설치하면 재시작 필요
 - **WhichAsync 3초 고정 타임아웃**: 에러 전파 없음, 실패 시 null 반환
 - **GitService/GhService는 ShellService를 사용하지 않음**: `"git"`, `"gh"`를 직접 하드코딩
@@ -332,15 +339,11 @@ ListIssuesAsync() (GhService.cs:72-100)    → gh issue list --json --limit 30
 ```
 
 ### 빠진 것 / 문제점
-- **커맨드 인젝션 위험** (`:18-19`): title/body 이스케이핑이 `Replace("\"", "\\\"")`만. 셸 메타문자 (`$`, `` ` ``, `$(...)`) 미처리
-  ```csharp
-  var escapedTitle = title.Replace("\"", "\\\"");
-  // title = "test $(rm -rf /)" → 셸에서 실행됨
-  ```
+- ~~**커맨드 인젝션 위험**: title/body 이스케이핑이 `Replace("\"", "\\\"")`만~~ → ✅ **해결**: `ProcessStartInfo.ArgumentList` 방식으로 전환하여 OS가 인자 이스케이핑 처리. `IProcessRunner`를 통한 통합 프로세스 실행.
 - **페이지네이션 없음** (`:75`): `--limit 30` 하드코딩. 31번째 이슈부터 안 보임
 - **PR 병합 시 체크 대기 없음**: CI가 돌고 있어도 즉시 병합 시도
 - **IsAuthenticatedAsync의 workingDir가 "."** (`:59`): 현재 디렉토리가 git 리포가 아닐 수 있음
-- **`gh` 하드코딩** (`:135`): PATH에 gh가 없으면 실패. 설정으로 경로 지정 불가
+- ~~**`gh` 하드코딩**~~ → IProcessRunner를 통해 실행하나, 아직 PATH 의존
 - **rate limiting 인식 없음**: GitHub API 제한에 도달해도 재시도 없음
 
 ---
@@ -406,11 +409,7 @@ ChatView.ProcessMessageAsync()
 ### 빠진 것 / 문제점
 - **프로세스 재사용 없음**: 매 메시지마다 새 프로세스 생성 + 종료. `--resume`으로 대화 맥락은 유지하지만 프로세스 오버헤드 있음
 - **크래시 복구 없음**: 스트리밍 중 프로세스 사망 시 부분 상태만 저장. 사용자는 대화가 끊긴 것만 인지
-- **시스템 프롬프트 이스케이핑 취약** (`ClaudeArgumentBuilder.cs:105`):
-  ```csharp
-  var escaped = systemPrompt.Replace("\\", "\\\\").Replace("\"", "\\\"");
-  ```
-  줄바꿈(`\n`), 작은따옴표, 유니코드 등 미처리. 시스템 프롬프트에 이들이 포함되면 CLI 인자가 깨짐
+- ~~**시스템 프롬프트 이스케이핑 취약**~~ → ✅ **해결**: `\r\n`, `\n`, `\r`, `\t`, `\0` 제어 문자 이스케이핑 추가
 - **재시도 로직 60줄 복붙** (`:106-148`): `--verbose` 재시도가 스트리밍 루프 전체를 복사
 - **AgentProcess.Cancel()에서 Kill(entireProcessTree: true)** (`:367`): 일부 플랫폼에서 고아 프로세스 남을 수 있음
 - **stderr 수집 태스크 실패 무시** (`:102`): `try { await stderrTask; } catch { }` — 에러 정보 손실
@@ -579,10 +578,10 @@ case "error"                            → 에러 메시지 추가
 ```
 
 ### 빠진 것 / 문제점
-- **God Component**: 1,461줄에 18개 서비스. 어떤 기능을 변경해도 이 파일에 영향
-- **스트림 처리 300줄 switch**: `StreamEventProcessor` 같은 별도 서비스로 분리 가능하지만 안 되어 있음
-- **사용량 추적 4단계 폴백**: Claude CLI의 사용량 보고가 불일치하여 4가지 경로로 처리. 복잡도 높음
-- **플랜 모드 3계층 감지**: `ExitPlanMode` 도구 호출이 불안정하여 텍스트 검색 + 파일 감지까지 폴백. 근본 원인 미해결
+- **God Component**: ~~1,461줄에 18개 서비스~~ → ✅ **부분 해결**: `StreamEventProcessor` 서비스로 스트림 이벤트 처리 (~400줄), 사용량 기록 (3단계 폴백), 플랜 감지 (3계층)를 추출. ChatView에서 switch문이 1줄 호출로 대체.
+- ~~**스트림 처리 300줄 switch**~~ → ✅ **해결**: `StreamEventProcessor` 서비스로 분리
+- ~~**사용량 추적 4단계 폴백**~~ → ✅ **해결**: `StreamEventProcessor.FinalizeAsync()`로 캡슐화
+- ~~**플랜 모드 3계층 감지**~~ → ✅ **해결**: `StreamEventProcessor.FinalizeAsync()`로 캡슐화
 - **ProcessMessageAsync가 Task.Run에서 실행**: 백그라운드 스레드에서 `InvokeAsync(StateHasChanged)` 호출. 동작하지만 예외 미관찰 위험
 - **async void HandleStateChanged**: 예외 미관찰 (`async void` 패턴)
 - **CreatePr가 AI 기반**: 사용자가 "PR 생성" 클릭 → AI에게 프롬프트 → AI가 PR 제목/본문 생성 → 실제 생성. 하지만 직접 `gh pr create`하는 `SessionGitWorkflowService` 경로도 존재
@@ -1157,18 +1156,18 @@ ChatView ───→ ClaudeService ───→ SettingsService
 
 # 구조적 문제 Top 10 (영향도 순위)
 
-| 순위 | 문제 | 영향 | 관련 파일 |
-|------|------|------|-----------|
-| **1** | ChatView God Component (1,461줄, 18개 서비스) | 모든 기능 변경이 하나의 파일에 집중 | `ChatView.razor` |
-| **2** | JSON 영속화에 파일 락 없음 | 병렬 세션의 동시 저장 시 데이터 손상 | `SessionService.cs` |
-| **3** | 세션 파일에 전체 메시지 저장 | 무한 성장, 로드 성능 저하 | `Session.cs`, `SessionService.cs` |
-| **4** | ChatState God Object (30+ 멤버) | 5가지 관심사 혼재, 테스트 불가 | `ChatState.cs` |
-| **5** | 모델 검증 완전 부재 | 잘못된 상태 전이, 데이터 무결성 미보장 | 모든 `Models/` |
-| **6** | 프로세스 실행 4곳 복붙 | 타임아웃/에러처리 불일치 | Git/Gh/Claude/Hooks |
-| **7** | SessionList God Component (719줄) | 사이드바 변경이 복잡 | `SessionList.razor` |
-| **8** | PR 생성 경로 2개 (AI vs 직접) | 결과 불일치 가능 | `ChatView.razor`, `SessionGitWorkflowService.cs` |
-| **9** | 가격/모델/CLI플래그 하드코딩 | 외부 변경마다 코드 수정 필요 | `UsageService.cs`, `ModelDefinitions.cs`, `ClaudeArgumentBuilder.cs` |
-| **10** | 테스트 0개 | 리팩터링 위험, 회귀 감지 불가 | 전체 |
+| 순위 | 문제 | 영향 | 관련 파일 | 상태 |
+|------|------|------|-----------|------|
+| **1** | ChatView God Component (1,461줄, 18개 서비스) | 모든 기능 변경이 하나의 파일에 집중 | `ChatView.razor` | ✅ **부분 해결** — `StreamEventProcessor` 서비스로 ~400줄 switch문/사용량/플랜 감지 추출 |
+| **2** | JSON 영속화에 파일 락 없음 | 병렬 세션의 동시 저장 시 데이터 손상 | `SessionService.cs` | ✅ **해결** — `AtomicFileWriter` (원자적 쓰기) + per-session `SemaphoreSlim` 락 도입 |
+| **3** | 세션 파일에 전체 메시지 저장 | 무한 성장, 로드 성능 저하 | `Session.cs`, `SessionService.cs` | 미해결 |
+| **4** | ChatState God Object (30+ 멤버) | 5가지 관심사 혼재, 테스트 불가 | `ChatState.cs` | 미해결 |
+| **5** | 모델 검증 완전 부재 | 잘못된 상태 전이, 데이터 무결성 미보장 | 모든 `Models/` | 미해결 |
+| **6** | 프로세스 실행 4곳 복붙 | 타임아웃/에러처리 불일치 | Git/Gh/Claude/Hooks | ✅ **부분 해결** — `IProcessRunner` 공통 추상화 도입, GhService 마이그레이션 완료 |
+| **7** | SessionList God Component (719줄) | 사이드바 변경이 복잡 | `SessionList.razor` | 미해결 |
+| **8** | PR 생성 경로 2개 (AI vs 직접) | 결과 불일치 가능 | `ChatView.razor`, `SessionGitWorkflowService.cs` | 미해결 |
+| **9** | 가격/모델/CLI플래그 하드코딩 | 외부 변경마다 코드 수정 필요 | `UsageService.cs`, `ModelDefinitions.cs`, `ClaudeArgumentBuilder.cs` | 미해결 |
+| **10** | 테스트 0개 | 리팩터링 위험, 회귀 감지 불가 | 전체 | 미해결 |
 
 ---
 
