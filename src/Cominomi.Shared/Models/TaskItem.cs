@@ -13,6 +13,7 @@ public enum TaskStatus
 
 public class TaskItem
 {
+    public int SchemaVersion { get; set; } = 1;
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string SessionId { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;

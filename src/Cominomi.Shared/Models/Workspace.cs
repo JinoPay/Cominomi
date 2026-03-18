@@ -12,6 +12,7 @@ public enum WorkspaceStatus
 
 public class Workspace
 {
+    public int SchemaVersion { get; set; } = 1;
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; } = "";
     public string DefaultModel { get; set; } = ModelDefinitions.Default.Id;
