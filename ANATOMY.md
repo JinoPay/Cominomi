@@ -136,6 +136,12 @@
 | #136 | 옵션 패턴 도입 | `IOptionsMonitor<AppSettings>` + `AppSettingsFactory` + `AppSettingsChangeNotifier`. 8개 서비스/컴포넌트 전환 |
 | #137 | 플러그인 실행 엔진 | EntryPoint 로딩/실행/샌드박싱 + hooks·skills 매니페스트 자동 등록 |
 
+### 구조 개선 Phase 14 (2026-03-19) — 미해결 구조적 문제 #8 해결
+| 변경 내용 | 역할 / 영향 범위 |
+|-----------|------------------|
+| `ParseDiff` 정적 메서드 삭제 | `GetDiffSummaryAsync`와 기능 중복하던 레거시 코드 제거. 호출부 없는 데드 코드 |
+| `GetDiffSummaryAsync` 파싱 수정 | `diff --git` 헤더의 `LastIndexOf(" b/")` → `+++ b/` 줄 기반 파일 경로 추출. 경로에 " b/" 포함 시 오파싱 취약점 해결 |
+
 ### 구조 개선 Phase 13 (2026-03-19) — 신규 구조적 문제 #3 해결 + Continue 기능
 | 변경 내용 | 역할 / 영향 범위 |
 |-----------|-----------------|
@@ -502,7 +508,7 @@ macOS/Linux: /bin/sh
 - `DetectDefaultBranchAsync()` (`:119-139`): symbolic-ref → main 확인 → master 확인 → 현재 브랜치
 - `PushBranchAsync()` (`:215-218`): `git push -u origin`
 - `PushForceBranchAsync()` (`:220-223`): `git push --force-with-lease origin`
-- `ParseDiff()` (`:348-421`): 정적 메서드, `--name-status` + unified diff → `DiffSummary` 구조화
+- ~~`ParseDiff()`~~: ✅ **Phase 14에서 삭제** — `GetDiffSummaryAsync`와 기능 중복 데드 코드
 
 **프로세스 실행** (`RunGitAsync()`, `:186-197`):
 `IProcessRunner.RunAsync()`를 통해 `git` 명령 실행. 인수는 배열(`params string[]`)로 전달하며 `ArgumentList`를 사용하여 셸 해석 없이 안전하게 전달. 환경변수는 `CominomiConstants.Env.GitEnv`로 통합.
@@ -515,14 +521,14 @@ SessionService ──→ GitService.AddWorktreeAsync() (세션 생성)
 SessionService ──→ GitService.RemoveWorktreeAsync() (세션 정리)
 SessionGitWorkflowService ──→ GitService.PushBranchAsync() (브랜치 푸시)
 SidebarExplorer ──→ GitService.ListTrackedFilesAsync() (파일 목록)
-SidebarChanges ──→ GitService.GetNameStatusAsync() + ParseDiff() (변경사항)
+SidebarChanges ──→ GitService.GetDiffSummaryAsync() (변경사항)
 ChatView ──→ GitService.RenameBranchAsync() (제목 기반 브랜치 이름 변경)
 ```
 
 ### 빠진 것 / 문제점
 - ~~**타임아웃 없음**~~ → ✅ **해결**: `IProcessRunner` 기본 타임아웃 30초 적용
 - **stdout 전체 메모리 로드**: 대형 diff 출력 시 메모리 문제
-- **ParseDiff 취약**: `header.LastIndexOf(" b/")`로 파일 경로 추출 — 경로에 공백이나 ` b/`가 포함되면 실패
+- ~~**ParseDiff 취약**~~: ✅ **Phase 14에서 해결** — `ParseDiff` 삭제 + `GetDiffSummaryAsync`는 `+++ b/` 줄 기반 파싱으로 전환
 - ~~**캐싱 없음**~~ → ✅ **해결**: `DetectDefaultBranchAsync`(5분 TTL), `ListBranchesAsync`/`ListAllBranchesGroupedAsync`(30초 TTL) — `ConcurrentDictionary` 기반 캐시, fetch 시 자동 무효화
 - **`git` 하드코딩**: PATH에 git이 없으면 실패. 설정으로 경로 지정 불가
 - **git clone → push 사이에 fetch 없음**: 다른 사람이 base branch에 푸시한 변경사항 반영 안 됨
@@ -1583,23 +1589,21 @@ SessionList ───→ SessionListDataService          ← Phase 4 추출
 | **1** | **ChatView 697줄 재비대화** — Phase 13 Continue 기능 추가로 548→697줄 재성장. 서비스 주입 13개 유지 | 유지보수성 저하, 테스트 불가, SRP 위반 | §10 | 중 |
 | **2** | **테스트 커버리지 부족** — 12개 테스트 파일 / 75+개 서비스. ClaudeService·GitService·SessionService 등 핵심 서비스 테스트 부재 | 회귀 방지 불가, 리팩토링 안전망 없음 | §25 | 높 |
 | **3** | **StreamEventProcessor 516줄 switch 아키텍처** — 20+개 case 중첩 switch문. 새 이벤트 타입 추가 시 OCP 위반 | 확장성, 유지보수성 | §10.5 | 중 |
-| **4** | **GitService ParseDiff " b/" 파싱 취약** — `LastIndexOf(" b/")` 패턴이 `ParseDiff`(정적)과 `GetDiffSummaryAsync`(스트리밍) 양쪽에 존재. 경로에 " b/" 포함 시 오파싱 | diff 표시 오류 | §5 | 낮 |
-| **5** | **SessionService 캐시 무한 성장** — `_metadataCache`·`_sessionCache` ConcurrentDictionary에 만료/퇴출 정책 없음. 삭제된 세션도 캐시에 잔류 가능 | 장기 실행 시 메모리 누수 | §8 | 중 |
-| **6** | **SessionList 8개 서비스 과다 주입** — 컴포넌트가 8개 서비스에 직접 의존. 파사드 서비스로 위임 필요 | 커플링, 테스트 난이도 | §12 | 중 |
-| **7** | **Usage 저장 경로 불일치** — `AppData/Roaming`(설정·세션)과 `AppData/Local`(usage.jsonl) 분산. 백업/이관 시 누락 위험 | 운영, 데이터 일관성 | §20 | 낮 |
-| **8** | **ParseDiff 레거시 코드 잔류** — static `ParseDiff` 메서드가 `GetDiffSummaryAsync`와 기능 중복. 둘 다 동일 " b/" 취약점 공유 | 코드 중복, 유지보수 혼란 | §5 | 낮 |
-| **9** | **IProcessRunner stderr bare catch** — `StreamingProcess._stderrTask`의 `catch { }` 블록(`IProcessRunner.cs:75`)이 stderr 에러 정보 손실 | 디버깅 어려움 | §4 | 낮 |
-| **10** | **ContentGrouper 중간 텍스트 휴리스틱** — 하드코딩된 한국어/영어 패턴으로 텍스트 분류. 다국어 확장 시 패턴 폭발 | 렌더링 오분류 | §13 | 낮 |
+| **4** | **SessionService 캐시 무한 성장** — `_metadataCache`·`_sessionCache` ConcurrentDictionary에 만료/퇴출 정책 없음. 삭제된 세션도 캐시에 잔류 가능 | 장기 실행 시 메모리 누수 | §8 | 중 |
+| **5** | **SessionList 8개 서비스 과다 주입** — 컴포넌트가 8개 서비스에 직접 의존. 파사드 서비스로 위임 필요 | 커플링, 테스트 난이도 | §12 | 중 |
+| **6** | **Usage 저장 경로 불일치** — `AppData/Roaming`(설정·세션)과 `AppData/Local`(usage.jsonl) 분산. 백업/이관 시 누락 위험 | 운영, 데이터 일관성 | §20 | 낮 |
+| **7** | **IProcessRunner stderr bare catch** — `StreamingProcess._stderrTask`의 `catch { }` 블록(`IProcessRunner.cs:75`)이 stderr 에러 정보 손실 | 디버깅 어려움 | §4 | 낮 |
+| **8** | **ContentGrouper 중간 텍스트 휴리스틱** — 하드코딩된 한국어/영어 패턴으로 텍스트 분류. 다국어 확장 시 패턴 폭발 | 렌더링 오분류 | §13 | 낮 |
+| **9** | **ToolCallCard JSON 매 렌더 파싱** — 도구 입력 JSON을 캐싱 없이 매 렌더마다 `JsonSerializer.Deserialize` | 렌더 성능 | §13 | 낮 |
+| **10** | **FileSystemWatcher 이벤트 폭주** — Windows에서 빠른 파일 변경 시 이벤트 과다 → UI 업데이트 과부하 | UI 버벅임 | §12 | 중 |
 
 ### 차기 개선 후보
 
 | 순위 | 문제 | 영향 | 관련 섹션 | 난이도 |
 |------|------|------|-----------|--------|
-| **1** | **ToolCallCard JSON 매 렌더 파싱** — 도구 입력 JSON을 캐싱 없이 매 렌더마다 `JsonSerializer.Deserialize` | 렌더 성능 | §13 | 낮 |
-| **2** | **FileSystemWatcher 이벤트 폭주** — Windows에서 빠른 파일 변경 시 이벤트 과다 → UI 업데이트 과부하 | UI 버벅임 | §12 | 중 |
-| **3** | **알림 히스토리 없음** — 놓친 알림을 확인할 방법 없음 | UX | §21 | 중 |
-| **4** | **MCP 서버 수정 불가** — 기존 서버 설정 변경이 불가. 삭제 후 재추가만 가능 | UX | §16 | 낮 |
-| **5** | **스킬 체이닝 불가** — `/commit` 후 `/review` 같은 워크플로우 자동화 미지원 | 생산성 | §15 | 중 |
+| **1** | **알림 히스토리 없음** — 놓친 알림을 확인할 방법 없음 | UX | §21 | 중 |
+| **2** | **MCP 서버 수정 불가** — 기존 서버 설정 변경이 불가. 삭제 후 재추가만 가능 | UX | §16 | 낮 |
+| **3** | **스킬 체이닝 불가** — `/commit` 후 `/review` 같은 워크플로우 자동화 미지원 | 생산성 | §15 | 중 |
 
 ---
 

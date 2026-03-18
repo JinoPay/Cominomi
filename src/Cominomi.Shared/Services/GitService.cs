@@ -462,13 +462,17 @@ public class GitService : IGitService
                 {
                     // Flush previous file
                     FlushFileDiff(fileMap, currentFile, currentDiff, additions, deletions);
-
-                    // Extract file path from "diff --git a/path b/path"
-                    var bIndex = line.LastIndexOf(" b/");
-                    currentFile = bIndex >= 0 ? line[(bIndex + 3)..] : null;
+                    currentFile = null;
                     currentDiff.Clear();
                     additions = 0;
                     deletions = 0;
+                    continue;
+                }
+
+                // Extract file path from "+++ b/path" (robust against " b/" in paths)
+                if (line.StartsWith("+++ b/"))
+                {
+                    currentFile = line["+++ b/".Length..];
                     continue;
                 }
 
@@ -537,54 +541,6 @@ public class GitService : IGitService
         fileDiff.UnifiedDiff = diffContent.ToString();
         fileDiff.Additions = additions;
         fileDiff.Deletions = deletions;
-    }
-
-    public static DiffSummary ParseDiff(string nameStatus, string rawDiff)
-    {
-        var summary = new DiffSummary();
-        if (string.IsNullOrWhiteSpace(nameStatus))
-            return summary;
-
-        var fileMap = ParseNameStatusIntoFileMap(nameStatus, summary);
-
-        // Parse unified diff and assign to files
-        if (!string.IsNullOrWhiteSpace(rawDiff))
-        {
-            // Split by "diff --git" marker
-            var chunks = rawDiff.Split("diff --git ", StringSplitOptions.RemoveEmptyEntries);
-            foreach (var chunk in chunks)
-            {
-                // First line: "a/path b/path"
-                var firstNewline = chunk.IndexOf('\n');
-                if (firstNewline < 0) continue;
-
-                var header = chunk[..firstNewline];
-                var bIndex = header.LastIndexOf(" b/");
-                if (bIndex < 0) continue;
-
-                var filePath = header[(bIndex + 3)..].Trim();
-                var diffContent = chunk[(firstNewline + 1)..];
-
-                // Count additions and deletions
-                int additions = 0, deletions = 0;
-                foreach (var line in diffContent.Split('\n'))
-                {
-                    if (line.StartsWith('+') && !line.StartsWith("+++"))
-                        additions++;
-                    else if (line.StartsWith('-') && !line.StartsWith("---"))
-                        deletions++;
-                }
-
-                if (fileMap.TryGetValue(filePath, out var fileDiff))
-                {
-                    fileDiff.UnifiedDiff = diffContent;
-                    fileDiff.Additions = additions;
-                    fileDiff.Deletions = deletions;
-                }
-            }
-        }
-
-        return summary;
     }
 
     private void InvalidateBranchCaches(string repoDir)
