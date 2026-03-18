@@ -136,22 +136,30 @@
 | #136 | 옵션 패턴 도입 | `IOptionsMonitor<AppSettings>` + `AppSettingsFactory` + `AppSettingsChangeNotifier`. 8개 서비스/컴포넌트 전환 |
 | #137 | 플러그인 실행 엔진 | EntryPoint 로딩/실행/샌드박싱 + hooks·skills 매니페스트 자동 등록 |
 
+
+### 구조 개선 Phase 12 (2026-03-19) — 신규 구조적 문제 #1 해결
+| 변경 내용 | 역할 / 영향 범위 |
+|-----------|------------------|
+| 7개 핵심 모델 `init` 전환 | 생성 후 불변이어야 할 프로퍼티 37개를 `{ get; set; }` → `{ get; init; }`. Session(7), ChatMessage(5), ContentPart(2), Workspace(3), AppSettings(1), MemoryEntry(3), ActivityEntry(9+2), MainTab(3), ToolCall(2) |
+| `SessionJsonConverter` 리팩토링 | 순차 할당(`session.Id = ...`) → 객체 이니셜라이저 패턴으로 전환. `init` 프로퍼티와 호환 |
+| 기존 `private set` 유지 | `Session.Status`(상태 머신), `TotalInputTokens/OutputTokens`(Guard 검증) 등 기존 보호 패턴 보존 |
+
 ### 구조 개선 Phase 11 (2026-03-18) — 신규 구조적 문제 #6 해결
 | 변경 내용 | 역할 / 영향 범위 |
-|-----------|-----------------|
+|-----------|------------------|
 | `MainTab` LRU 메타데이터 추가 | `LastAccessedAt`, `ContentEvicted`, `ContentSizeBytes` 프로퍼티 추가 |
 | `TabManager` LRU 퇴출 엔진 | 총 콘텐츠 예산 50MB 초과 시 가장 오래된 비활성 탭 `FileContent`를 null로 퇴출. 단일 파일 10MB 제한+절단 |
 | `MainLayout` 자동 재로딩 | 퇴출된 탭 활성화 시 디스크에서 자동 재로딩 + 로딩 UI 표시 |
 
 ### 구조 개선 Phase 10 (2026-03-18) — 신규 구조적 문제 #7 해결
 | 변경 내용 | 역할 / 영향 범위 |
-|-----------|-----------------|
+|-----------|------------------|
 | `SessionService.NeedsSchemaUpgrade` bare catch 제거 | `catch { return false; }` → `catch (Exception ex)` + `_logger.LogWarning` 로깅 추가. 디버깅 정보 보존 |
 | `NeedsSchemaUpgrade` static → instance 메서드 전환 | `_logger` 인스턴스 필드 접근을 위해 `static` 한정자 제거 |
 
 ### 구조 개선 Phase 9 (2026-03-18) — 신규 구조적 문제 #8 해결
 | 변경 내용 | 역할 / 영향 범위 |
-|-----------|-----------------|
+|-----------|------------------|
 | `ContextService` .gitignore 행 기반 체크 | `content.Contains(".context/")` → `ReadAllLinesAsync` + `line.Trim() == ".context/"` 정확 매칭. 주석·부분 경로 오탐 방지 |
 | `AttachmentService` .gitignore 행 기반 체크 | 동일 패턴 적용 — `content.Contains(entry)` → 행 기반 정확 매칭 |
 | `ContextServiceGitignoreTests.cs` (신규, 4개 테스트) | 정확 매칭·중복 방지·주석 내 부분 문자열·다른 경로 부분 매칭 시나리오 검증 |
@@ -1629,7 +1637,7 @@ SessionList ───→ SessionListDataService          ← Phase 4 추출
 
 | 순위 | 문제 | 영향 | 관련 섹션 | 난이도 |
 |------|------|------|-----------|--------|
-| **1** | **데이터 모델 불변성 부재** — 7개 핵심 모델에 81개 `public set` 프로퍼티 | `ChatState`와 `Session`이 같은 `ChatMessage` 객체 가변 참조 공유. `AppendText()`가 `Text` + `Parts` 양쪽 수정. 어디서든 조용히 상태 변경 가능. Session(18), ChatMessage(8), Workspace(12), AppSettings(22), MemoryEntry(8), ActivityEntry(8), MainTab(5) | §3, §23 | 높 |
+| ~~**1**~~ | ~~**데이터 모델 불변성 부재**~~ ✅ **해결** — 37개 프로퍼티 `init` 전환, `SessionJsonConverter` 객체 이니셜라이저 리팩토링 | 7개 핵심 모델의 생성 후 불변 프로퍼티(Id, CreatedAt, WorkspaceId, AgentType 등)를 `init`으로 전환. 잔여 `set` 프로퍼티(Title, Model, PermissionMode 등)는 UI/서비스에서 정당하게 변경되는 항목. `ChatState`↔`Session` 가변 참조 공유 문제는 아키텍처 수준 개선 필요 | §3, §23 | — |
 | ~~**2**~~ | ~~**ClaudeService 재시도 ~35줄 복붙** — `--verbose` 재시도 시 스트리밍 루프 전체 복사~~ | ✅ `ReadStreamEventsAsync()` 헬퍼로 스트리밍 루프 통합. 첫 루프·재시도 루프 모두 동일 메서드 호출 | §7 | — |
 | **3** | **시스템 프롬프트·메모리 크기 제한 미흡** — 문자 수 기반 제한만, 토큰 카운팅 없음 | `MemoryService`가 `MaxMemoryPromptChars`/`MaxMemoryEntryChars` 문자 수로 절단하나, 토큰 기반이 아님. notes.md는 크기 제한 없이 프롬프트에 주입. 워크스페이스별 메모리 필터링은 `WorkspaceId == null`이면 모든 워크스페이스에 주입 | §17, §18 | 중 |
 | ~~**4**~~ | ~~**ChatView `Task.Run` fire-and-forget** — 예외 미관찰 위험~~ | ~~`ChatView.razor:295` `_ = Task.Run(() => ProcessMessageAsync(input))`. 에러 핸들링·취소 추적 없음. 스트리밍 실패 시 조용히 무시될 수 있음~~ | ~~§10~~ | ~~중~~ |
