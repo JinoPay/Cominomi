@@ -1,0 +1,204 @@
+@using Cominomi.Shared.Models
+@using Microsoft.Extensions.Logging
+@inject IChatState ChatState
+@inject IChatPrWorkflowService PrWorkflow
+@inject ISessionService SessionService
+@inject ISnackbar Snackbar
+@inject INotificationService NotificationService
+@inject IJSRuntime JSRuntime
+@inject ILogger<SessionWorkflowBar> Logger
+
+@if (Session != null && !Session.Git.IsLocalDir
+     && Session.Status is SessionStatus.Ready
+     or SessionStatus.Pushed or SessionStatus.PrOpen or SessionStatus.ConflictDetected)
+{
+    <div class="session-workflow" style="padding: var(--space-1) var(--space-4); border-bottom: 1px solid var(--border-subtle); justify-content: flex-end;">
+        @if (Session.Pr.IssueNumber != null)
+        {
+            <MudLink Href="@Session.Pr.IssueUrl" Target="_blank" Typo="Typo.caption"
+                     Style="font-size: var(--text-xs); margin-right: auto;">
+                Issue #@Session.Pr.IssueNumber
+            </MudLink>
+        }
+        else
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.BugReport" Size="Size.Small"
+                           OnClick="@(() => OnLinkIssueRequested.InvokeAsync())"
+                           Style="width: 24px; height: 24px; opacity: 0.5; margin-right: auto;"
+                           Title="이슈 연결" />
+        }
+        @if (_operatingSessionId == Session.Id)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="width: 12px; height: 12px;" />
+            <span style="font-size: var(--text-xs); opacity: 0.6;">처리 중...</span>
+        }
+        else
+        {
+            @switch (Session.Status)
+            {
+                case SessionStatus.Ready:
+                case SessionStatus.Pushed:
+                    @if (!ChatState.IsStreaming)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.RocketLaunch"
+                                   OnClick="@(() => CreatePr(Session))"
+                                   Style="text-transform: none; font-size: var(--text-xs); min-width: 0; padding: 0 var(--space-2); height: 24px;">
+                            PR 생성
+                        </MudButton>
+                    }
+                    break;
+                case SessionStatus.PrOpen:
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.MergeType"
+                               OnClick="@(() => MergePr(Session))"
+                               Style="text-transform: none; font-size: var(--text-xs); min-width: 0; padding: 0 var(--space-2); height: 24px;">
+                        병합
+                    </MudButton>
+                    @if (!string.IsNullOrEmpty(Session.Pr.PrUrl))
+                    {
+                        <MudLink Href="@Session.Pr.PrUrl" Target="_blank" Typo="Typo.caption"
+                                 Style="font-size: var(--text-xs);">
+                            #@Session.Pr.PrNumber
+                        </MudLink>
+                    }
+                    break;
+                case SessionStatus.ConflictDetected:
+                    <span style="font-size: var(--text-xs); color: #f38ba8; font-weight: 600;">충돌</span>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
+                               OnClick="@(() => ResolveConflicts(Session))"
+                               Style="text-transform: none; font-size: var(--text-xs); min-width: 0; padding: 0 var(--space-2); height: 24px;">
+                        해결
+                    </MudButton>
+                    break;
+            }
+
+            @if (!string.IsNullOrEmpty(Session.ErrorMessage))
+            {
+                <MudTooltip Text="@Session.ErrorMessage">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Error"
+                             Style="width: 14px; height: 14px;" />
+                </MudTooltip>
+                @if (Session.ErrorMessage.Contains("rejected", StringComparison.OrdinalIgnoreCase))
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning"
+                               OnClick="@(() => ForcePushAndMerge(Session))"
+                               Style="text-transform: none; font-size: var(--text-xs); min-width: 0; padding: 0 var(--space-1); height: 24px;">
+                        강제 푸시
+                    </MudButton>
+                }
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public Session? Session { get; set; }
+    [Parameter] public EventCallback OnLinkIssueRequested { get; set; }
+    [Parameter] public EventCallback<ChatInputMessage> OnSendMessage { get; set; }
+
+    private string? _operatingSessionId;
+
+    private async Task CreatePr(Session session)
+    {
+        try
+        {
+            var prompt = await PrWorkflow.BuildCreatePrPromptAsync(session);
+            await OnSendMessage.InvokeAsync(new ChatInputMessage { Text = prompt });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "CreatePr failed for session {SessionId}", session.Id);
+            Snackbar.MergeError(ex.Message);
+        }
+    }
+
+    private async Task MergePr(Session session)
+    {
+        _operatingSessionId = session.Id;
+        StateHasChanged();
+        try
+        {
+            var (status, error) = await PrWorkflow.MergePrAsync(session);
+            session.TransitionStatus(status);
+            session.ErrorMessage = error;
+
+            if (status == SessionStatus.Merged)
+            {
+                Snackbar.MergeSuccess(session.Git.BranchName);
+                _ = SendNotificationIfNeeded(session, $"Branch {session.Git.BranchName} merged", NotificationType.Success);
+            }
+            else if (status == SessionStatus.ConflictDetected)
+                Snackbar.ConflictDetected(session.Git.BranchName);
+            else if (!string.IsNullOrEmpty(error))
+                Snackbar.MergeError(error);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "MergePr failed for session {SessionId}", session.Id);
+            session.ErrorMessage = ex.Message;
+            Snackbar.MergeError(ex.Message);
+        }
+        finally { _operatingSessionId = null; StateHasChanged(); }
+    }
+
+    private async Task ForcePushAndMerge(Session session)
+    {
+        _operatingSessionId = session.Id;
+        StateHasChanged();
+        try
+        {
+            var (status, error) = await PrWorkflow.ForcePushAsync(session);
+            session.TransitionStatus(status);
+            session.ErrorMessage = error;
+
+            if (status != SessionStatus.Pushed)
+            {
+                if (!string.IsNullOrEmpty(error))
+                    Snackbar.PushError(error);
+                return;
+            }
+
+            session.ErrorMessage = null;
+            Snackbar.Add("강제 푸시 완료. PR을 생성하세요.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ForcePushAndMerge failed for session {SessionId}", session.Id);
+            session.ErrorMessage = ex.Message;
+            Snackbar.MergeError(ex.Message);
+        }
+        finally { _operatingSessionId = null; StateHasChanged(); }
+    }
+
+    private async Task ResolveConflicts(Session session)
+    {
+        session.TransitionStatus(SessionStatus.Ready);
+        session.ErrorMessage = null;
+        session.Pr.ConflictFiles = null;
+
+        var (fullSession, prompt) = await PrWorkflow.ResolveConflictsAsync(session);
+        if (fullSession != null)
+        {
+            ChatState.SetPendingMessage(prompt);
+            ChatState.SetSession(fullSession);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task SendNotificationIfNeeded(Session session, string body, NotificationType type)
+    {
+        try
+        {
+            var isFocused = await JSRuntime.InvokeAsync<bool>("isWindowFocused");
+            var isCurrentSession = ChatState.CurrentSession?.Id == session.Id;
+
+            if (!isFocused || !isCurrentSession)
+            {
+                await NotificationService.SendAsync(session.CityName, body, type);
+            }
+        }
+        catch { }
+    }
+}
