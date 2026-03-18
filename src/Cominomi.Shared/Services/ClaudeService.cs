@@ -71,7 +71,9 @@ public class ClaudeService : IClaudeService, IDisposable
         var agent = new AgentProcess(process, cts);
         _agents[agentKey] = agent;
 
-        await process.StandardInput.WriteAsync(message);
+        // In continue mode, close stdin immediately without writing a message
+        if (!continueMode)
+            await process.StandardInput.WriteAsync(message);
         process.StandardInput.Close();
 
         var stderrBuilder = new StringBuilder();
@@ -122,7 +124,8 @@ public class ClaudeService : IClaudeService, IDisposable
             agent = new AgentProcess(process, cts);
             _agents[agentKey] = agent;
 
-            await process.StandardInput.WriteAsync(message);
+            if (!continueMode)
+                await process.StandardInput.WriteAsync(message);
             process.StandardInput.Close();
 
             stderrBuilder.Clear();

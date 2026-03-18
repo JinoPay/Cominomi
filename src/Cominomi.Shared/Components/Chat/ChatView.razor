@@ -68,7 +68,9 @@
     @* Input area *@
     @if (ChatState.CurrentSession != null)
     {
-        <InputArea OnSend="HandleSend" OnCancel="HandleCancel" IsStreaming="ChatState.IsStreaming"
+        <InputArea OnSend="HandleSend" OnCancel="HandleCancel" OnContinue="HandleContinue"
+                   IsStreaming="ChatState.IsStreaming"
+                   CanContinue="@(!string.IsNullOrEmpty(ChatState.CurrentSession.ConversationId))"
                    Disabled="@(ChatState.CurrentSession.Status == SessionStatus.Archived || _isInitializingWorktree)"
                    PermissionMode="@(ChatState.CurrentSession.PermissionMode ?? "bypassAll")"
                    PermissionModeChanged="HandlePermissionModeChanged"
@@ -530,6 +532,89 @@
     private void HandleCancel()
     {
         ClaudeService.Cancel(ChatState.CurrentSession?.Id);
+    }
+
+    private Task HandleContinue()
+    {
+        if (ChatState.CurrentSession == null || string.IsNullOrEmpty(ChatState.CurrentSession.ConversationId))
+            return Task.CompletedTask;
+
+        _quickResponseVisible = false;
+        _quickResponseOptions = [];
+        _planReviewVisible = false;
+
+        _ = Task.Run(() => ProcessContinueAsync());
+        return Task.CompletedTask;
+    }
+
+    private async Task ProcessContinueAsync()
+    {
+        var session = ChatState.CurrentSession!;
+
+        ChatState.AddSystemMessage(session, "계속 진행 중...");
+        ChatState.SetStreaming(true, session.Id);
+        ChatState.SetPhase(StreamingPhase.Sending, sessionId: session.Id);
+        var assistantMsg = ChatState.StartAssistantMessage(session);
+        ChatState.RegisterActiveSession(session);
+
+        bool firstEvent = true;
+        _streamStartTime = DateTime.UtcNow;
+        var streamCtx = new StreamProcessingContext
+        {
+            Session = session,
+            AssistantMessage = assistantMsg,
+            StreamStartTime = _streamStartTime
+        };
+
+        try
+        {
+            var systemPrompt = await SystemPromptBuilder.BuildAsync(session, ChatState.CurrentWorkspace);
+
+            await foreach (var evt in ClaudeService.SendMessageAsync(
+                string.Empty,
+                session.Git.WorktreePath,
+                session.Model,
+                session.PermissionMode,
+                effortLevel: session.EffortLevel ?? "auto",
+                sessionId: session.Id,
+                conversationId: session.ConversationId,
+                systemPrompt: systemPrompt,
+                continueMode: true))
+            {
+                if (firstEvent)
+                {
+                    ChatState.SetPhase(StreamingPhase.Thinking, sessionId: session.Id);
+                    firstEvent = false;
+                }
+
+                await StreamProcessor.ProcessEventAsync(evt, streamCtx);
+            }
+
+            await StreamProcessor.FinalizeAsync(streamCtx);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during continue for session {SessionId}", session.Id);
+            if (string.IsNullOrEmpty(assistantMsg.Text))
+                ChatState.AppendText(assistantMsg, $"Error: {ex.Message}");
+            await InvokeAsync(() => Snackbar.StreamingError(ex.Message));
+        }
+        finally
+        {
+            ChatState.FinishMessage(assistantMsg);
+            ChatState.SetStreaming(false, session.Id);
+            _shouldAutoScroll = true;
+
+            _planFilePath = streamCtx.PlanFilePath;
+            _planContent = streamCtx.PlanContent;
+            _planReviewVisible = streamCtx.PlanReviewVisible;
+            _quickResponseVisible = streamCtx.QuickResponseVisible;
+            _quickResponseOptions = streamCtx.QuickResponseOptions;
+
+            await InvokeAsync(StateHasChanged);
+            await SessionService.SaveSessionAsync(session);
+            ChatState.UnregisterActiveSession(session.Id);
+        }
     }
 
     private async Task HandleIssueLinked(IssueInfo issue)
