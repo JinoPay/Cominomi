@@ -12,136 +12,21 @@
 @inject IJSRuntime JSRuntime
 @inject ILogger<ChatView> Logger
 @inject ISnackbar Snackbar
-@inject IUsageService UsageService
 @inject INotificationService NotificationService
 @inject IStreamEventProcessor StreamProcessor
 @implements IDisposable
 
 <div class="chat-container">
-    @* Workflow actions bar (Merge all) *@
-    @if (ChatState.CurrentSession != null && !ChatState.CurrentSession.Git.IsLocalDir
-         && ChatState.CurrentSession.Status is SessionStatus.Ready
-         or SessionStatus.Pushed or SessionStatus.PrOpen or SessionStatus.ConflictDetected)
-    {
-        <div class="session-workflow" style="padding: var(--space-1) var(--space-4); border-bottom: 1px solid var(--border-subtle); justify-content: flex-end;">
-            @if (ChatState.CurrentSession.Pr.IssueNumber != null)
-            {
-                <MudLink Href="@ChatState.CurrentSession.Pr.IssueUrl" Target="_blank" Typo="Typo.caption"
-                         Style="font-size: var(--text-xs); margin-right: auto;">
-                    Issue #@ChatState.CurrentSession.Pr.IssueNumber
-                </MudLink>
-            }
-            else
-            {
-                <MudIconButton Icon="@Icons.Material.Filled.BugReport" Size="Size.Small"
-                               OnClick="@(() => _linkIssueDialogOpen = true)"
-                               Style="width: 24px; height: 24px; opacity: 0.5; margin-right: auto;"
-                               Title="이슈 연결" />
-            }
-            @if (_operatingSessionId == ChatState.CurrentSession.Id)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="width: 12px; height: 12px;" />
-                <span style="font-size: var(--text-xs); opacity: 0.6;">처리 중...</span>
-            }
-            else
-            {
-                @switch (ChatState.CurrentSession.Status)
-                {
-                    case SessionStatus.Ready:
-                    case SessionStatus.Pushed:
-                        @if (!ChatState.IsStreaming)
-                        {
-                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
-                                       StartIcon="@Icons.Material.Filled.RocketLaunch"
-                                       OnClick="@(() => CreatePr(ChatState.CurrentSession))"
-                                       Style="text-transform: none; font-size: var(--text-xs); min-width: 0; padding: 0 var(--space-2); height: 24px;">
-                                PR 생성
-                            </MudButton>
-                        }
-                        break;
-                    case SessionStatus.PrOpen:
-                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning"
-                                   StartIcon="@Icons.Material.Filled.MergeType"
-                                   OnClick="@(() => MergePr(ChatState.CurrentSession))"
-                                   Style="text-transform: none; font-size: var(--text-xs); min-width: 0; padding: 0 var(--space-2); height: 24px;">
-                            병합
-                        </MudButton>
-                        @if (!string.IsNullOrEmpty(ChatState.CurrentSession.Pr.PrUrl))
-                        {
-                            <MudLink Href="@ChatState.CurrentSession.Pr.PrUrl" Target="_blank" Typo="Typo.caption"
-                                     Style="font-size: var(--text-xs);">
-                                #@ChatState.CurrentSession.Pr.PrNumber
-                            </MudLink>
-                        }
-                        break;
-                    case SessionStatus.ConflictDetected:
-                        <span style="font-size: var(--text-xs); color: #f38ba8; font-weight: 600;">충돌</span>
-                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
-                                   OnClick="@(() => ResolveConflicts(ChatState.CurrentSession))"
-                                   Style="text-transform: none; font-size: var(--text-xs); min-width: 0; padding: 0 var(--space-2); height: 24px;">
-                            해결
-                        </MudButton>
-                        break;
-                }
-
-                @if (!string.IsNullOrEmpty(ChatState.CurrentSession.ErrorMessage))
-                {
-                    <MudTooltip Text="@ChatState.CurrentSession.ErrorMessage">
-                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Error"
-                                 Style="width: 14px; height: 14px;" />
-                    </MudTooltip>
-                    @if (ChatState.CurrentSession.ErrorMessage.Contains("rejected", StringComparison.OrdinalIgnoreCase))
-                    {
-                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning"
-                                   OnClick="@(() => ForcePushAndMerge(ChatState.CurrentSession))"
-                                   Style="text-transform: none; font-size: var(--text-xs); min-width: 0; padding: 0 var(--space-1); height: 24px;">
-                            강제 푸시
-                        </MudButton>
-                    }
-                }
-            }
-        </div>
-    }
+    @* Workflow actions bar *@
+    <SessionWorkflowBar Session="ChatState.CurrentSession"
+                        OnLinkIssueRequested="@(() => _linkIssueDialogOpen = true)"
+                        OnSendMessage="HandleSend" />
 
     @* Message area *@
     <div class="message-area" id="message-list">
         @if (ChatState.CurrentSession == null)
         {
-            <div class="landing-container">
-                <div class="landing-logo">
-                    <svg width="48" height="48" viewBox="0 0 456 456" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="68" y="78" width="320" height="240" rx="40" ry="40" fill="currentColor" opacity="0.8" />
-                        <polygon points="108,318 68,378 168,318" fill="currentColor" opacity="0.8" />
-                        <polyline points="148,158 208,198 148,238" fill="none" stroke="var(--bg-base)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" />
-                        <line x1="228" y1="238" x2="308" y2="238" stroke="var(--bg-base)" stroke-width="30" stroke-linecap="round" />
-                    </svg>
-                </div>
-                <h2 class="landing-heading">Cominomi</h2>
-                <p class="landing-subtitle">AI 코딩 어시스턴트</p>
-
-                <div class="landing-actions">
-                    <button class="landing-action-card" @onclick="LandingCreateWorkspace">
-                        <MudIcon Icon="@Icons.Material.Filled.CreateNewFolder" Style="font-size: 20px;" />
-                        <div class="landing-action-text">
-                            <span class="landing-action-title">워크스페이스 만들기</span>
-                        </div>
-                    </button>
-                </div>
-
-                @if (_recentSessions.Count > 0)
-                {
-                    <div class="landing-recents">
-                        <span class="landing-recents-label">최근 대화</span>
-                        @foreach (var recent in _recentSessions)
-                        {
-                            <button class="landing-recent-item" @onclick="@(() => ResumeRecentSession(recent))">
-                                <span class="status-dot @GetStatusDotClass(recent.Status)"></span>
-                                <span class="landing-recent-title">@recent.Title</span>
-                            </button>
-                        }
-                    </div>
-                }
-            </div>
+            <LandingPage @ref="_landingPage" />
         }
         else if (ChatState.CurrentSession.Messages.Count == 0)
         {
@@ -150,71 +35,10 @@
                 <span class="welcome-title">무엇을 도와드릴까요?</span>
                 @if (ChatState.CurrentSession.Status == SessionStatus.Pending)
                 {
-                    @if (_isLoadingBranches)
-                    {
-                        <div class="branch-selector-loading">
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                                 Style="width: 14px; height: 14px; color: var(--accent);" />
-                            <span>브랜치 불러오는 중...</span>
-                        </div>
-                    }
-                    else if (_branchGroups.Count > 0)
-                    {
-                        <div class="branch-selector-wrapper">
-                            <button class="branch-selector-pill" type="button" @onclick="ToggleBranchMenu">
-                                <MudIcon Icon="@Icons.Material.Filled.AccountTree"
-                                         Style="font-size: 16px; opacity: 0.7;" />
-                                <span class="branch-selector-name">@_selectedBranch</span>
-                                <MudIcon Icon="@Icons.Material.Filled.UnfoldMore"
-                                         Style="font-size: 16px; opacity: 0.4;" />
-                            </button>
-
-                            <MudPopover Open="@_branchMenuOpen" AnchorOrigin="Origin.BottomCenter"
-                                        TransformOrigin="Origin.TopCenter" Class="branch-popover">
-                                <div class="branch-search-container">
-                                    <MudTextField T="string" @bind-Value="_branchSearchText"
-                                                  Placeholder="브랜치 검색..."
-                                                  Variant="Variant.Text"
-                                                  Immediate="true"
-                                                  Adornment="Adornment.Start"
-                                                  AdornmentIcon="@Icons.Material.Filled.Search"
-                                                  Style="font-size: var(--text-sm);" />
-                                </div>
-                                <MudList T="string" Dense="true" Class="branch-list">
-                                    @foreach (var group in FilteredBranchGroups)
-                                    {
-                                        <div class="branch-group-header">@group.Name</div>
-                                        @foreach (var branch in group.Branches)
-                                        {
-                                            <MudListItem T="string" OnClick="@(() => SelectBranch(branch))"
-                                                         Class="@(branch == _selectedBranch ? "branch-item-active" : "")">
-                                                <div class="branch-item-content">
-                                                    <MudIcon Icon="@Icons.Material.Filled.AccountTree"
-                                                             Style="font-size: 14px; opacity: 0.5;" />
-                                                    <span class="branch-item-name">@branch</span>
-                                                    @if (branch == _selectedBranch)
-                                                    {
-                                                        <MudIcon Icon="@Icons.Material.Filled.Check"
-                                                                 Style="font-size: 14px; color: var(--accent);" />
-                                                    }
-                                                </div>
-                                            </MudListItem>
-                                        }
-                                    }
-                                    @if (!FilteredBranchGroups.Any())
-                                    {
-                                        <div class="branch-no-results">일치하는 브랜치 없음</div>
-                                    }
-                                </MudList>
-                            </MudPopover>
-
-                            @if (_branchMenuOpen)
-                            {
-                                <MudOverlay Visible="true" OnClick="CloseBranchMenu"
-                                            DarkBackground="false" ZIndex="1" />
-                            }
-                        </div>
-                    }
+                    <BranchSelector BranchGroups="_branchGroups"
+                                    SelectedBranch="@_selectedBranch"
+                                    SelectedBranchChanged="@(b => _selectedBranch = b)"
+                                    IsLoading="_isLoadingBranches" />
                 }
             </div>
         }
@@ -263,7 +87,6 @@
     private List<BranchGroup> _branchGroups = [];
     private string _selectedBranch = "";
     private bool _isInitializingWorktree;
-    private string? _operatingSessionId;
     private bool _linkIssueDialogOpen;
     private bool _quickResponseVisible;
     private List<string> _quickResponseOptions = [];
@@ -272,46 +95,13 @@
     private string? _planContent;
     private DateTime _streamStartTime;
     private string? _lastPrCheckedSessionId;
+    private bool _shouldAutoScroll;
+    private bool _isLoadingBranches;
+    private LandingPage? _landingPage;
 
-    private List<Session> _recentSessions = [];
-
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         ChatState.OnChange += HandleStateChanged;
-        await LoadRecentSessions();
-    }
-
-    private bool _isLoadingBranches;
-    private bool _branchMenuOpen;
-    private string _branchSearchText = "";
-
-    private IEnumerable<BranchGroup> FilteredBranchGroups =>
-        string.IsNullOrWhiteSpace(_branchSearchText)
-            ? _branchGroups
-            : _branchGroups
-                .Select(g => new BranchGroup(g.Name,
-                    g.Branches.Where(b => b.Contains(_branchSearchText, StringComparison.OrdinalIgnoreCase)).ToList()))
-                .Where(g => g.Branches.Count > 0)
-                .ToList();
-
-    private void ToggleBranchMenu()
-    {
-        _branchMenuOpen = !_branchMenuOpen;
-        if (!_branchMenuOpen) _branchSearchText = "";
-    }
-
-    private void CloseBranchMenu()
-    {
-        _branchMenuOpen = false;
-        _branchSearchText = "";
-    }
-
-    private void SelectBranch(string branch)
-    {
-        _selectedBranch = branch;
-        _branchMenuOpen = false;
-        _branchSearchText = "";
     }
 
     private void HandleStateChanged()
@@ -356,7 +146,7 @@
                     _ = LoadBranchesInBackground();
 
                 if (ChatState.CurrentSession == null)
-                    _ = LoadRecentSessions().ContinueWith(_ => InvokeAsync(StateHasChanged));
+                    _ = _landingPage?.RefreshAsync();
 
                 // 세션 전환 시 GitHub PR 상태 자동 확인
                 if (ChatState.CurrentSession != null
@@ -382,7 +172,6 @@
         _planFilePath = null;
         _planContent = null;
 
-        // Try saved plan file path first
         if (!string.IsNullOrEmpty(savedPlanFilePath) && File.Exists(savedPlanFilePath))
         {
             _planFilePath = savedPlanFilePath;
@@ -390,7 +179,6 @@
         }
         else
         {
-            // Fallback: find most recent plan file (no timestamp filter for restore)
             var plansDir = Path.Combine(worktreePath, ".claude", "plans");
             if (Directory.Exists(plansDir))
             {
@@ -443,8 +231,6 @@
         await SessionService.SaveSessionAsync(ChatState.CurrentSession);
     }
 
-    private bool _shouldAutoScroll;
-
     private Task HandleQuickResponse(string response)
     {
         _quickResponseVisible = false;
@@ -477,7 +263,6 @@
                 break;
 
             case PlanReviewAction.Advice:
-                // Handled by OnAdvice callback in PlanReviewBar
                 break;
 
             case PlanReviewAction.Reject:
@@ -492,7 +277,6 @@
     private async Task HandlePlanAdvice(string advice)
     {
         _planReviewVisible = false;
-        // Stay in plan mode — send feedback and let Claude revise the plan
         await HandleSend(new ChatInputMessage
         {
             Text = $"플랜에 대한 피드백: {advice}\n\n이 피드백을 반영하여 플랜을 수정해주세요."
@@ -578,17 +362,13 @@
         else
             ChatState.AddUserMessage(session, input.Text);
 
-        // Save immediately so user message persists even if navigation occurs mid-stream
         await SessionService.SaveSessionAsync(session);
-
-        // Register so switching back to this session uses the live in-memory object
         ChatState.RegisterActiveSession(session);
 
         ChatState.SetStreaming(true, session.Id);
         ChatState.SetPhase(StreamingPhase.Sending, sessionId: session.Id);
         var assistantMsg = ChatState.StartAssistantMessage(session);
 
-        // Summarize with Haiku before main model processing to set title & branch name
         if (isFirstMessage && session.Status == SessionStatus.Ready && !string.IsNullOrWhiteSpace(input.Text))
         {
             ChatState.SetPhase(StreamingPhase.Preparing, sessionId: session.Id);
@@ -656,7 +436,6 @@
             ChatState.SetStreaming(false, session.Id);
             _shouldAutoScroll = true;
 
-            // Apply finalized stream context results to UI state
             _planFilePath = streamCtx.PlanFilePath;
             _planContent = streamCtx.PlanContent;
             _planReviewVisible = streamCtx.PlanReviewVisible;
@@ -688,7 +467,6 @@
                 }
             });
 
-            // Check if AI created a PR during this conversation
             if (session.Status == SessionStatus.Pushed && !string.IsNullOrEmpty(session.Git.BranchName))
             {
                 _ = CheckAndUpdatePrStatus(session);
@@ -731,12 +509,10 @@
         }
     }
 
-
     private async Task SendNotificationIfNeeded(Session session, string body, NotificationType type)
     {
         try
         {
-            // Only send if window is not focused or viewing a different session
             var isFocused = await JSRuntime.InvokeAsync<bool>("isWindowFocused");
             var isCurrentSession = ChatState.CurrentSession?.Id == session.Id;
 
@@ -753,96 +529,6 @@
         ClaudeService.Cancel(ChatState.CurrentSession?.Id);
     }
 
-    // Workflow: send PR creation request to AI
-    private async Task CreatePr(Session session)
-    {
-        try
-        {
-            var prompt = await PrWorkflow.BuildCreatePrPromptAsync(session);
-            _ = HandleSend(new ChatInputMessage { Text = prompt });
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "CreatePr failed for session {SessionId}", session.Id);
-            Snackbar.MergeError(ex.Message);
-        }
-    }
-
-    // Workflow: merge an existing PR
-    private async Task MergePr(Session session)
-    {
-        _operatingSessionId = session.Id;
-        StateHasChanged();
-        try
-        {
-            var (status, error) = await PrWorkflow.MergePrAsync(session);
-            session.TransitionStatus(status);
-            session.ErrorMessage = error;
-
-            if (status == SessionStatus.Merged)
-            {
-                Snackbar.MergeSuccess(session.Git.BranchName);
-                _ = SendNotificationIfNeeded(session, $"Branch {session.Git.BranchName} merged", NotificationType.Success);
-            }
-            else if (status == SessionStatus.ConflictDetected)
-                Snackbar.ConflictDetected(session.Git.BranchName);
-            else if (!string.IsNullOrEmpty(error))
-                Snackbar.MergeError(error);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "MergePr failed for session {SessionId}", session.Id);
-            session.ErrorMessage = ex.Message;
-            Snackbar.MergeError(ex.Message);
-        }
-        finally { _operatingSessionId = null; StateHasChanged(); }
-    }
-
-    private async Task ForcePushAndMerge(Session session)
-    {
-        _operatingSessionId = session.Id;
-        StateHasChanged();
-        try
-        {
-            var (status, error) = await PrWorkflow.ForcePushAsync(session);
-            session.TransitionStatus(status);
-            session.ErrorMessage = error;
-
-            if (status != SessionStatus.Pushed)
-            {
-                if (!string.IsNullOrEmpty(error))
-                    Snackbar.PushError(error);
-                return;
-            }
-
-            session.ErrorMessage = null;
-            Snackbar.Add("강제 푸시 완료. PR을 생성하세요.", Severity.Success);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "ForcePushAndMerge failed for session {SessionId}", session.Id);
-            session.ErrorMessage = ex.Message;
-            Snackbar.MergeError(ex.Message);
-        }
-        finally { _operatingSessionId = null; StateHasChanged(); }
-    }
-
-    private async Task ResolveConflicts(Session session)
-    {
-        session.TransitionStatus(SessionStatus.Ready);
-        session.ErrorMessage = null;
-        session.Pr.ConflictFiles = null;
-
-        var (fullSession, prompt) = await PrWorkflow.ResolveConflictsAsync(session);
-        if (fullSession != null)
-        {
-            ChatState.SetPendingMessage(prompt);
-            ChatState.SetSession(fullSession);
-        }
-
-        StateHasChanged();
-    }
-
     private async Task HandleIssueLinked(IssueInfo issue)
     {
         if (ChatState.CurrentSession == null) return;
@@ -850,46 +536,6 @@
         ChatState.CurrentSession.Pr.IssueUrl = issue.Url;
         await SessionService.SaveSessionAsync(ChatState.CurrentSession);
         StateHasChanged();
-    }
-
-    // === Landing page helpers ===
-
-    private static string GetStatusDotClass(SessionStatus status) => status switch
-    {
-        SessionStatus.Ready => "ready",
-        SessionStatus.Pushed => "pushed",
-        SessionStatus.PrOpen => "pr-open",
-        SessionStatus.Merged => "merged",
-        SessionStatus.ConflictDetected => "conflict",
-        SessionStatus.Error => "error",
-        SessionStatus.Pending => "pending",
-        _ => "pending"
-    };
-
-    private async Task LoadRecentSessions()
-    {
-        if (ChatState.CurrentWorkspace == null) { _recentSessions = []; return; }
-        try
-        {
-            var sessions = await SessionService.GetSessionsByWorkspaceAsync(ChatState.CurrentWorkspace.Id);
-            _recentSessions = sessions
-                .Where(s => s.Status != SessionStatus.Archived && !string.IsNullOrEmpty(s.Title))
-                .OrderByDescending(s => s.UpdatedAt)
-                .Take(3)
-                .ToList();
-        }
-        catch { _recentSessions = []; }
-    }
-
-    private void LandingCreateWorkspace()
-    {
-        ChatState.RequestCreateWorkspace();
-    }
-
-    private async Task ResumeRecentSession(Session session)
-    {
-        var fullSession = await SessionService.LoadSessionAsync(session.Id);
-        if (fullSession != null) ChatState.SetSession(fullSession);
     }
 
     public void Dispose()
