@@ -64,6 +64,11 @@ Rules:
         }
         catch (Exception ex) { _logger.LogDebug(ex, "Failed to load memory for system prompt"); }
 
-        return parts.Count > 0 ? string.Join("\n\n", parts) : null;
+        if (parts.Count == 0) return null;
+
+        var combined = string.Join("\n\n", parts);
+        return TokenEstimator.Estimate(combined) <= CominomiConstants.MaxSystemPromptTokens
+            ? combined
+            : TokenEstimator.Truncate(combined, CominomiConstants.MaxSystemPromptTokens);
     }
 }
