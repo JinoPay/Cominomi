@@ -147,9 +147,18 @@ public class ClaudeService : IClaudeService
             stderr = stderrBuilder.ToString().Trim();
         }
 
-        if (!string.IsNullOrEmpty(stderr) && process.ExitCode != 0)
+        var hasStderrError = false;
+        var exitCode = 0;
+        try
         {
-            _logger.LogWarning("Claude process exited with code {ExitCode}: {Stderr}", process.ExitCode, stderr);
+            exitCode = process.ExitCode;
+            hasStderrError = !string.IsNullOrEmpty(stderr) && exitCode != 0;
+        }
+        catch { /* process disposed during cancellation */ }
+
+        if (hasStderrError)
+        {
+            _logger.LogWarning("Claude process exited with code {ExitCode}: {Stderr}", exitCode, stderr);
             yield return new StreamEvent
             {
                 Type = "error",
@@ -157,7 +166,7 @@ public class ClaudeService : IClaudeService
             };
         }
 
-        process.Dispose();
+        try { process.Dispose(); } catch { }
         _agents.TryRemove(agentKey, out _);
     }
 
@@ -201,23 +210,27 @@ public class ClaudeService : IClaudeService
                 if (!string.IsNullOrWhiteSpace(errLine))
                     sb.Append(errLine);
             }
-            catch (OperationCanceledException) { }
+            catch { /* cancelled or stream disposed */ }
         }, token);
     }
 
     private static async Task FinishProcess(Process process, CancellationToken token)
     {
-        if (token.IsCancellationRequested && process is { HasExited: false })
+        try
         {
-            try { process.Kill(entireProcessTree: true); } catch { }
-        }
+            if (token.IsCancellationRequested && process is { HasExited: false })
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+            }
 
-        if (process is { HasExited: false })
-        {
-            using var exitCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            try { await process.WaitForExitAsync(exitCts.Token); }
-            catch (OperationCanceledException) { try { process.Kill(entireProcessTree: true); } catch { } }
+            if (process is { HasExited: false })
+            {
+                using var exitCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                try { await process.WaitForExitAsync(exitCts.Token); }
+                catch (OperationCanceledException) { try { process.Kill(entireProcessTree: true); } catch { } }
+            }
         }
+        catch { /* process already disposed by cancellation */ }
     }
 
     private async Task<CliCapabilities> DetectCapabilitiesAsync(string fileName, string baseArgs)
@@ -349,11 +362,12 @@ public class ClaudeService : IClaudeService
         public void Cancel()
         {
             _cts.Cancel();
-            if (_process is { HasExited: false })
+            try
             {
-                try { _process.Kill(entireProcessTree: true); } catch { }
-                _process.Dispose();
+                if (_process is { HasExited: false })
+                    try { _process.Kill(entireProcessTree: true); } catch { }
             }
+            catch { /* process already disposed */ }
         }
     }
 }
