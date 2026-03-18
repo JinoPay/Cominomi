@@ -51,6 +51,13 @@
 | `AttachmentChips.razor` (신규, ~30줄) | InputArea에서 첨부파일 칩 표시 추출 — 순수 표시 컴포넌트 |
 | `InputArea.razor` 분해 | 460→~340줄(26%↓). 모델 선택 관련 상태/메서드 5개 + 첨부 칩 마크업을 자식 컴포넌트로 추출 |
 
+### 구조 개선 Phase 12 (2026-03-19) — 차기 개선 후보 #4 해결 (MCP 서버 수정)
+| 변경 내용 | 역할 / 영향 범위 |
+|-----------|-----------------|
+| `IMcpService.cs` 변경 | `UpdateServerAsync` 메서드 추가 — 기존 서버 제거 후 새 설정으로 재추가 |
+| `McpService.cs` 변경 | `UpdateServerAsync` 구현 — `RemoveServerAsync` + `AddServerAsync` 조합으로 원자적 업데이트 |
+| `McpManagerDialog.razor` 변경 | 서버 목록에 수정 버튼 추가, 탭 제목/아이콘 동적 전환, 편집 모드 진입/저장/취소 플로우 구현 |
+
 ### 구조 개선 Phase 11 (2026-03-19) — 차기 개선 후보 #5 해결 (스트리밍)
 | 변경 내용 | 역할 / 영향 범위 |
 |-----------|-----------------|
@@ -323,7 +330,7 @@
 | `Shared/Services/AppPaths.cs` | 23 | 디렉토리 경로 정의 |
 | `Shared/Services/JsonDefaults.cs` | 12 | 공유 직렬화 옵션 |
 | `Shared/Services/SettingsService.cs` | 38 | settings.json 캐시 |
-| `Shared/Services/UsageService.cs` | 196 | usage.jsonl (별도 위치!) |
+| `Shared/Services/UsageService.cs` | 196 | usage.jsonl (`AppPaths.Usage` 통합) |
 
 ### 현재 동작
 
@@ -343,11 +350,12 @@
 │   └── {uuid}.json
 ├── tasks/                 ← TaskService
 │   └── {uuid}.json
+├── usage.jsonl            ← UsageService (AppPaths.Usage로 통합)
 └── archived-contexts/     ← SessionService (아카이브)
     └── {workspaceName}/{sessionName}/.context/
 ```
 
-**별도 위치**: `UsageService`는 `Environment.SpecialFolder.LocalApplicationData`에 `usage.jsonl`을 저장 (다른 데이터와 불일치).
+~~**별도 위치**: `UsageService`는 `Environment.SpecialFolder.LocalApplicationData`에 `usage.jsonl`을 저장 (다른 데이터와 불일치).~~ → ✅ **해결**: `AppPaths.Usage`로 통합, 모든 데이터가 `ApplicationData/Cominomi/` 하위에 저장.
 
 **읽기 패턴**: 모든 서비스가 `Directory.GetFiles(dir, "*.json")` → 파일마다 `File.ReadAllTextAsync` → `JsonSerializer.Deserialize` → 실패 시 로그 경고 후 건너뜀.
 
@@ -359,7 +367,7 @@
 - `LoadSessionAsync()`: 메타데이터 로드 후 `.messages.json`에서 메시지 별도 로드 + `MigrateToParts()` 호출. 이전 단일 파일 형식도 자동 호환 (메시지가 인라인에 있으면 그대로 사용)
 
 ### 빠진 것 / 문제점
-- **Usage 위치 불일치**: `AppData/Roaming`과 `AppData/Local`에 분산 저장
+- ~~**Usage 위치 불일치**: `AppData/Roaming`과 `AppData/Local`에 분산 저장~~ → ✅ **해결**
 
 ---
 
@@ -481,7 +489,7 @@ macOS/Linux: /bin/sh
 ### 빠진 것 / 문제점
 - **셸 감지 1회 캐싱**: 앱 실행 후 Git 설치하면 재시작 필요
 - **WhichAsync 3초 고정 타임아웃**: 에러 전파 없음, 실패 시 null 반환
-- **IProcessRunner stderr bare catch**: `StreamingProcess._stderrTask`의 `catch { }` 블록(`IProcessRunner.cs:75`)이 stderr 에러 정보 손실
+- ~~**IProcessRunner stderr bare catch**~~: ✅ 해결 — `StreamingProcess`에 `ILogger` 주입, `DisposeAsync()`의 bare catch를 로깅으로 교체
 
 ---
 
@@ -990,7 +998,7 @@ case "error"                            → 에러 메시지 추가
 - ~~**SessionList 719줄 God Component**~~ → ✅ **해결**: Phase 3에서 `SessionItem.razor`+`SessionListToolbar.razor` 자식 컴포넌트 추출(719→634줄). Phase 4에서 `SessionListDataService`로 데이터/캐시/필터 로직 추출(634→479줄). 총 33%↓
 - ~~**가상화 없음**: 세션이 많아지면 전체 DOM에 렌더링~~ → ✅ **해결**: 워크스페이스별 개별 `<Virtualize>` → 전체 사이드바를 단일 플랫 리스트(`SidebarRow` record)로 변환 후 하나의 `<Virtualize>` 적용. 프로젝트 헤더·워크스페이스 서브헤더·세션 아이템을 `SidebarRowKind` enum으로 구분
 - ~~**세션 선택 시 전체 로드**: `LoadSessionAsync()`가 전체 메시지 포함 파일을 동기적으로 읽음. 대형 세션은 UI 버벅임~~ → ✅ **해결**: `LoadSessionAsync` 2초 TTL 캐시 도입 (#134). 동일 세션 재로드 시 캐시 히트
-- **FileSystemWatcher 플러딩**: Windows에서 빠른 파일 변경 시 이벤트 폭주 → UI 업데이트 과다
+- ~~**FileSystemWatcher 플러딩**: Windows에서 빠른 파일 변경 시 이벤트 폭주 → UI 업데이트 과다~~ → ✅ **해결**: SpotlightService에서 Stop/Start 디바운스를 flag 기반 throttle로 전환. `InternalBufferSize` 64KB 확대 + `Error` 이벤트 핸들러 추가
 
 ---
 
@@ -1142,16 +1150,16 @@ case "error"                            → 에러 메시지 추가
 ### 관련 파일
 | 파일 | 줄수 | 역할 |
 |------|------|------|
-| `Shared/Services/McpService.cs` | 197 | MCP 서버 관리 |
+| `Shared/Services/McpService.cs` | ~267 | MCP 서버 관리 (추가/삭제/수정) |
 | `Shared/Models/McpServer.cs` | ~21 | 서버 모델 |
-| `Shared/Components/Settings/McpManagerDialog.razor` | ~342 | 관리 UI |
+| `Shared/Components/Settings/McpManagerDialog.razor` | ~419 | 관리 UI (목록/추가/수정/가져오기) |
 
 ### 현재 동작
 ~~`claude mcp list` CLI 텍스트 테이블 regex 파싱~~ → ✅ **해결**: `~/.claude/mcp.json` + `.claude/mcp.json` JSON 설정 파일 직접 읽기로 교체. Command, Args, Env, Url 등 전체 서버 정보 획득. `claude mcp add`, `claude mcp remove`는 여전히 CLI 래핑.
 
 ### 빠진 것 / 문제점
 - ~~**텍스트 테이블 regex 파싱**: CLI 출력 형식 변경 시 즉시 깨짐~~ → ✅ **해결**: JSON 파일 직접 읽기로 교체
-- **기존 서버 수정 불가**: 삭제 후 재추가만 가능
+- ~~**기존 서버 수정 불가**: 삭제 후 재추가만 가능~~ → ✅ **해결**: `UpdateServerAsync` (remove + add) + 편집 모드 UI 도입. 서버 목록에서 수정 버튼 클릭 → 폼 자동 채움 → 저장
 - **Windows cmd 셸 호환 문제**: `ImportFromJsonAsync`가 작은따옴표 사용
 
 ---
@@ -1219,7 +1227,7 @@ case "error"                            → 에러 메시지 추가
 3. 메인 리포에서 uncommitted 변경 stash (sessionId별 고유 이름)
 4. 세션 브랜치로 checkout
 5. 워크트리 파일을 메인 리포로 복사
-6. FileSystemWatcher로 워크트리 변경 감시 (500ms 디바운스)
+6. FileSystemWatcher로 워크트리 변경 감시 (500ms throttle, flag 기반)
 7. 변경 시 자동 동기화
 
 종료:
@@ -1279,7 +1287,7 @@ case "error"                            → 에러 메시지 추가
 - ~~하드코딩 가격~~ → ✅ `ModelDefinitions.GetPricing(modelId)`으로 위임. 가격은 `ModelPricing` 레코드에 통합
 - 기본 내장 가격: Opus $15/$75, Sonnet $3/$15, Haiku $0.80/$4.00 (1M 토큰당). `models.json`으로 변경 가능
 - 캐시 할인: write 1.25x, read 0.1x
-- 저장 경로: `CominomiConstants.AppName` 상수 사용 (`LocalApplicationData/Cominomi/usage.jsonl`)
+- ~~저장 경로: `CominomiConstants.AppName` 상수 사용 (`LocalApplicationData/Cominomi/usage.jsonl`)~~ → ✅ **해결**: `AppPaths.Usage`로 통합 (`ApplicationData/Cominomi/usage.jsonl`)
 
 ### 빠진 것 / 문제점
 - ~~**가격 하드코딩**: Anthropic 가격 변경 시 코드 수정 필요~~ → ✅ **해결**: `models.json` 외부 설정 파일로 가격 변경 가능
@@ -1597,23 +1605,21 @@ SessionList ───→ SessionListDataService          ← Phase 4 추출
 |------|------|------|-----------|--------|
 | **1** | **ChatView 697줄 재비대화** — Phase 13 Continue 기능 추가로 548→697줄 재성장. 서비스 주입 13개 유지 | 유지보수성 저하, 테스트 불가, SRP 위반 | §10 | 중 |
 | **2** | **테스트 커버리지 부족** — 12개 테스트 파일 / 75+개 서비스. ClaudeService·GitService·SessionService 등 핵심 서비스 테스트 부재 | 회귀 방지 불가, 리팩토링 안전망 없음 | §25 | 높 |
-| **3** | **GitService ParseDiff " b/" 파싱 취약** — `LastIndexOf(" b/")` 패턴이 `ParseDiff`(정적)과 `GetDiffSummaryAsync`(스트리밍) 양쪽에 존재. 경로에 " b/" 포함 시 오파싱 | diff 표시 오류 | §5 | 낮 |
-| **4** | **SessionService 캐시 무한 성장** — `_metadataCache`·`_sessionCache` ConcurrentDictionary에 만료/퇴출 정책 없음. 삭제된 세션도 캐시에 잔류 가능 | 장기 실행 시 메모리 누수 | §8 | 중 |
-| **5** | **SessionList 8개 서비스 과다 주입** — 컴포넌트가 8개 서비스에 직접 의존. 파사드 서비스로 위임 필요 | 커플링, 테스트 난이도 | §12 | 중 |
-| **6** | **Usage 저장 경로 불일치** — `AppData/Roaming`(설정·세션)과 `AppData/Local`(usage.jsonl) 분산. 백업/이관 시 누락 위험 | 운영, 데이터 일관성 | §20 | 낮 |
-| **7** | **ParseDiff 레거시 코드 잔류** — static `ParseDiff` 메서드가 `GetDiffSummaryAsync`와 기능 중복. 둘 다 동일 " b/" 취약점 공유 | 코드 중복, 유지보수 혼란 | §5 | 낮 |
-| **8** | **IProcessRunner stderr bare catch** — `StreamingProcess._stderrTask`의 `catch { }` 블록(`IProcessRunner.cs:75`)이 stderr 에러 정보 손실 | 디버깅 어려움 | §4 | 낮 |
-| **9** | **ContentGrouper 중간 텍스트 휴리스틱** — 하드코딩된 한국어/영어 패턴으로 텍스트 분류. 다국어 확장 시 패턴 폭발 | 렌더링 오분류 | §13 | 낮 |
+| ~~**3**~~ | ~~**StreamEventProcessor 516줄 switch 아키텍처**~~ ✅ — 핸들러 레지스트리 패턴으로 리팩토링. 10개 개별 핸들러 + Dictionary 디스패치 | ~~확장성, 유지보수성~~ | §10.5 | ~~완료~~ |
+| **4** | **GitService ParseDiff " b/" 파싱 취약** — `LastIndexOf(" b/")` 패턴이 `ParseDiff`(정적)과 `GetDiffSummaryAsync`(스트리밍) 양쪽에 존재. 경로에 " b/" 포함 시 오파싱 | diff 표시 오류 | §5 | 낮 |
+| **5** | **SessionService 캐시 무한 성장** — `_metadataCache`·`_sessionCache` ConcurrentDictionary에 만료/퇴출 정책 없음. 삭제된 세션도 캐시에 잔류 가능 | 장기 실행 시 메모리 누수 | §8 | 중 |
+| ~~**6**~~ | ~~**SessionList 8개 서비스 과다 주입** — `ISessionListFacade` 파사드 도입으로 8→4 서비스 축소 완료~~ | ~~커플링, 테스트 난이도~~ | ~~§12~~ | ~~완료~~ |
+| ~~**7**~~ | ~~**Usage 저장 경로 불일치** — `AppPaths.Usage`로 통합 완료. `UsageService`가 `LocalApplicationData` 직접 참조 제거~~ | ~~해결~~ | ~~§20~~ | ~~완료~~ |
+| **8** | **ParseDiff 레거시 코드 잔류** — static `ParseDiff` 메서드가 `GetDiffSummaryAsync`와 기능 중복. 둘 다 동일 " b/" 취약점 공유 | 코드 중복, 유지보수 혼란 | §5 | 낮 |
+| ~~**9**~~ | ~~**IProcessRunner stderr bare catch**~~ ✅ — `StreamingProcess`에 `ILogger` 주입, bare catch를 로깅으로 교체 | ~~디버깅 어려움~~ | §4 | 낮 |
+| **10** | **ContentGrouper 중간 텍스트 휴리스틱** — 하드코딩된 한국어/영어 패턴으로 텍스트 분류. 다국어 확장 시 패턴 폭발 | 렌더링 오분류 | §13 | 낮 |
 
 ### 차기 개선 후보
 
 | 순위 | 문제 | 영향 | 관련 섹션 | 난이도 |
 |------|------|------|-----------|--------|
-| **1** | **ToolCallCard JSON 매 렌더 파싱** — 도구 입력 JSON을 캐싱 없이 매 렌더마다 `JsonSerializer.Deserialize` | 렌더 성능 | §13 | 낮 |
-| **2** | **FileSystemWatcher 이벤트 폭주** — Windows에서 빠른 파일 변경 시 이벤트 과다 → UI 업데이트 과부하 | UI 버벅임 | §12 | 중 |
-| **3** | **알림 히스토리 없음** — 놓친 알림을 확인할 방법 없음 | UX | §21 | 중 |
-| **4** | **MCP 서버 수정 불가** — 기존 서버 설정 변경이 불가. 삭제 후 재추가만 가능 | UX | §16 | 낮 |
-| **5** | **스킬 체이닝 불가** — `/commit` 후 `/review` 같은 워크플로우 자동화 미지원 | 생산성 | §15 | 중 |
+| **1** | **알림 히스토리 없음** — 놓친 알림을 확인할 방법 없음 | UX | §21 | 중 |
+| **2** | **스킬 체이닝 불가** — `/commit` 후 `/review` 같은 워크플로우 자동화 미지원 | 생산성 | §15 | 중 |
 
 ---
 
