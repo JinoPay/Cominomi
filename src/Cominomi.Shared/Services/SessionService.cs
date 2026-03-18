@@ -24,6 +24,10 @@ public partial class SessionService : ISessionService
     private readonly ConcurrentDictionary<string, Session> _metadataCache = new();
     private volatile bool _cacheInitialized;
 
+    // Full session cache: avoids redundant disk reads for the same session within a short window
+    private readonly ConcurrentDictionary<string, (Session Session, DateTime LoadedAt)> _sessionCache = new();
+    private static readonly TimeSpan SessionCacheTtl = TimeSpan.FromSeconds(2);
+
     public SessionService(IGitService gitService, IWorkspaceService workspaceService,
         IOptionsMonitor<AppSettings> appSettings, IContextService contextService, IHooksEngine hooksEngine,
         ILogger<SessionService> logger)
@@ -257,6 +261,13 @@ public partial class SessionService : ISessionService
 
     public async Task<Session?> LoadSessionAsync(string sessionId)
     {
+        // Return cached session if still fresh (avoids redundant disk I/O in pipelines)
+        if (_sessionCache.TryGetValue(sessionId, out var cached) &&
+            DateTime.UtcNow - cached.LoadedAt < SessionCacheTtl)
+        {
+            return cached.Session;
+        }
+
         var path = Path.Combine(_sessionsDir, $"{sessionId}.json");
         if (!File.Exists(path))
             return null;
@@ -281,6 +292,7 @@ public partial class SessionService : ISessionService
         foreach (var msg in session.Messages)
             msg.MigrateToParts();
 
+        _sessionCache[sessionId] = (session, DateTime.UtcNow);
         return session;
     }
 
@@ -314,6 +326,9 @@ public partial class SessionService : ISessionService
 
             var metadataPath = Path.Combine(_sessionsDir, $"{session.Id}.json");
             await AtomicFileWriter.WriteAsync(metadataPath, metadataJson);
+
+            // Invalidate full session cache so next LoadSessionAsync re-reads from disk
+            _sessionCache[session.Id] = (session, DateTime.UtcNow);
 
             // Update in-memory cache with a metadata-only clone
             var cached = JsonSerializer.Deserialize<Session>(metadataJson, JsonDefaults.Options);
@@ -446,6 +461,7 @@ public partial class SessionService : ISessionService
 
         session.TransitionStatus(SessionStatus.Archived);
         await SaveSessionAsync(session);
+        _sessionCache.TryRemove(sessionId, out _);
         _logger.LogInformation("Session {SessionId} archived", sessionId);
 
         await _hooksEngine.FireAsync(HookEvent.OnSessionArchive, new Dictionary<string, string>
@@ -474,6 +490,7 @@ public partial class SessionService : ISessionService
             File.Delete(messagesPath);
 
         _metadataCache.TryRemove(sessionId, out _);
+        _sessionCache.TryRemove(sessionId, out _);
 
         _logger.LogInformation("Session {SessionId} deleted", sessionId);
     }
