@@ -455,36 +455,34 @@ public class GitService : IGitService
             string? currentFile = null;
             var currentDiff = new StringBuilder();
             int additions = 0, deletions = 0;
+            bool inDiffBlock = false;
 
             while (await streaming.ReadLineAsync(ct) is { } line)
             {
                 if (line.StartsWith("diff --git "))
                 {
-                    // Flush previous file
                     FlushFileDiff(fileMap, currentFile, currentDiff, additions, deletions);
-                    currentFile = null;
+
+                    currentFile = ExtractPathFromDiffHeader(line);
                     currentDiff.Clear();
                     additions = 0;
                     deletions = 0;
+                    inDiffBlock = true;
                     continue;
                 }
 
-                // Extract file path from "+++ b/path" (robust against " b/" in paths)
-                if (line.StartsWith("+++ b/"))
-                {
-                    currentFile = line["+++ b/".Length..];
-                    continue;
-                }
+                if (!inDiffBlock) continue;
 
-                if (currentFile != null)
-                {
-                    currentDiff.AppendLine(line);
+                // Fall back to +++ line for renames or ambiguous headers
+                if (currentFile == null && line.StartsWith("+++ b/"))
+                    currentFile = line[6..];
 
-                    if (line.StartsWith('+') && !line.StartsWith("+++"))
-                        additions++;
-                    else if (line.StartsWith('-') && !line.StartsWith("---"))
-                        deletions++;
-                }
+                currentDiff.AppendLine(line);
+
+                if (line.StartsWith('+') && !line.StartsWith("+++"))
+                    additions++;
+                else if (line.StartsWith('-') && !line.StartsWith("---"))
+                    deletions++;
             }
 
             // Flush last file
@@ -533,6 +531,35 @@ public class GitService : IGitService
         return fileMap;
     }
 
+    /// <summary>
+    /// Extracts the file path from a diff header using symmetric path structure.
+    /// Handles paths containing " b/" correctly, unlike LastIndexOf(" b/").
+    /// Accepts "diff --git a/&lt;path&gt; b/&lt;path&gt;" or "a/&lt;path&gt; b/&lt;path&gt;" formats.
+    /// Returns null for renames (asymmetric paths) — caller should fall back to +++ line.
+    /// </summary>
+    internal static string? ExtractPathFromDiffHeader(string header)
+    {
+        const string fullPrefix = "diff --git a/";
+        const string shortPrefix = "a/";
+
+        string rest;
+        if (header.StartsWith(fullPrefix))
+            rest = header[fullPrefix.Length..];
+        else if (header.StartsWith(shortPrefix))
+            rest = header[shortPrefix.Length..];
+        else
+            return null;
+
+        // For non-renames: rest = "<path> b/<path>", length = 2 * pathLen + 3
+        if (rest.Length < 3 || (rest.Length - 3) % 2 != 0)
+            return null;
+
+        var pathLen = (rest.Length - 3) / 2;
+        var candidate = rest[..pathLen];
+
+        return rest.EndsWith(" b/" + candidate) ? candidate : null;
+    }
+
     private static void FlushFileDiff(Dictionary<string, FileDiff> fileMap, string? filePath, StringBuilder diffContent, int additions, int deletions)
     {
         if (filePath == null) return;
@@ -541,6 +568,65 @@ public class GitService : IGitService
         fileDiff.UnifiedDiff = diffContent.ToString();
         fileDiff.Additions = additions;
         fileDiff.Deletions = deletions;
+    }
+
+    public static DiffSummary ParseDiff(string nameStatus, string rawDiff)
+    {
+        var summary = new DiffSummary();
+        if (string.IsNullOrWhiteSpace(nameStatus))
+            return summary;
+
+        var fileMap = ParseNameStatusIntoFileMap(nameStatus, summary);
+
+        // Parse unified diff and assign to files
+        if (!string.IsNullOrWhiteSpace(rawDiff))
+        {
+            // Split by "diff --git" marker
+            var chunks = rawDiff.Split("diff --git ", StringSplitOptions.RemoveEmptyEntries);
+            foreach (var chunk in chunks)
+            {
+                // First line: "a/path b/path"
+                var firstNewline = chunk.IndexOf('\n');
+                if (firstNewline < 0) continue;
+
+                var header = chunk[..firstNewline];
+                var filePath = ExtractPathFromDiffHeader(header);
+                var diffContent = chunk[(firstNewline + 1)..];
+
+                // Fall back to +++ line for renames or ambiguous headers
+                if (filePath == null)
+                {
+                    foreach (var diffLine in diffContent.Split('\n'))
+                    {
+                        if (diffLine.StartsWith("+++ b/"))
+                        {
+                            filePath = diffLine[6..];
+                            break;
+                        }
+                    }
+                    if (filePath == null) continue;
+                }
+
+                // Count additions and deletions
+                int additions = 0, deletions = 0;
+                foreach (var line in diffContent.Split('\n'))
+                {
+                    if (line.StartsWith('+') && !line.StartsWith("+++"))
+                        additions++;
+                    else if (line.StartsWith('-') && !line.StartsWith("---"))
+                        deletions++;
+                }
+
+                if (fileMap.TryGetValue(filePath, out var fileDiff))
+                {
+                    fileDiff.UnifiedDiff = diffContent;
+                    fileDiff.Additions = additions;
+                    fileDiff.Deletions = deletions;
+                }
+            }
+        }
+
+        return summary;
     }
 
     private void InvalidateBranchCaches(string repoDir)
