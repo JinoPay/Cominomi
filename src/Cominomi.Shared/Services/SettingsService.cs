@@ -32,7 +32,7 @@ public class SettingsService : ISettingsService
     {
         _cached = settings;
         var json = JsonSerializer.Serialize(settings, JsonDefaults.Options);
-        await File.WriteAllTextAsync(_settingsPath, json);
+        await AtomicFileWriter.WriteAsync(_settingsPath, json);
         OnSettingsChanged?.Invoke(settings);
     }
 }

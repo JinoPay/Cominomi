@@ -89,7 +89,7 @@ public class SkillFileStore
 
         sb.Append(command.PromptTemplate);
 
-        await File.WriteAllTextAsync(filePath, sb.ToString());
+        await AtomicFileWriter.WriteAsync(filePath, sb.ToString());
         command.FilePath = filePath;
     }
 

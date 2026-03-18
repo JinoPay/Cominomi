@@ -83,6 +83,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<IMcpService, McpService>();
         builder.Services.AddSingleton<INotificationService, NotificationService>();
         builder.Services.AddSingleton<IActivityService, ActivityService>();
+        builder.Services.AddSingleton<IStreamEventProcessor, StreamEventProcessor>();
+        builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

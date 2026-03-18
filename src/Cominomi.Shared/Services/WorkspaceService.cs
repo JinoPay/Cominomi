@@ -82,7 +82,7 @@ public partial class WorkspaceService : IWorkspaceService
         workspace.UpdatedAt = DateTime.UtcNow;
         var path = Path.Combine(_workspacesDir, $"{workspace.Id}.json");
         var json = JsonSerializer.Serialize(workspace, JsonDefaults.Options);
-        await File.WriteAllTextAsync(path, json);
+        await AtomicFileWriter.WriteAsync(path, json);
     }
 
     public async Task DeleteWorkspaceAsync(string workspaceId)
@@ -243,7 +243,7 @@ public partial class WorkspaceService : IWorkspaceService
     {
         var path = Path.Combine(_repoInfoDir, $"{repoInfo.Id}.json");
         var json = JsonSerializer.Serialize(repoInfo, JsonDefaults.Options);
-        await File.WriteAllTextAsync(path, json);
+        await AtomicFileWriter.WriteAsync(path, json);
     }
 
     private static string ExtractRepoSlug(string url)
