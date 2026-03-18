@@ -1,4 +1,5 @@
 using System.Text;
+using Cominomi.Shared;
 using Cominomi.Shared.Models;
 
 namespace Cominomi.Shared.Services;
@@ -31,27 +32,37 @@ public class ContextService : IContextService
 
     public async Task SaveNotesAsync(string worktreePath, string content)
     {
+        Guard.NotNullOrWhiteSpace(worktreePath, nameof(worktreePath));
+        Guard.NotNull(content, nameof(content));
+
         await EnsureContextDirectoryAsync(worktreePath);
         var path = Path.Combine(worktreePath, ContextDir, NotesFile);
-        await File.WriteAllTextAsync(path, content);
+        await AtomicFileWriter.WriteAsync(path, content);
     }
 
     public async Task SaveTodosAsync(string worktreePath, string content)
     {
+        Guard.NotNullOrWhiteSpace(worktreePath, nameof(worktreePath));
+        Guard.NotNull(content, nameof(content));
+
         await EnsureContextDirectoryAsync(worktreePath);
         var path = Path.Combine(worktreePath, ContextDir, TodosFile);
-        await File.WriteAllTextAsync(path, content);
+        await AtomicFileWriter.WriteAsync(path, content);
     }
 
     public async Task SavePlanAsync(string worktreePath, string planName, string content)
     {
+        Guard.NotNullOrWhiteSpace(worktreePath, nameof(worktreePath));
+        Guard.NotNullOrWhiteSpace(planName, nameof(planName));
+        Guard.NotNull(content, nameof(content));
+
         await EnsureContextDirectoryAsync(worktreePath);
         var plansPath = Path.Combine(worktreePath, ContextDir, PlansDir);
         Directory.CreateDirectory(plansPath);
 
         var fileName = planName.EndsWith(".md") ? planName : $"{planName}.md";
         var path = Path.Combine(plansPath, fileName);
-        await File.WriteAllTextAsync(path, content);
+        await AtomicFileWriter.WriteAsync(path, content);
     }
 
     public Task DeletePlanAsync(string worktreePath, string planName)
@@ -94,11 +105,11 @@ public class ContextService : IContextService
         // Create empty files if they don't exist
         var notesPath = Path.Combine(contextPath, NotesFile);
         if (!File.Exists(notesPath))
-            await File.WriteAllTextAsync(notesPath, "");
+            await AtomicFileWriter.WriteAsync(notesPath, "");
 
         var todosPath = Path.Combine(contextPath, TodosFile);
         if (!File.Exists(todosPath))
-            await File.WriteAllTextAsync(todosPath, "");
+            await AtomicFileWriter.WriteAsync(todosPath, "");
 
         // Add .context to .gitignore if not already there
         var gitignorePath = Path.Combine(worktreePath, ".gitignore");
@@ -107,7 +118,7 @@ public class ContextService : IContextService
             var content = await File.ReadAllTextAsync(gitignorePath);
             if (!content.Contains(".context/"))
             {
-                await File.AppendAllTextAsync(gitignorePath, "\n.context/\n");
+                await AtomicFileWriter.AppendAsync(gitignorePath, "\n.context/\n");
             }
         }
     }
@@ -126,30 +137,44 @@ public class ContextService : IContextService
 
     public string BuildContextPrompt(ContextInfo context)
     {
+        Guard.NotNull(context, nameof(context));
+
         var sb = new StringBuilder();
+        var maxItem = CominomiConstants.MaxContextItemChars;
+        var maxTotal = CominomiConstants.MaxContextPromptChars;
 
         if (!string.IsNullOrWhiteSpace(context.Notes))
         {
             sb.AppendLine("## Workspace Notes");
-            sb.AppendLine(context.Notes);
+            sb.AppendLine(Truncate(context.Notes, maxItem));
             sb.AppendLine();
         }
 
         if (!string.IsNullOrWhiteSpace(context.Todos))
         {
             sb.AppendLine("## Workspace Todos");
-            sb.AppendLine(context.Todos);
+            sb.AppendLine(Truncate(context.Todos, maxItem));
             sb.AppendLine();
         }
 
         foreach (var plan in context.Plans)
         {
+            if (sb.Length >= maxTotal) break;
             sb.AppendLine($"## Plan: {plan.Name}");
-            sb.AppendLine(plan.Content);
+            sb.AppendLine(Truncate(plan.Content, maxItem));
             sb.AppendLine();
         }
 
-        return sb.ToString();
+        var result = sb.ToString();
+        return result.Length <= maxTotal
+            ? result
+            : result[..maxTotal] + string.Format(CominomiConstants.TruncationMarker, result.Length);
+    }
+
+    private static string Truncate(string text, int maxChars)
+    {
+        if (text.Length <= maxChars) return text;
+        return text[..maxChars] + string.Format(CominomiConstants.TruncationMarker, text.Length);
     }
 
     private static async Task CopyDirectoryAsync(string source, string dest)

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Cominomi.Shared;
 using Cominomi.Shared.Models;
 using Cominomi.Shared.Services.Migration;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,9 @@ public class TaskService : ITaskService
 
     public async Task<TaskItem> CreateAsync(string sessionId, string subject, string description = "")
     {
+        Guard.NotNullOrWhiteSpace(sessionId, nameof(sessionId));
+        Guard.NotNullOrWhiteSpace(subject, nameof(subject));
+
         var task = new TaskItem
         {
             SessionId = sessionId,
