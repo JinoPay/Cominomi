@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Cominomi.Shared.Models;
+using Cominomi.Shared.Services.Migration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -55,7 +56,10 @@ public partial class WorkspaceService : IWorkspaceService
             try
             {
                 var json = await File.ReadAllTextAsync(file);
-                var workspace = JsonSerializer.Deserialize<Workspace>(json, JsonDefaults.Options);
+                var (migrated, changed) = JsonMigrator.MigrateJson("Workspace", json);
+                if (changed)
+                    await AtomicFileWriter.WriteAsync(file, migrated);
+                var workspace = JsonSerializer.Deserialize<Workspace>(migrated, JsonDefaults.Options);
                 if (workspace != null)
                     workspaces.Add(workspace);
             }
@@ -75,7 +79,10 @@ public partial class WorkspaceService : IWorkspaceService
             return null;
 
         var json = await File.ReadAllTextAsync(path);
-        return JsonSerializer.Deserialize<Workspace>(json, JsonDefaults.Options);
+        var (migrated, changed) = JsonMigrator.MigrateJson("Workspace", json);
+        if (changed)
+            await AtomicFileWriter.WriteAsync(path, migrated);
+        return JsonSerializer.Deserialize<Workspace>(migrated, JsonDefaults.Options);
     }
 
     public async Task SaveWorkspaceAsync(Workspace workspace)

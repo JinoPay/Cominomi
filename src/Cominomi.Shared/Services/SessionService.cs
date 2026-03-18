@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Cominomi.Shared;
 using Cominomi.Shared.Models;
+using Cominomi.Shared.Services.Migration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -78,7 +79,10 @@ public partial class SessionService : ISessionService
             try
             {
                 var json = await File.ReadAllTextAsync(file);
-                var session = JsonSerializer.Deserialize<Session>(json, JsonDefaults.Options);
+                var (migrated, changed) = JsonMigrator.MigrateJson("Session", json);
+                if (changed)
+                    await AtomicFileWriter.WriteAsync(file, migrated);
+                var session = JsonSerializer.Deserialize<Session>(migrated, JsonDefaults.Options);
                 if (session != null)
                 {
                     session.Model = ModelDefinitions.NormalizeModelId(session.Model);
@@ -273,7 +277,10 @@ public partial class SessionService : ISessionService
             return null;
 
         var json = await File.ReadAllTextAsync(path);
-        var session = JsonSerializer.Deserialize<Session>(json, JsonDefaults.Options);
+        var (migrated, changed) = JsonMigrator.MigrateJson("Session", json);
+        if (changed)
+            await AtomicFileWriter.WriteAsync(path, migrated);
+        var session = JsonSerializer.Deserialize<Session>(migrated, JsonDefaults.Options);
         if (session == null) return null;
 
         session.Model = ModelDefinitions.NormalizeModelId(session.Model);

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Cominomi.Shared.Models;
+using Cominomi.Shared.Services.Migration;
 
 namespace Cominomi.Shared.Services;
 
@@ -28,7 +29,10 @@ public class SettingsService : ISettingsService
         }
 
         var json = await File.ReadAllTextAsync(_settingsPath);
-        _cached = JsonSerializer.Deserialize<AppSettings>(json, JsonDefaults.Options) ?? new AppSettings();
+        var (migrated, changed) = JsonMigrator.MigrateJson("AppSettings", json);
+        if (changed)
+            await AtomicFileWriter.WriteAsync(_settingsPath, migrated);
+        _cached = JsonSerializer.Deserialize<AppSettings>(migrated, JsonDefaults.Options) ?? new AppSettings();
         _cached.DefaultModel = ModelDefinitions.NormalizeModelId(_cached.DefaultModel);
         return _cached;
     }

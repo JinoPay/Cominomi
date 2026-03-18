@@ -13,6 +13,7 @@ public enum MemoryType
 
 public class MemoryEntry
 {
+    public int SchemaVersion { get; set; } = 1;
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;

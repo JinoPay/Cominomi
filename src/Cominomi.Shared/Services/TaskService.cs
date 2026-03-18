@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Cominomi.Shared.Models;
+using Cominomi.Shared.Services.Migration;
 using Microsoft.Extensions.Logging;
 
 namespace Cominomi.Shared.Services;
@@ -47,7 +48,10 @@ public class TaskService : ITaskService
             if (File.Exists(path))
             {
                 var json = await File.ReadAllTextAsync(path);
-                return JsonSerializer.Deserialize<TaskItem>(json, JsonDefaults.Options);
+                var (migrated, changed) = JsonMigrator.MigrateJson("TaskItem", json);
+                if (changed)
+                    await AtomicFileWriter.WriteAsync(path, migrated);
+                return JsonSerializer.Deserialize<TaskItem>(migrated, JsonDefaults.Options);
             }
         }
         return null;
@@ -104,7 +108,10 @@ public class TaskService : ITaskService
             try
             {
                 var json = await File.ReadAllTextAsync(file);
-                var task = JsonSerializer.Deserialize<TaskItem>(json, JsonDefaults.Options);
+                var (migrated, changed) = JsonMigrator.MigrateJson("TaskItem", json);
+                if (changed)
+                    await AtomicFileWriter.WriteAsync(file, migrated);
+                var task = JsonSerializer.Deserialize<TaskItem>(migrated, JsonDefaults.Options);
                 if (task != null)
                     tasks.Add(task);
             }

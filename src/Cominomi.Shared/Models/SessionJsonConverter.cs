@@ -125,6 +125,7 @@ public class SessionJsonConverter : JsonConverter<Session>
     {
         writer.WriteStartObject();
 
+        writer.WriteNumber("schemaVersion", 1);
         writer.WriteString("id", value.Id);
         writer.WriteString("title", value.Title);
         writer.WriteString("model", value.Model);

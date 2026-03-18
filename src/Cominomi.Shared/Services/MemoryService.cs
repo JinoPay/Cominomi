@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Cominomi.Shared.Models;
+using Cominomi.Shared.Services.Migration;
 using Microsoft.Extensions.Logging;
 
 namespace Cominomi.Shared.Services;
@@ -24,7 +25,10 @@ public class MemoryService : IMemoryService
             try
             {
                 var json = await File.ReadAllTextAsync(file);
-                var entry = JsonSerializer.Deserialize<MemoryEntry>(json, JsonDefaults.Options);
+                var (migrated, changed) = JsonMigrator.MigrateJson("MemoryEntry", json);
+                if (changed)
+                    await AtomicFileWriter.WriteAsync(file, migrated);
+                var entry = JsonSerializer.Deserialize<MemoryEntry>(migrated, JsonDefaults.Options);
                 if (entry != null)
                     entries.Add(entry);
             }
@@ -63,7 +67,10 @@ public class MemoryService : IMemoryService
             return null;
 
         var json = await File.ReadAllTextAsync(path);
-        return JsonSerializer.Deserialize<MemoryEntry>(json, JsonDefaults.Options);
+        var (migrated, changed) = JsonMigrator.MigrateJson("MemoryEntry", json);
+        if (changed)
+            await AtomicFileWriter.WriteAsync(path, migrated);
+        return JsonSerializer.Deserialize<MemoryEntry>(migrated, JsonDefaults.Options);
     }
 
     public string BuildMemoryPrompt(IEnumerable<MemoryEntry> entries)
