@@ -105,6 +105,7 @@ public static class MauiProgram
         var modelsJsonPath = Path.Combine(AppPaths.Settings, "models.json");
         ModelDefinitions.LoadFromFileAsync(modelsJsonPath).GetAwaiter().GetResult();
 
+
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
 #endif
