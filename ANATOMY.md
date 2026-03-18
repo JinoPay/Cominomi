@@ -51,6 +51,16 @@
 | `AttachmentChips.razor` (신규, ~30줄) | InputArea에서 첨부파일 칩 표시 추출 — 순수 표시 컴포넌트 |
 | `InputArea.razor` 분해 | 460→~340줄(26%↓). 모델 선택 관련 상태/메서드 5개 + 첨부 칩 마크업을 자식 컴포넌트로 추출 |
 
+### 구조 개선 Phase 11 (2026-03-19) — 차기 개선 후보 #5 해결 (스트리밍)
+| 변경 내용 | 역할 / 영향 범위 |
+|-----------|-----------------|
+| `IProcessRunner.cs` 변경 | `StreamingProcess` 클래스 + `RunStreamingAsync` 메서드 추가 — stdout 스트리밍 읽기 지원 |
+| `ProcessRunner.cs` 변경 | `RunStreamingAsync` 구현 — Process 시작 후 stdout StreamReader를 호출자에게 위임, stderr는 백그라운드 캡처 |
+| `IGitService.cs` 변경 | `GetDiffSummaryAsync` 메서드 추가 — name-status + unified diff를 스트리밍 파싱하여 `DiffSummary` 반환 |
+| `GitService.cs` 변경 | `GetDiffSummaryAsync` 구현 — `RunStreamingAsync`로 diff 출력을 한 줄씩 읽으며 `FileDiff` 구축. 전체 diff를 메모리에 로드하지 않음 |
+| `SidebarChanges.razor` 변경 | `GetNameStatusAsync` + `GetUnifiedDiffAsync` + `ParseDiff` 3단계 → `GetDiffSummaryAsync` 단일 호출로 교체 |
+| `SidebarExplorer.razor` 변경 | 동일 패턴 교체 |
+
 ### 구조 개선 Phase 10 (2026-03-18) — 차기 개선 후보 #3+#4 해결
 | 변경 내용 | 역할 / 영향 범위 |
 |-----------|-----------------|
@@ -126,7 +136,7 @@
 | #136 | 옵션 패턴 도입 | `IOptionsMonitor<AppSettings>` + `AppSettingsFactory` + `AppSettingsChangeNotifier`. 8개 서비스/컴포넌트 전환 |
 | #137 | 플러그인 실행 엔진 | EntryPoint 로딩/실행/샌드박싱 + hooks·skills 매니페스트 자동 등록 |
 
-### 구조 개선 Phase 12 (2026-03-19) — 신규 구조적 문제 #3 해결 + Continue 기능
+### 구조 개선 Phase 13 (2026-03-19) — 신규 구조적 문제 #3 해결 + Continue 기능
 | 변경 내용 | 역할 / 영향 범위 |
 |-----------|-----------------|
 | `TokenEstimator` (신규) | 문자 클래스 기반 토큰 수 추정 (ASCII ~4자/토큰, CJK ~1.5자/토큰). `Estimate()` + `Truncate()` |
@@ -139,22 +149,29 @@
 | `ClaudeService` continue 지원 | `continueMode: true` 시 stdin 미전송 (빈 메시지로 CLI에 계속 신호) |
 | `ClaudeArgumentBuilder` 수정 | `conversationId` + `continueMode` 동시 사용 시 `--resume <id> --continue` 생성 |
 
+### 구조 개선 Phase 12 (2026-03-19) — 신규 구조적 문제 #1 해결
+| 변경 내용 | 역할 / 영향 범위 |
+|-----------|------------------|
+| 7개 핵심 모델 `init` 전환 | 생성 후 불변이어야 할 프로퍼티 37개를 `{ get; set; }` → `{ get; init; }`. Session(7), ChatMessage(5), ContentPart(2), Workspace(3), AppSettings(1), MemoryEntry(3), ActivityEntry(9+2), MainTab(3), ToolCall(2) |
+| `SessionJsonConverter` 리팩토링 | 순차 할당(`session.Id = ...`) → 객체 이니셜라이저 패턴으로 전환. `init` 프로퍼티와 호환 |
+| 기존 `private set` 유지 | `Session.Status`(상태 머신), `TotalInputTokens/OutputTokens`(Guard 검증) 등 기존 보호 패턴 보존 |
+
 ### 구조 개선 Phase 11 (2026-03-18) — 신규 구조적 문제 #6 해결
 | 변경 내용 | 역할 / 영향 범위 |
-|-----------|-----------------|
+|-----------|------------------|
 | `MainTab` LRU 메타데이터 추가 | `LastAccessedAt`, `ContentEvicted`, `ContentSizeBytes` 프로퍼티 추가 |
 | `TabManager` LRU 퇴출 엔진 | 총 콘텐츠 예산 50MB 초과 시 가장 오래된 비활성 탭 `FileContent`를 null로 퇴출. 단일 파일 10MB 제한+절단 |
 | `MainLayout` 자동 재로딩 | 퇴출된 탭 활성화 시 디스크에서 자동 재로딩 + 로딩 UI 표시 |
 
 ### 구조 개선 Phase 10 (2026-03-18) — 신규 구조적 문제 #7 해결
 | 변경 내용 | 역할 / 영향 범위 |
-|-----------|-----------------|
+|-----------|------------------|
 | `SessionService.NeedsSchemaUpgrade` bare catch 제거 | `catch { return false; }` → `catch (Exception ex)` + `_logger.LogWarning` 로깅 추가. 디버깅 정보 보존 |
 | `NeedsSchemaUpgrade` static → instance 메서드 전환 | `_logger` 인스턴스 필드 접근을 위해 `static` 한정자 제거 |
 
 ### 구조 개선 Phase 9 (2026-03-18) — 신규 구조적 문제 #8 해결
 | 변경 내용 | 역할 / 영향 범위 |
-|-----------|-----------------|
+|-----------|------------------|
 | `ContextService` .gitignore 행 기반 체크 | `content.Contains(".context/")` → `ReadAllLinesAsync` + `line.Trim() == ".context/"` 정확 매칭. 주석·부분 경로 오탐 방지 |
 | `AttachmentService` .gitignore 행 기반 체크 | 동일 패턴 적용 — `content.Contains(entry)` → 행 기반 정확 매칭 |
 | `ContextServiceGitignoreTests.cs` (신규, 4개 테스트) | 정확 매칭·중복 방지·주석 내 부분 문자열·다른 경로 부분 매칭 시나리오 검증 |
@@ -1632,9 +1649,9 @@ SessionList ───→ SessionListDataService          ← Phase 4 추출
 
 | 순위 | 문제 | 영향 | 관련 섹션 | 난이도 |
 |------|------|------|-----------|--------|
-| **1** | **데이터 모델 불변성 부재** — 7개 핵심 모델에 81개 `public set` 프로퍼티 | `ChatState`와 `Session`이 같은 `ChatMessage` 객체 가변 참조 공유. `AppendText()`가 `Text` + `Parts` 양쪽 수정. 어디서든 조용히 상태 변경 가능. Session(18), ChatMessage(8), Workspace(12), AppSettings(22), MemoryEntry(8), ActivityEntry(8), MainTab(5) | §3, §23 | 높 |
+| ~~**1**~~ | ~~**데이터 모델 불변성 부재**~~ ✅ **해결** — 37개 프로퍼티 `init` 전환, `SessionJsonConverter` 객체 이니셜라이저 리팩토링 | 7개 핵심 모델의 생성 후 불변 프로퍼티(Id, CreatedAt, WorkspaceId, AgentType 등)를 `init`으로 전환. 잔여 `set` 프로퍼티(Title, Model, PermissionMode 등)는 UI/서비스에서 정당하게 변경되는 항목. `ChatState`↔`Session` 가변 참조 공유 문제는 아키텍처 수준 개선 필요 | §3, §23 | — |
 | ~~**2**~~ | ~~**ClaudeService 재시도 ~35줄 복붙** — `--verbose` 재시도 시 스트리밍 루프 전체 복사~~ | ✅ `ReadStreamEventsAsync()` 헬퍼로 스트리밍 루프 통합. 첫 루프·재시도 루프 모두 동일 메서드 호출 | §7 | — |
-| **3** | ~~**시스템 프롬프트·메모리 크기 제한 미흡**~~ ✅ Phase 12에서 해결 — `TokenEstimator` 도입, 모든 절단을 토큰 기반으로 전환, `MaxSystemPromptTokens` 전체 예산 추가 | `MemoryService`, `ContextService`, `SystemPromptBuilder` 토큰 기반 절단. notes.md도 `MaxContextItemTokens`로 제한 | §17, §18 | 중 |
+| **3** | ~~**시스템 프롬프트·메모리 크기 제한 미흡**~~ ✅ Phase 13에서 해결 — `TokenEstimator` 도입, 모든 절단을 토큰 기반으로 전환, `MaxSystemPromptTokens` 전체 예산 추가 | `MemoryService`, `ContextService`, `SystemPromptBuilder` 토큰 기반 절단. notes.md도 `MaxContextItemTokens`로 제한 | §17, §18 | 중 |
 | ~~**4**~~ | ~~**ChatView `Task.Run` fire-and-forget** — 예외 미관찰 위험~~ | ✅ `CancellationTokenSource` + `try/catch(OperationCanceledException)` 패턴 도입. 예외 관찰 + 취소 지원 | §10 | — |
 | **5** | **GitService ParseDiff " b/" 파싱 취약** — 경로에 ` b/`가 포함된 파일 오파싱 | `GitService.cs:459` `header.LastIndexOf(" b/")`. 파일 경로에 ` b/`가 있으면 diff 어트리뷰션 오류 | §5 | 낮 |
 | **6** | ~~**TabManager 파일 콘텐츠 무한 메모리** — 퇴출 정책 없음~~ ✅ | LRU 퇴출 엔진 도입 (총 50MB 예산, 단일 10MB 제한). 퇴출 탭은 활성화 시 자동 재로딩 | §11 | 중 |
@@ -1651,7 +1668,7 @@ SessionList ───→ SessionListDataService          ← Phase 4 추출
 | ~~**2**~~ | ~~**QuestionDetector 감지 한계** — 한국어/영어 `?` 패턴만~~ | ~~`QuestionDetector.cs:9-21` — `?`로 끝나는 문장만 감지. 명령형 질문, 선택 요청 ("pick", "select"), 확인 요청 패턴 누락~~ | ~~§13~~ | ~~낮~~ |
 | ~~**3**~~ | ~~**Usage HashSet 재시작 시 리셋** — 중복 기록 가능~~ | ~~`UsageService`의 `_seenHashes` 인메모리 HashSet이 앱 재시작 시 초기화. 같은 세션의 사용량 이중 기록 가능~~ | §20 | ~~낮~~ |
 | ~~**4**~~ | ~~**중복 제거 해시 영속화** — 재시작 후 JSONL에서 기존 해시 재로드 필요~~ | ~~10MB 로테이션은 도입되었으나, 재시작 시 기존 해시를 로드하는 로직의 일관성 검증 필요~~ | §20 | ~~낮~~ |
-| ~~**5**~~ | ~~**stdout 전체 메모리 로드** — GitService 대형 diff 시 메모리 문제~~ | ✅ **해결 완료** — `ProcessRunOptions.MaxOutputBytes`로 bounded read 도입. `ProcessRunner`가 제한 초과 시 truncate + drain. GitService의 diff/log/ls-files 계열 메서드에 1 MB 제한 적용 | §5 | 중 |
+| ~~**5**~~ | ~~**stdout 전체 메모리 로드** — GitService 대형 diff 시 메모리 문제~~ | ✅ **해결 완료** — `MaxOutputBytes` bounded read (Phase 10) + `RunStreamingAsync` + `GetDiffSummaryAsync` 스트리밍 파싱 (Phase 11) | §5 | ~~중~~ ✅ |
 
 ---
 
