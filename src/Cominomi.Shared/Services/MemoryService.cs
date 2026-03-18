@@ -84,27 +84,23 @@ public class MemoryService : IMemoryService
     public string BuildMemoryPrompt(IEnumerable<MemoryEntry> entries)
     {
         var sb = new StringBuilder();
-        var maxEntry = CominomiConstants.MaxMemoryEntryChars;
-        var maxTotal = CominomiConstants.MaxMemoryPromptChars;
+        var maxEntryTokens = CominomiConstants.MaxMemoryEntryTokens;
+        var maxTotalTokens = CominomiConstants.MaxMemoryPromptTokens;
         sb.AppendLine("## Persistent Memory");
 
         foreach (var group in entries.GroupBy(e => e.Type))
         {
-            if (sb.Length >= maxTotal) break;
+            if (TokenEstimator.Estimate(sb.ToString()) >= maxTotalTokens) break;
             sb.AppendLine($"\n### {group.Key} Memory");
             foreach (var entry in group)
             {
-                if (sb.Length >= maxTotal) break;
-                var content = entry.Content.Length > maxEntry
-                    ? entry.Content[..maxEntry] + string.Format(CominomiConstants.TruncationMarker, entry.Content.Length)
-                    : entry.Content;
+                if (TokenEstimator.Estimate(sb.ToString()) >= maxTotalTokens) break;
+                var content = TokenEstimator.Truncate(entry.Content, maxEntryTokens);
                 sb.AppendLine($"- **{entry.Name}**: {content}");
             }
         }
 
         var result = sb.ToString();
-        return result.Length <= maxTotal
-            ? result
-            : result[..maxTotal] + string.Format(CominomiConstants.TruncationMarker, result.Length);
+        return TokenEstimator.Truncate(result, maxTotalTokens);
     }
 }

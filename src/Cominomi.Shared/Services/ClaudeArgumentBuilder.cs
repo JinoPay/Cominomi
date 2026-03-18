@@ -60,6 +60,8 @@ public static class ClaudeArgumentBuilder
         if (!string.IsNullOrEmpty(conversationId))
         {
             sb.Append($" --resume {conversationId}");
+            if (continueMode)
+                sb.Append(" --continue");
             if (forkSession)
                 sb.Append(" --fork-session");
         }

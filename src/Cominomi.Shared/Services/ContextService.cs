@@ -140,41 +140,32 @@ public class ContextService : IContextService
         Guard.NotNull(context, nameof(context));
 
         var sb = new StringBuilder();
-        var maxItem = CominomiConstants.MaxContextItemChars;
-        var maxTotal = CominomiConstants.MaxContextPromptChars;
+        var maxItemTokens = CominomiConstants.MaxContextItemTokens;
+        var maxTotalTokens = CominomiConstants.MaxContextPromptTokens;
 
         if (!string.IsNullOrWhiteSpace(context.Notes))
         {
             sb.AppendLine("## Workspace Notes");
-            sb.AppendLine(Truncate(context.Notes, maxItem));
+            sb.AppendLine(TokenEstimator.Truncate(context.Notes, maxItemTokens));
             sb.AppendLine();
         }
 
         if (!string.IsNullOrWhiteSpace(context.Todos))
         {
             sb.AppendLine("## Workspace Todos");
-            sb.AppendLine(Truncate(context.Todos, maxItem));
+            sb.AppendLine(TokenEstimator.Truncate(context.Todos, maxItemTokens));
             sb.AppendLine();
         }
 
         foreach (var plan in context.Plans)
         {
-            if (sb.Length >= maxTotal) break;
+            if (TokenEstimator.Estimate(sb.ToString()) >= maxTotalTokens) break;
             sb.AppendLine($"## Plan: {plan.Name}");
-            sb.AppendLine(Truncate(plan.Content, maxItem));
+            sb.AppendLine(TokenEstimator.Truncate(plan.Content, maxItemTokens));
             sb.AppendLine();
         }
 
-        var result = sb.ToString();
-        return result.Length <= maxTotal
-            ? result
-            : result[..maxTotal] + string.Format(CominomiConstants.TruncationMarker, result.Length);
-    }
-
-    private static string Truncate(string text, int maxChars)
-    {
-        if (text.Length <= maxChars) return text;
-        return text[..maxChars] + string.Format(CominomiConstants.TruncationMarker, text.Length);
+        return TokenEstimator.Truncate(sb.ToString(), maxTotalTokens);
     }
 
     private static async Task CopyDirectoryAsync(string source, string dest)
