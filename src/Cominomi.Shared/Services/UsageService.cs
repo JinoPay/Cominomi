@@ -65,7 +65,7 @@ public class UsageService : IUsageService
                 return;
 
             var json = JsonSerializer.Serialize(entry);
-            await File.AppendAllTextAsync(_usageFilePath, json + Environment.NewLine);
+            await AtomicFileWriter.AppendAsync(_usageFilePath, json + Environment.NewLine);
 
             // Auto-rotate if file is too large
             await RotateIfNeededAsync();
