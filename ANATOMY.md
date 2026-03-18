@@ -51,6 +51,18 @@
 | `AttachmentChips.razor` (신규, ~30줄) | InputArea에서 첨부파일 칩 표시 추출 — 순수 표시 컴포넌트 |
 | `InputArea.razor` 분해 | 460→~340줄(26%↓). 모델 선택 관련 상태/메서드 5개 + 첨부 칩 마크업을 자식 컴포넌트로 추출 |
 
+### 구조 개선 Phase 13 (2026-03-19) — 차기 개선 후보 #5 해결 (스킬 체이닝)
+| 변경 내용 | 역할 / 영향 범위 |
+|-----------|-----------------|
+| `SkillChainStep.cs` (신규, ~9줄) | 체인 단계 런타임 모델 — SkillName, Args, ExpandedText |
+| `SkillDefinition.cs` 변경 | `Chain` 프로퍼티 추가 — 커스텀 스킬이 후속 실행할 스킬 이름 목록 선언 |
+| `ISkillRegistry.cs` 변경 | `TryParseSkillChain` 메서드 추가 — 파이프 구문 + 정의 체인 파싱 |
+| `SkillRegistry.cs` 변경 | `TryParseSkillChain` 구현 — `|` 구문 분리 + SkillDefinition.Chain 병합. 중복 스킬 자동 제거 |
+| `SkillFileStore.cs` 변경 | YAML 프론트매터 `chain:` 필드 파싱/직렬화 + 리스트 컨텍스트 버그 수정 (`currentListField` 트래킹) |
+| `ChatInputMessage` 변경 | `PendingChain` 프로퍼티 추가 — 남은 체인 단계를 전달 |
+| `InputArea.razor` 변경 | `Send()`에서 `TryParseSkillChain` 우선 호출, 체인 감지 시 첫 스킬만 확장 + 나머지를 PendingChain에 설정 |
+| `ChatView.razor` 변경 | `_pendingChain` 필드 추가. `HandleSend`에서 체인 추출, `ProcessMessageAsync` finally에서 자동 후속 전송. 취소/에러/플랜리뷰/퀵응답 시 체인 중단 |
+
 ### 구조 개선 Phase 12 (2026-03-19) — 차기 개선 후보 #4 해결 (MCP 서버 수정)
 | 변경 내용 | 역할 / 영향 범위 |
 |-----------|-----------------|
@@ -1129,7 +1141,7 @@ case "error"                            → 에러 메시지 추가
 ### 빠진 것 / 문제점
 - **빌트인 프롬프트 하드코딩**: 스킬 내용 변경이 코드 변경 필요
 - **`{args}` vs `$ARGUMENTS` 이중 표준**: 어느 것을 쓸지 문서화 없음
-- **스킬 체이닝 불가**: `/commit` 후 `/review` 자동 실행 같은 워크플로우 불가
+- ~~**스킬 체이닝 불가**~~: Phase 13에서 해결. `/commit | /review` 파이프 구문 + 커스텀 스킬 `chain:` 프론트매터 지원
 - **프로젝트 경로 의존**: 워크스페이스 변경 시에만 커스텀 스킬 리로드
 
 ---
@@ -1628,7 +1640,7 @@ SessionList ───→ SessionListDataService          ← Phase 4 추출
 | 순위 | 문제 | 영향 | 관련 섹션 | 난이도 |
 |------|------|------|-----------|--------|
 | ~~**1**~~ | ~~**알림 히스토리 없음** — 놓친 알림을 확인할 방법 없음~~ | ~~UX~~ | ~~§21~~ | ~~중~~ |
-| **2** | **스킬 체이닝 불가** — `/commit` 후 `/review` 같은 워크플로우 자동화 미지원 | 생산성 | §15 | 중 |
+| ~~**2**~~ | ~~**스킬 체이닝 불가**~~ — Phase 13에서 해결. 파이프 구문 `/commit \| /review` + 커스텀 스킬 `chain:` 프론트매터 | ~~생산성~~ | ~~§15~~ | ~~중~~ |
 
 ---
 
