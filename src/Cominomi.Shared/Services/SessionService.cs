@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Cominomi.Shared;
 using Cominomi.Shared.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Cominomi.Shared.Services;
 
@@ -11,7 +12,7 @@ public partial class SessionService : ISessionService
 {
     private readonly IGitService _gitService;
     private readonly IWorkspaceService _workspaceService;
-    private readonly ISettingsService _settingsService;
+    private readonly IOptionsMonitor<AppSettings> _appSettings;
     private readonly IContextService _contextService;
     private readonly IHooksEngine _hooksEngine;
     private readonly ILogger<SessionService> _logger;
@@ -28,12 +29,12 @@ public partial class SessionService : ISessionService
     private static readonly TimeSpan SessionCacheTtl = TimeSpan.FromSeconds(2);
 
     public SessionService(IGitService gitService, IWorkspaceService workspaceService,
-        ISettingsService settingsService, IContextService contextService, IHooksEngine hooksEngine,
+        IOptionsMonitor<AppSettings> appSettings, IContextService contextService, IHooksEngine hooksEngine,
         ILogger<SessionService> logger)
     {
         _gitService = gitService;
         _workspaceService = workspaceService;
-        _settingsService = settingsService;
+        _appSettings = appSettings;
         _contextService = contextService;
         _hooksEngine = hooksEngine;
         _logger = logger;
@@ -152,7 +153,7 @@ public partial class SessionService : ISessionService
         if (workspace == null)
             throw new InvalidOperationException($"Workspace '{workspaceId}' not found.");
 
-        var settings = await _settingsService.LoadAsync();
+        var settings = _appSettings.CurrentValue;
         var cityName = CityNames.GetRandom();
         var session = new Session
         {
@@ -184,7 +185,7 @@ public partial class SessionService : ISessionService
         if (workspace == null)
             throw new InvalidOperationException($"Workspace '{workspaceId}' not found.");
 
-        var settings = await _settingsService.LoadAsync();
+        var settings = _appSettings.CurrentValue;
         var cityName = CityNames.GetRandom();
         var session = new Session
         {
