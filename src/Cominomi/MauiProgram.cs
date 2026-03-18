@@ -93,6 +93,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IUsageService, UsageService>();
         builder.Services.AddSingleton<IMcpService, McpService>();
         builder.Services.AddSingleton<INotificationService, NotificationService>();
+        builder.Services.AddSingleton<INotificationHistoryService, NotificationHistoryService>();
         builder.Services.AddSingleton<IActivityService, ActivityService>();
         builder.Services.AddSingleton<IStreamEventHandler, SystemInitHandler>();
         builder.Services.AddSingleton<IStreamEventHandler, ContentBlockStartHandler>();
