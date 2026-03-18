@@ -51,7 +51,7 @@ public class HooksEngine : IHooksEngine
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_hooksFile)!);
         var json = JsonSerializer.Serialize(_hooks, JsonOptions);
-        await File.WriteAllTextAsync(_hooksFile, json);
+        await AtomicFileWriter.WriteAsync(_hooksFile, json);
     }
 
     public async Task FireAsync(HookEvent hookEvent, Dictionary<string, string>? env = null)

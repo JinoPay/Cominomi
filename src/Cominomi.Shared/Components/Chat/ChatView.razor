@@ -18,6 +18,7 @@
 @inject IUsageService UsageService
 @inject INotificationService NotificationService
 @inject ISettingsService SettingsService
+@inject IStreamEventProcessor StreamProcessor
 @implements IDisposable
 
 <div class="chat-container">
@@ -629,14 +630,14 @@
             }
             ChatState.SetPhase(StreamingPhase.Sending, sessionId: session.Id);
         }
-        ToolCall? currentToolCall = null;
-        var toolResultBlockMap = new Dictionary<int, string>(); // content block index → tool_use_id
         bool firstEvent = true;
-        bool exitPlanModeDetected = false;
-        bool usageRecorded = false; // prevent double-counting between message_delta and result
-        int accInputTokens = 0, accOutputTokens = 0;
-        int accCacheCreation = 0, accCacheRead = 0;
         _streamStartTime = DateTime.UtcNow;
+        var streamCtx = new StreamProcessingContext
+        {
+            Session = session,
+            AssistantMessage = assistantMsg,
+            StreamStartTime = _streamStartTime
+        };
 
         try
         {
@@ -659,307 +660,10 @@
                     firstEvent = false;
                 }
 
-                switch (evt.Type)
-                {
-                    case "system" when evt.Subtype == "init":
-                        if (evt.Model != null)
-                            session.ResolvedModel = evt.Model;
-                        if (!string.IsNullOrEmpty(evt.SessionId))
-                            session.ConversationId = evt.SessionId;
-                        break;
-
-                    case "content_block_start" when evt.ContentBlock?.Type == "thinking":
-                        ChatState.SetPhase(StreamingPhase.Thinking, sessionId: session.Id);
-                        break;
-
-                    case "content_block_start" when evt.ContentBlock?.Type == "redacted_thinking":
-                        ChatState.AppendThinking(assistantMsg, "[사고 내용 생략됨]");
-                        break;
-
-                    case "content_block_start" when evt.ContentBlock?.Type == "server_tool_use":
-                    case "content_block_start" when evt.ContentBlock?.Type == "tool_use":
-                        currentToolCall = new ToolCall
-                        {
-                            Id = evt.ContentBlock.Id ?? "",
-                            Name = evt.ContentBlock.Name ?? ""
-                        };
-                        ChatState.AddToolCall(assistantMsg, currentToolCall);
-                        ChatState.SetPhase(StreamingPhase.UsingTool, evt.ContentBlock.Name, session.Id);
-                        if (evt.ContentBlock.Name == "ExitPlanMode")
-                            exitPlanModeDetected = true;
-                        break;
-
-                    case "content_block_start" when evt.ContentBlock?.Type == "server_tool_result":
-                    case "content_block_start" when evt.ContentBlock?.Type == "tool_result":
-                        if (evt.Index.HasValue && !string.IsNullOrEmpty(evt.ContentBlock.ToolUseId))
-                        {
-                            toolResultBlockMap[evt.Index.Value] = evt.ContentBlock.ToolUseId;
-                            var matchingTool = assistantMsg.ToolCalls.FirstOrDefault(t => t.Id == evt.ContentBlock.ToolUseId);
-                            if (matchingTool != null)
-                            {
-                                matchingTool.IsError = evt.ContentBlock.IsError ?? false;
-                                if (evt.ContentBlock.Content != null)
-                                    matchingTool.Output = ExtractToolResultContent(evt.ContentBlock.Content.Value);
-                                ChatState.NotifyStateChanged();
-                            }
-                        }
-                        break;
-
-                    case "content_block_delta":
-                        if (evt.Index.HasValue && toolResultBlockMap.TryGetValue(evt.Index.Value, out var resultToolId))
-                        {
-                            var tool = assistantMsg.ToolCalls.FirstOrDefault(t => t.Id == resultToolId);
-                            if (tool != null && evt.Delta?.Text != null)
-                            {
-                                tool.Output += evt.Delta.Text;
-                                ChatState.NotifyStateChanged();
-                            }
-                        }
-                        else if (evt.Delta?.Type == "text_delta" && evt.Delta.Text != null)
-                        {
-                            ChatState.AppendText(assistantMsg, evt.Delta.Text);
-                            ChatState.SetPhase(StreamingPhase.WritingText, sessionId: session.Id);
-                        }
-                        else if (evt.Delta?.Type == "thinking_delta" && evt.Delta.Thinking != null)
-                        {
-                            ChatState.AppendThinking(assistantMsg, evt.Delta.Thinking);
-                            ChatState.SetPhase(StreamingPhase.Thinking, sessionId: session.Id);
-                        }
-                        else if (evt.Delta?.Type == "input_json_delta" && evt.Delta.PartialJson != null && currentToolCall != null)
-                        {
-                            currentToolCall.Input += evt.Delta.PartialJson;
-                        }
-                        break;
-
-                    case "content_block_stop":
-                        if (evt.Index.HasValue && toolResultBlockMap.Remove(evt.Index.Value))
-                        {
-                            // tool_result block finished — no need to update tool state further
-                        }
-                        else if (currentToolCall != null)
-                        {
-                            currentToolCall.IsComplete = true;
-                            currentToolCall = null;
-                            ChatState.NotifyStateChanged();
-                        }
-                        ChatState.SetPhase(StreamingPhase.Thinking, sessionId: session.Id);
-                        // Intermediate save so partial response persists on disk
-                        _ = SessionService.SaveSessionAsync(session);
-                        break;
-
-                    case "assistant":
-                        ChatState.SetPhase(StreamingPhase.WritingText, sessionId: session.Id);
-                        if (evt.Message?.Content != null)
-                        {
-                            foreach (var block in evt.Message.Content)
-                            {
-                                switch (block.Type)
-                                {
-                                    case "text" when block.Text != null:
-                                        ChatState.AppendText(assistantMsg, block.Text);
-                                        break;
-                                    case "thinking" when (block.Thinking ?? block.Text) != null:
-                                        ChatState.AppendThinking(assistantMsg, block.Thinking ?? block.Text!);
-                                        break;
-                                    case "redacted_thinking":
-                                        ChatState.AppendThinking(assistantMsg, "[사고 내용 생략됨]");
-                                        break;
-                                    case "server_tool_use":
-                                    case "tool_use":
-                                        var tc = new ToolCall
-                                        {
-                                            Id = block.Id ?? "",
-                                            Name = block.Name ?? "",
-                                            IsComplete = true
-                                        };
-                                        if (block.Input.HasValue)
-                                        {
-                                            tc.Input = block.Input.Value.ValueKind == JsonValueKind.Undefined
-                                                ? ""
-                                                : JsonSerializer.Serialize(block.Input.Value,
-                                                    new JsonSerializerOptions { WriteIndented = true });
-                                        }
-                                        ChatState.AddToolCall(assistantMsg, tc);
-                                        ChatState.SetPhase(StreamingPhase.UsingTool, block.Name, session.Id);
-                                        if (block.Name == "ExitPlanMode")
-                                            exitPlanModeDetected = true;
-                                        break;
-                                }
-                            }
-                        }
-                        // Intermediate save for multi-turn
-                        _ = SessionService.SaveSessionAsync(session);
-                        break;
-
-                    case "user":
-                        if (evt.Message?.Content != null)
-                        {
-                            foreach (var block in evt.Message.Content)
-                            {
-                                if ((block.Type is "tool_result" or "server_tool_result") && !string.IsNullOrEmpty(block.ToolUseId))
-                                {
-                                    var match = assistantMsg.ToolCalls.FirstOrDefault(t => t.Id == block.ToolUseId);
-                                    if (match != null)
-                                    {
-                                        match.IsError = block.IsError ?? false;
-                                        if (block.Content.HasValue)
-                                            match.Output = ExtractToolResultContent(block.Content.Value);
-                                        match.IsComplete = true;
-                                    }
-                                }
-                            }
-                            ChatState.NotifyStateChanged();
-                        }
-                        break;
-
-                    case "message_start":
-                        if (evt.Message?.Model is string startModel && !string.IsNullOrEmpty(startModel))
-                            session.ResolvedModel = startModel;
-                        usageRecorded = false; // reset per turn for accurate counting
-                        // Capture input tokens from message_start (API puts them here)
-                        if (evt.Message?.Usage is { } startUsage)
-                        {
-                            accInputTokens = startUsage.InputTokens;
-                            accCacheCreation = startUsage.CacheCreationInputTokens ?? 0;
-                            accCacheRead = startUsage.CacheReadInputTokens ?? 0;
-                            accOutputTokens = 0;
-                        }
-                        break;
-
-                    case "message_delta":
-                    {
-                        // Accumulate tokens but don't record yet — wait for result event
-                        var deltaUsage = evt.Usage ?? evt.Message?.Usage;
-                        if (deltaUsage != null)
-                        {
-                            if (deltaUsage.InputTokens > 0)
-                                accInputTokens = deltaUsage.InputTokens;
-                            if (deltaUsage.OutputTokens > 0)
-                                accOutputTokens = deltaUsage.OutputTokens;
-                            if (deltaUsage.CacheCreationInputTokens is > 0)
-                                accCacheCreation = deltaUsage.CacheCreationInputTokens.Value;
-                            if (deltaUsage.CacheReadInputTokens is > 0)
-                                accCacheRead = deltaUsage.CacheReadInputTokens.Value;
-                        }
-                        // Track stop_reason for truncation detection
-                        var stopReason = evt.Delta?.StopReason ?? evt.Message?.StopReason;
-                        if (!string.IsNullOrEmpty(stopReason) && stopReason == "max_tokens")
-                        {
-                            ChatState.AppendText(assistantMsg, "\n\n⚠️ *응답이 최대 토큰 한도에 도달하여 잘렸습니다.*");
-                        }
-                        break;
-                    }
-
-                    case "message_stop":
-                        break;
-
-                    case "result":
-                        if (string.IsNullOrEmpty(session.ConversationId) && !string.IsNullOrEmpty(evt.SessionId))
-                            session.ConversationId = evt.SessionId;
-                        {
-                            var resultUsage = evt.Usage ?? evt.Message?.Usage ?? TryExtractUsageFromExtensionData(evt);
-                            var costOverride = TryExtractCost(evt);
-
-                            Logger.LogDebug("Result event: Usage={HasUsage}, MsgUsage={HasMsgUsage}, ExtKeys={ExtKeys}, Cost={Cost}, AccIn={AccIn}, AccOut={AccOut}",
-                                evt.Usage != null, evt.Message?.Usage != null,
-                                evt.ExtensionData?.Keys != null ? string.Join(",", evt.ExtensionData.Keys) : "null",
-                                costOverride, accInputTokens, accOutputTokens);
-
-                            if (resultUsage != null && !usageRecorded)
-                            {
-                                session.TotalInputTokens += resultUsage.InputTokens;
-                                session.TotalOutputTokens += resultUsage.OutputTokens;
-                                await RecordUsageAsync(session, resultUsage, costOverride);
-                                usageRecorded = true;
-                            }
-                            else if (!usageRecorded && (accInputTokens > 0 || accOutputTokens > 0))
-                            {
-                                // Use accumulated tokens from message_start/message_delta
-                                var accUsage = new UsageInfo
-                                {
-                                    InputTokens = accInputTokens,
-                                    OutputTokens = accOutputTokens,
-                                    CacheCreationInputTokens = accCacheCreation,
-                                    CacheReadInputTokens = accCacheRead,
-                                };
-                                session.TotalInputTokens += accUsage.InputTokens;
-                                session.TotalOutputTokens += accUsage.OutputTokens;
-                                await RecordUsageAsync(session, accUsage, costOverride);
-                                usageRecorded = true;
-                                Logger.LogWarning("Usage recorded from accumulated deltas (no result usage). In={In}, Out={Out}",
-                                    accInputTokens, accOutputTokens);
-                            }
-                            else if (!usageRecorded && costOverride.HasValue && costOverride > 0)
-                            {
-                                // Cost-only fallback: CLI provided cost but no token breakdown
-                                var costOnlyUsage = new UsageInfo { InputTokens = 0, OutputTokens = 0 };
-                                await RecordUsageAsync(session, costOnlyUsage, costOverride);
-                                usageRecorded = true;
-                                Logger.LogWarning("Usage recorded with cost only (no token data). Cost=${Cost:F6}", costOverride.Value);
-                            }
-                        }
-                        // assistant 이벤트에서 이미 처리됐을 수 있으므로 Parts 비어있을 때만 fallback
-                        if (assistantMsg.Parts.Count == 0)
-                        {
-                            if (evt.Message?.Content != null)
-                            {
-                                foreach (var block in evt.Message.Content)
-                                {
-                                    if (block.Type == "text" && block.Text != null)
-                                        ChatState.AppendText(assistantMsg, block.Text);
-                                    if (block.Type == "tool_use" && block.Name == "ExitPlanMode")
-                                        exitPlanModeDetected = true;
-                                }
-                            }
-                            if (string.IsNullOrEmpty(assistantMsg.Text) && !string.IsNullOrEmpty(evt.Result))
-                                ChatState.AppendText(assistantMsg, evt.Result);
-                        }
-                        else
-                        {
-                            // Parts가 있더라도 ExitPlanMode 체크는 해야 함
-                            if (evt.Message?.Content != null)
-                            {
-                                foreach (var block in evt.Message.Content)
-                                {
-                                    if (block.Type == "tool_use" && block.Name == "ExitPlanMode")
-                                        exitPlanModeDetected = true;
-                                }
-                            }
-                        }
-                        break;
-
-                    case "error":
-                    {
-                        var errorMsg = evt.GetErrorMessage();
-                        if (!string.IsNullOrEmpty(errorMsg))
-                        {
-                            ChatState.AppendText(assistantMsg, $"\n\n**Error:** {errorMsg}");
-                        }
-                        break;
-                    }
-
-                    default:
-                        Logger.LogDebug("Unhandled Claude event type: {Type}", evt.Type);
-                        break;
-                }
+                await StreamProcessor.ProcessEventAsync(evt, streamCtx);
             }
 
-            // Final fallback: if no event recorded usage, use accumulated values
-            if (!usageRecorded && (accInputTokens > 0 || accOutputTokens > 0))
-            {
-                var fallbackUsage = new UsageInfo
-                {
-                    InputTokens = accInputTokens,
-                    OutputTokens = accOutputTokens,
-                    CacheCreationInputTokens = accCacheCreation,
-                    CacheReadInputTokens = accCacheRead,
-                };
-                session.TotalInputTokens += fallbackUsage.InputTokens;
-                session.TotalOutputTokens += fallbackUsage.OutputTokens;
-                await RecordUsageAsync(session, fallbackUsage);
-                Logger.LogWarning("Usage recorded from post-loop fallback (no result event). In={In}, Out={Out}",
-                    accInputTokens, accOutputTokens);
-            }
+            await StreamProcessor.FinalizeAsync(streamCtx);
         }
         catch (Exception ex)
         {
@@ -974,60 +678,17 @@
             ChatState.SetStreaming(false, session.Id);
             _shouldAutoScroll = true;
 
-            // Detect plan completion
-            if (session.PermissionMode == "plan")
-            {
-                // Multi-layer plan completion detection
-                // Layer 1: ExitPlanMode tool_use (already set during stream)
+            // Apply finalized stream context results to UI state
+            _planFilePath = streamCtx.PlanFilePath;
+            _planContent = streamCtx.PlanContent;
+            _planReviewVisible = streamCtx.PlanReviewVisible;
+            _quickResponseVisible = streamCtx.QuickResponseVisible;
+            _quickResponseOptions = streamCtx.QuickResponseOptions;
 
-                // Layer 2: Check response text for ExitPlanMode traces
-                if (!exitPlanModeDetected)
-                {
-                    var text = assistantMsg.Text ?? "";
-                    if (text.Contains("ExitPlanMode", StringComparison.OrdinalIgnoreCase))
-                        exitPlanModeDetected = true;
-                }
-
-                // Layer 3: Check if plan file was created/modified during this stream
-                if (!exitPlanModeDetected && !string.IsNullOrEmpty(session.WorktreePath))
-                {
-                    await DetectPlanFileAsync(session.WorktreePath);
-                    if (_planContent != null)
-                        exitPlanModeDetected = true;
-                }
-
-                if (exitPlanModeDetected)
-                {
-                    if (_planContent == null)
-                        await DetectPlanFileAsync(session.WorktreePath);
-                    session.PlanCompleted = true;
-                    session.PlanFilePath = _planFilePath;
-                    _planReviewVisible = true;
-                    _quickResponseVisible = false;
-                    _quickResponseOptions = [];
-                    _ = SendNotificationIfNeeded(session, "Plan ready for review", NotificationType.PlanReview);
-                }
-                else
-                {
-                    _planReviewVisible = false;
-                    _quickResponseVisible = false;
-                    _quickResponseOptions = [];
-                }
-            }
-            else
-            {
-                _planReviewVisible = false;
-
-                // Detect if the assistant is asking a question
-                var (isQuestion, options) = QuestionDetector.Detect(assistantMsg);
-                _quickResponseVisible = isQuestion;
-                _quickResponseOptions = options;
-
-                if (isQuestion)
-                {
-                    _ = SendNotificationIfNeeded(session, "Response needed", NotificationType.Question);
-                }
-            }
+            if (streamCtx.PlanReviewVisible)
+                _ = SendNotificationIfNeeded(session, "Plan ready for review", NotificationType.PlanReview);
+            else if (streamCtx.QuickResponseVisible)
+                _ = SendNotificationIfNeeded(session, "Response needed", NotificationType.Question);
 
             await InvokeAsync(StateHasChanged);
             await SessionService.SaveSessionAsync(session);
@@ -1101,25 +762,6 @@
         }
     }
 
-    private static string ExtractToolResultContent(System.Text.Json.JsonElement content)
-    {
-        if (content.ValueKind == System.Text.Json.JsonValueKind.String)
-            return content.GetString() ?? "";
-
-        if (content.ValueKind == System.Text.Json.JsonValueKind.Array)
-        {
-            var parts = new List<string>();
-            foreach (var item in content.EnumerateArray())
-            {
-                if (item.TryGetProperty("text", out var textProp) && textProp.ValueKind == System.Text.Json.JsonValueKind.String)
-                    parts.Add(textProp.GetString() ?? "");
-            }
-            return string.Join("\n", parts);
-        }
-
-        return content.ToString();
-    }
-
     private async Task<string?> BuildSystemPromptAsync(Session session)
     {
         var parts = new List<string>();
@@ -1166,25 +808,6 @@ Rules:
         catch (Exception ex) { Logger.LogDebug(ex, "Failed to load memory for system prompt"); }
 
         return parts.Count > 0 ? string.Join("\n\n", parts) : null;
-    }
-
-    private async Task DetectPlanFileAsync(string worktreePath)
-    {
-        _planFilePath = null;
-        _planContent = null;
-        var plansDir = Path.Combine(worktreePath, ".claude", "plans");
-        if (!Directory.Exists(plansDir)) return;
-        // Only detect plan files modified after stream started (with 5s buffer)
-        var cutoff = _streamStartTime.AddSeconds(-5);
-        var planFile = Directory.GetFiles(plansDir, "*.md")
-            .Where(f => File.GetLastWriteTimeUtc(f) > cutoff)
-            .OrderByDescending(f => File.GetLastWriteTimeUtc(f))
-            .FirstOrDefault();
-        if (planFile != null)
-        {
-            _planFilePath = planFile;
-            _planContent = await File.ReadAllTextAsync(planFile);
-        }
     }
 
     private async Task SendNotificationIfNeeded(Session session, string body, NotificationType type)
@@ -1362,96 +985,6 @@ Rules:
     {
         var fullSession = await SessionService.LoadSessionAsync(session.Id);
         if (fullSession != null) ChatState.SetSession(fullSession);
-    }
-
-    private async Task RecordUsageAsync(Session session, UsageInfo usage, decimal? costOverride = null)
-    {
-        try
-        {
-            var model = session.ResolvedModel ?? session.Model ?? "unknown";
-            var entry = new UsageEntry
-            {
-                Timestamp = DateTime.UtcNow,
-                Model = model,
-                InputTokens = usage.InputTokens,
-                OutputTokens = usage.OutputTokens,
-                CacheCreationTokens = usage.CacheCreationInputTokens ?? 0,
-                CacheReadTokens = usage.CacheReadInputTokens ?? 0,
-                SessionId = session.Id,
-                ProjectPath = session.WorktreePath
-            };
-            entry.CostUsd = costOverride ?? UsageService.CalculateCost(
-                model, entry.InputTokens, entry.OutputTokens,
-                entry.CacheCreationTokens, entry.CacheReadTokens);
-
-            Logger.LogInformation("Recording usage: Model={Model}, In={In}, Out={Out}, CacheW={CW}, CacheR={CR}, Cost=${Cost:F6}",
-                model, entry.InputTokens, entry.OutputTokens,
-                entry.CacheCreationTokens, entry.CacheReadTokens, entry.CostUsd);
-
-            await UsageService.RecordUsageAsync(entry);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to record usage for session {SessionId}", session.Id);
-        }
-    }
-
-    private static decimal? TryExtractCost(StreamEvent evt)
-    {
-        if (evt.CostUsd is > 0) return evt.CostUsd.Value;
-        if (evt.TotalCostUsd is > 0) return evt.TotalCostUsd.Value;
-
-        if (evt.ExtensionData != null)
-        {
-            if (evt.ExtensionData.TryGetValue("cost_usd", out var costEl) && costEl.TryGetDecimal(out var cost) && cost > 0)
-                return cost;
-            if (evt.ExtensionData.TryGetValue("total_cost_usd", out var tcEl) && tcEl.TryGetDecimal(out var tc) && tc > 0)
-                return tc;
-        }
-        return null;
-    }
-
-    private static UsageInfo? TryExtractUsageFromExtensionData(StreamEvent evt)
-    {
-        if (evt.ExtensionData == null) return null;
-
-        int input = 0, output = 0;
-        int? cacheCreation = null, cacheRead = null;
-
-        // Check top-level token fields
-        if (evt.ExtensionData.TryGetValue("input_tokens", out var inEl))
-            inEl.TryGetInt32(out input);
-        if (evt.ExtensionData.TryGetValue("output_tokens", out var outEl))
-            outEl.TryGetInt32(out output);
-        if (evt.ExtensionData.TryGetValue("cache_creation_input_tokens", out var cwEl) && cwEl.TryGetInt32(out var cw))
-            cacheCreation = cw;
-        if (evt.ExtensionData.TryGetValue("cache_read_input_tokens", out var crEl) && crEl.TryGetInt32(out var cr))
-            cacheRead = cr;
-
-        // Check nested "usage" object (result event may wrap tokens here)
-        if (input == 0 && output == 0
-            && evt.ExtensionData.TryGetValue("usage", out var usageEl)
-            && usageEl.ValueKind == System.Text.Json.JsonValueKind.Object)
-        {
-            if (usageEl.TryGetProperty("input_tokens", out var inProp))
-                inProp.TryGetInt32(out input);
-            if (usageEl.TryGetProperty("output_tokens", out var outProp))
-                outProp.TryGetInt32(out output);
-            if (usageEl.TryGetProperty("cache_creation_input_tokens", out var cwProp) && cwProp.TryGetInt32(out var cwVal))
-                cacheCreation = cwVal;
-            if (usageEl.TryGetProperty("cache_read_input_tokens", out var crProp) && crProp.TryGetInt32(out var crVal))
-                cacheRead = crVal;
-        }
-
-        if (input == 0 && output == 0) return null;
-
-        return new UsageInfo
-        {
-            InputTokens = input,
-            OutputTokens = output,
-            CacheCreationInputTokens = cacheCreation,
-            CacheReadInputTokens = cacheRead,
-        };
     }
 
     public void Dispose()

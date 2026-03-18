@@ -45,7 +45,7 @@ public class MemoryService : IMemoryService
         entry.UpdatedAt = DateTime.UtcNow;
         var path = Path.Combine(_memoryDir, $"{entry.Id}.json");
         var json = JsonSerializer.Serialize(entry, JsonDefaults.Options);
-        await File.WriteAllTextAsync(path, json);
+        await AtomicFileWriter.WriteAsync(path, json);
     }
 
     public Task DeleteAsync(string entryId)

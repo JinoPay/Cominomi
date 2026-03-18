@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Cominomi.Shared.Models;
@@ -15,6 +16,7 @@ public partial class SessionService : ISessionService
     private readonly ILogger<SessionService> _logger;
     private readonly string _sessionsDir = AppPaths.Sessions;
     private readonly string _archiveDir = AppPaths.ArchivedContexts;
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _sessionLocks = new();
 
     public SessionService(IGitService gitService, IWorkspaceService workspaceService,
         ISettingsService settingsService, IContextService contextService, IHooksEngine hooksEngine,
@@ -261,23 +263,32 @@ public partial class SessionService : ISessionService
 
     public async Task SaveSessionAsync(Session session)
     {
-        session.UpdatedAt = DateTime.UtcNow;
-
-        // Fallback title: only if title is still the initial city name (Haiku summary not yet applied)
-        if (session.Title == session.CityName && session.Messages.Count > 0)
+        var semaphore = _sessionLocks.GetOrAdd(session.Id, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync();
+        try
         {
-            var firstMessage = session.Messages.FirstOrDefault(m => m.Role == MessageRole.User);
-            if (firstMessage != null)
-            {
-                session.Title = firstMessage.Text.Length > 50
-                    ? firstMessage.Text[..50] + "..."
-                    : firstMessage.Text;
-            }
-        }
+            session.UpdatedAt = DateTime.UtcNow;
 
-        var path = Path.Combine(_sessionsDir, $"{session.Id}.json");
-        var json = JsonSerializer.Serialize(session, JsonDefaults.Options);
-        await File.WriteAllTextAsync(path, json);
+            // Fallback title: only if title is still the initial city name (Haiku summary not yet applied)
+            if (session.Title == session.CityName && session.Messages.Count > 0)
+            {
+                var firstMessage = session.Messages.FirstOrDefault(m => m.Role == MessageRole.User);
+                if (firstMessage != null)
+                {
+                    session.Title = firstMessage.Text.Length > 50
+                        ? firstMessage.Text[..50] + "..."
+                        : firstMessage.Text;
+                }
+            }
+
+            var path = Path.Combine(_sessionsDir, $"{session.Id}.json");
+            var json = JsonSerializer.Serialize(session, JsonDefaults.Options);
+            await AtomicFileWriter.WriteAsync(path, json);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     public async Task RenameBranchAsync(string sessionId, string newBranchName)

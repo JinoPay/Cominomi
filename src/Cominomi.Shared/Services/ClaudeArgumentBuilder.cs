@@ -99,10 +99,17 @@ public static class ClaudeArgumentBuilder
                 sb.Append($" --disallowedTools \"{tool}\"");
         }
 
-        // System prompt injection
+        // System prompt — escape all characters that could break argument parsing
         if (!string.IsNullOrEmpty(systemPrompt))
         {
-            var escaped = systemPrompt.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            var escaped = systemPrompt
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\r\n", "\\n")
+                .Replace("\r", "\\n")
+                .Replace("\n", "\\n")
+                .Replace("\t", "\\t")
+                .Replace("\0", "");
             sb.Append($" --append-system-prompt \"{escaped}\"");
         }
 

@@ -34,7 +34,7 @@ public class TaskService : ITaskService
 
         var path = Path.Combine(sessionDir, $"{task.Id}.json");
         var json = JsonSerializer.Serialize(task, JsonDefaults.Options);
-        await File.WriteAllTextAsync(path, json);
+        await AtomicFileWriter.WriteAsync(path, json);
 
         return task;
     }
@@ -63,7 +63,7 @@ public class TaskService : ITaskService
 
         var path = Path.Combine(_tasksDir, task.SessionId, $"{task.Id}.json");
         var json = JsonSerializer.Serialize(task, JsonDefaults.Options);
-        await File.WriteAllTextAsync(path, json);
+        await AtomicFileWriter.WriteAsync(path, json);
     }
 
     public Task DeleteAsync(string taskId)
