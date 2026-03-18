@@ -105,6 +105,10 @@ public partial class SessionService : ISessionService
 
     public async Task<Session> CreateSessionAsync(string model, string workspaceId, string baseBranch)
     {
+        Guard.NotNullOrWhiteSpace(model, nameof(model));
+        Guard.NotNullOrWhiteSpace(workspaceId, nameof(workspaceId));
+        Guard.NotNullOrWhiteSpace(baseBranch, nameof(baseBranch));
+
         var workspace = await _workspaceService.LoadWorkspaceAsync(workspaceId);
         if (workspace == null)
             throw new InvalidOperationException($"Workspace '{workspaceId}' not found.");
@@ -149,6 +153,9 @@ public partial class SessionService : ISessionService
 
     public async Task<Session> CreatePendingSessionAsync(string model, string workspaceId)
     {
+        Guard.NotNullOrWhiteSpace(model, nameof(model));
+        Guard.NotNullOrWhiteSpace(workspaceId, nameof(workspaceId));
+
         var workspace = await _workspaceService.LoadWorkspaceAsync(workspaceId);
         if (workspace == null)
             throw new InvalidOperationException($"Workspace '{workspaceId}' not found.");
@@ -181,6 +188,9 @@ public partial class SessionService : ISessionService
 
     public async Task<Session> CreateLocalDirSessionAsync(string model, string workspaceId)
     {
+        Guard.NotNullOrWhiteSpace(model, nameof(model));
+        Guard.NotNullOrWhiteSpace(workspaceId, nameof(workspaceId));
+
         var workspace = await _workspaceService.LoadWorkspaceAsync(workspaceId);
         if (workspace == null)
             throw new InvalidOperationException($"Workspace '{workspaceId}' not found.");
@@ -214,6 +224,9 @@ public partial class SessionService : ISessionService
 
     public async Task<Session> InitializeWorktreeAsync(string sessionId, string baseBranch)
     {
+        Guard.NotNullOrWhiteSpace(sessionId, nameof(sessionId));
+        Guard.NotNullOrWhiteSpace(baseBranch, nameof(baseBranch));
+
         var session = await LoadSessionAsync(sessionId);
         if (session == null)
             throw new InvalidOperationException($"Session '{sessionId}' not found.");
