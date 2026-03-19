@@ -21,74 +21,22 @@
                       Class="input-textarea-full"
                       Style="font-size: var(--text-base);" />
 
-        <div class="input-toolbar">
-            <div class="input-toolbar-left">
-                <MudTooltip Text="@GetPermissionModeTooltip()">
-                    <MudIconButton Icon="@GetPermissionModeIcon()"
-                                   Color="@GetPermissionModeColor()"
-                                   Size="Size.Small"
-                                   OnClick="CyclePermissionMode"
-                                   Disabled="Disabled || IsStreaming" />
-                </MudTooltip>
-
-                <MudTooltip Text="@GetEffortLevelTooltip()">
-                    <MudIconButton Icon="@Icons.Material.Filled.Psychology"
-                                   Color="@GetEffortLevelColor()"
-                                   Size="Size.Small"
-                                   OnClick="CycleEffortLevel"
-                                   Disabled="Disabled || IsStreaming" />
-                </MudTooltip>
-
-                <MudTooltip Text="파일 첨부">
-                    <MudIconButton Icon="@Icons.Material.Filled.AttachFile"
-                                   Color="Color.Default"
-                                   Size="Size.Small"
-                                   OnClick="PickFiles"
-                                   Disabled="Disabled || IsStreaming" />
-                </MudTooltip>
-            </div>
-
-            <div class="input-toolbar-right">
-                <ModelSelector Model="Model" ResolvedModel="ResolvedModel"
-                               OnModelChanged="OnModelChanged"
-                               Disabled="Disabled" IsStreaming="IsStreaming" />
-
-                @if (IsStreaming)
-                {
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Error"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Stop"
-                               OnClick="@(() => OnCancel.InvokeAsync())"
-                               Class="stop-button-glow"
-                               Style="border-radius: 20px; text-transform: none; min-width: 72px;">
-                        중지
-                    </MudButton>
-                }
-                else if (CanContinue && string.IsNullOrWhiteSpace(_inputText) && _pendingAttachments.Count == 0)
-                {
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.PlayArrow"
-                               OnClick="@(() => OnContinue.InvokeAsync())"
-                               Disabled="Disabled"
-                               Style="border-radius: 20px; text-transform: none; min-width: 72px;">
-                        계속
-                    </MudButton>
-                }
-                else
-                {
-                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
-                                   Color="Color.Primary"
-                                   Variant="Variant.Filled"
-                                   OnClick="Send"
-                                   Disabled="@(Disabled || (string.IsNullOrWhiteSpace(_inputText) && _pendingAttachments.Count == 0))"
-                                   Size="Size.Small"
-                                   Style="border-radius: 50%;" />
-                }
-            </div>
-        </div>
+        <InputToolbar PermissionMode="PermissionMode"
+                      OnPermissionModeChanged="PermissionModeChanged"
+                      EffortLevel="EffortLevel"
+                      OnEffortLevelChanged="EffortLevelChanged"
+                      Model="Model"
+                      OnModelChanged="OnModelChanged"
+                      ResolvedModel="ResolvedModel"
+                      IsStreaming="IsStreaming"
+                      Disabled="Disabled"
+                      CanContinue="CanContinue"
+                      HasInput="@(!string.IsNullOrWhiteSpace(_inputText))"
+                      HasAttachments="@(_pendingAttachments.Count > 0)"
+                      OnSend="Send"
+                      OnCancel="@(() => OnCancel.InvokeAsync())"
+                      OnContinue="@(() => OnContinue.InvokeAsync())"
+                      OnPickFiles="PickFiles" />
     </div>
 </div>
 
@@ -108,9 +56,6 @@
     [Parameter] public EventCallback<string> EffortLevelChanged { get; set; }
     [Parameter] public Session? CurrentSession { get; set; }
 
-    private static readonly string[] PermissionModes = ["bypassAll", "plan"];
-    private static readonly string[] EffortLevels = ["auto", "max"];
-
     private string _inputText = string.Empty;
     private List<PendingAttachment> _pendingAttachments = [];
     private DotNetObjectReference<InputArea>? _dotNetRef;
@@ -127,52 +72,6 @@
     private string _prevEffortLevel = "auto";
     private bool _forceRender;
     private bool _isComposing;
-
-    private string GetPermissionModeTooltip() => PermissionMode switch
-    {
-        "plan" => "플랜 모드 (읽기 전용)",
-        _ => "일반 모드 (모든 권한 우회)"
-    };
-
-    private string GetPermissionModeIcon() => PermissionMode switch
-    {
-        "plan" => Icons.Material.Filled.Description,
-        _ => Icons.Material.Filled.EditNote
-    };
-
-    private Color GetPermissionModeColor() => PermissionMode switch
-    {
-        "plan" => Color.Warning,
-        _ => Color.Default
-    };
-
-    private async Task CyclePermissionMode()
-    {
-        _forceRender = true;
-        var idx = Array.IndexOf(PermissionModes, PermissionMode);
-        var next = PermissionModes[(idx + 1) % PermissionModes.Length];
-        await PermissionModeChanged.InvokeAsync(next);
-    }
-
-    private string GetEffortLevelTooltip() => EffortLevel switch
-    {
-        "max" => "Effort: Max (Thinking)",
-        _ => "Effort: Auto"
-    };
-
-    private Color GetEffortLevelColor() => EffortLevel switch
-    {
-        "max" => Color.Secondary,
-        _ => Color.Default
-    };
-
-    private async Task CycleEffortLevel()
-    {
-        _forceRender = true;
-        var idx = Array.IndexOf(EffortLevels, EffortLevel);
-        var next = EffortLevels[(idx + 1) % EffortLevels.Length];
-        await EffortLevelChanged.InvokeAsync(next);
-    }
 
     protected override void OnParametersSet()
     {

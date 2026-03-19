@@ -1,0 +1,85 @@
+@using Cominomi.Shared.Models
+
+@foreach (var node in Nodes)
+{
+    var indent = Depth * 12;
+    if (node.IsDirectory)
+    {
+        var expanded = ExpandedDirs.Contains(node.FullPath);
+        var hasDiff = Diff != null && Diff.Files.Any(f => f.FilePath.StartsWith(node.FullPath + "/"));
+        <div class="sidebar-file-item dir@(hasDiff ? " has-diff" : "")"
+             style="padding-left: @(indent + 8)px;"
+             @onclick="() => OnToggleDir.InvokeAsync(node.FullPath)">
+            <MudIcon Icon="@(expanded ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
+                     Size="Size.Small"
+                     Style="@($"width: 14px; height: 14px; {(hasDiff ? "opacity: 0.8; color: #89b4fa;" : "opacity: 0.6;")}")" />
+            <span class="sidebar-file-name">@node.Name</span>
+        </div>
+
+        if (expanded)
+        {
+            <FileTreeNode Nodes="node.Children"
+                          Depth="Depth + 1"
+                          ExpandedDirs="ExpandedDirs"
+                          Diff="Diff"
+                          OnToggleDir="OnToggleDir"
+                          OnOpenFile="OnOpenFile" />
+        }
+    }
+    else
+    {
+        var fileDiff = Diff?.Files.FirstOrDefault(f => f.FilePath == node.FullPath);
+        <div class="sidebar-file-item file@(fileDiff != null ? " modified" : "")"
+             style="padding-left: @(indent + 8)px;"
+             @onclick="() => OnOpenFile.InvokeAsync(node.FullPath)">
+            <MudIcon Icon="@GetFileIcon(fileDiff)"
+                     Size="Size.Small"
+                     Style="@($"width: 14px; height: 14px; {GetFileIconColor(fileDiff)}")" />
+            <span class="sidebar-file-name">@node.Name</span>
+        </div>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public List<FileNode> Nodes { get; set; } = new();
+
+    [Parameter]
+    public int Depth { get; set; }
+
+    [Parameter, EditorRequired]
+    public HashSet<string> ExpandedDirs { get; set; } = new();
+
+    [Parameter]
+    public DiffSummary? Diff { get; set; }
+
+    [Parameter, EditorRequired]
+    public EventCallback<string> OnToggleDir { get; set; }
+
+    [Parameter, EditorRequired]
+    public EventCallback<string> OnOpenFile { get; set; }
+
+    private static string GetFileIcon(FileDiff? diff)
+    {
+        if (diff == null) return Icons.Material.Filled.InsertDriveFile;
+        return diff.ChangeType switch
+        {
+            FileChangeType.Added => Icons.Material.Filled.NoteAdd,
+            FileChangeType.Deleted => Icons.Material.Filled.Delete,
+            FileChangeType.Renamed => Icons.Material.Filled.DriveFileRenameOutline,
+            _ => Icons.Material.Filled.EditNote
+        };
+    }
+
+    private static string GetFileIconColor(FileDiff? diff)
+    {
+        if (diff == null) return "opacity: 0.4;";
+        return diff.ChangeType switch
+        {
+            FileChangeType.Added => "color: #a6e3a1;",
+            FileChangeType.Deleted => "color: #f38ba8;",
+            FileChangeType.Renamed => "color: #fab387;",
+            _ => "color: #89b4fa;"
+        };
+    }
+}

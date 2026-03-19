@@ -3,7 +3,7 @@
 > 이 문서는 Cominomi의 모든 시스템을 해부하여 **현재 동작**, **데이터 흐름**, **의존관계**, **빠진 것/문제점**을 기술합니다.
 > 각 섹션을 가리켜 "이 부분은 이렇게 변경되어야 한다"고 지휘하는 데 사용하세요.
 
-**코드 규모**: ~217개 소스 파일, ~23,799줄 (Cominomi.Shared에 집중, tests/Cominomi.Shared.Tests 포함)
+**코드 규모**: ~221개 소스 파일, ~23,584줄 (Cominomi.Shared에 집중, tests/Cominomi.Shared.Tests 포함)
 **프레임워크**: .NET 10.0, MAUI + Blazor, MudBlazor UI
 **외부 도구**: Claude CLI (subprocess), Git CLI, GitHub CLI (gh)
 
@@ -50,6 +50,16 @@
 | `ModelSelector.razor` (신규, ~90줄) | InputArea에서 모델 선택 UI 추출 — 모델 pill 버튼 + popover + 커스텀 모델 입력 |
 | `AttachmentChips.razor` (신규, ~30줄) | InputArea에서 첨부파일 칩 표시 추출 — 순수 표시 컴포넌트 |
 | `InputArea.razor` 분해 | 460→~340줄(26%↓). 모델 선택 관련 상태/메서드 5개 + 첨부 칩 마크업을 자식 컴포넌트로 추출 |
+
+### 구조 개선 Phase 17 (2026-03-19) — 미해결 구조적 문제 #4+#5+#8 해결
+| 변경 내용 | 역할 / 영향 범위 |
+|-----------|-----------------|
+| 도구 이름 매핑 통합 (#4) | `ContentGrouper.NormalizeToolName` 삭제 → `ToolDisplayHelper.NormalizeToolName`(`internal`) 위임. 매핑 불일치 위험 제거 |
+| `ParseDiff` 레거시 삭제 (#5) | `GitService.ParseDiff` 정적 메서드 + 9개 테스트 삭제. GitService 661→602줄 |
+| `FileTreeNode.razor` (신규, 85줄) | SidebarExplorer에서 재귀 파일 트리 렌더링 추출. SidebarExplorer 401→318줄(21%↓) |
+| `FileNode.cs` (신규, 9줄) | SidebarExplorer 내부 중첩 클래스 → 공유 모델로 추출 |
+| `InputToolbar.razor` (신규, 134줄) | InputArea에서 권한/노력/모델/액션 버튼 툴바 추출. InputArea 372→271줄(27%↓) |
+| `AddSessionMenu.razor` (신규, 21줄) | SessionList에서 3회 중복된 "세션 추가" 메뉴 추출. SessionList 377→367줄 |
 
 ### 구조 개선 Phase 13 (2026-03-19) — 차기 개선 후보 #5 해결 (스킬 체이닝)
 | 변경 내용 | 역할 / 영향 범위 |
@@ -533,7 +543,7 @@ macOS/Linux: /bin/sh
 ### 관련 파일
 | 파일 | 줄수 | 역할 |
 |------|------|------|
-| `Shared/Services/GitService.cs` | 516 | 모든 git 명령 (`IProcessRunner` 기반) |
+| `Shared/Services/GitService.cs` | 602 | 모든 git 명령 (`IProcessRunner` 기반) |
 | `Shared/Services/IGitService.cs` | 33 | 인터페이스 |
 
 ### 현재 동작
@@ -903,16 +913,16 @@ case "error"                            → 에러 메시지 추가
 ### 관련 파일
 | 파일 | 줄수 | 역할 |
 |------|------|------|
-| `Shared/Components/Layout/MainLayout.razor` | ~174 | 3패널 레이아웃 셸 (테마/의존성 체크 위임, 리사이즈 상태 관리) |
-| `Shared/Components/Layout/PanelResizer.razor` | ~65 | 드래그 리사이즈 핸들 (마우스 + 키보드 화살표 지원) |
-| `Shared/Components/Layout/SidebarToolbar.razor` | ~40 | 사이드바 브랜드 + 테마/활동/설정 버튼 |
-| `Shared/Components/Layout/MainToolbar.razor` | ~55 | 메인 툴바 (제목/브랜치/상태바/패널 토글) |
-| `Shared/Components/Layout/DetailPanel.razor` | ~45 | 우측 패널 |
-| `Shared/Components/Layout/MainTabBar.razor` | ~29 | 탭 바 |
-| `Shared/Components/Layout/StatusBar.razor` | ~21 | 상태 바 |
-| `Shared/Services/IThemeService.cs` | ~13 | 테마 상태 인터페이스 |
-| `Shared/Services/ThemeService.cs` | ~70 | 테마 상태 관리 (다크/라이트 모드 + MudTheme + 설정 연동) |
-| `Shared/Services/TabManager.cs` | 155 | 탭 관리 |
+| `Shared/Components/Layout/MainLayout.razor` | 225 | 3패널 레이아웃 셸 (테마/의존성 체크 위임, 리사이즈 상태 관리, 파일 콘텐츠 퇴출/리로드) |
+| `Shared/Components/Layout/PanelResizer.razor` | 71 | 드래그 리사이즈 핸들 (마우스 + 키보드 화살표 지원, ARIA 접근성) |
+| `Shared/Components/Layout/SidebarToolbar.razor` | 69 | 사이드바 브랜드 + 테마/활동/알림(미읽은 뱃지)/사용량/설정 버튼 |
+| `Shared/Components/Layout/MainToolbar.razor` | 57 | 메인 툴바 (제목/브랜치/권한모드 뱃지/상태바/패널 토글) |
+| `Shared/Components/Layout/DetailPanel.razor` | 45 | 우측 패널 (탐색기/변경사항 전환) |
+| `Shared/Components/Layout/MainTabBar.razor` | 31 | 탭 바 (아이콘 + 닫기 버튼) |
+| `Shared/Components/Layout/StatusBar.razor` | 21 | 상태 바 (모델 표시 + SpotlightToggle) |
+| `Shared/Services/IThemeService.cs` | 12 | 테마 상태 인터페이스 |
+| `Shared/Services/ThemeService.cs` | 70 | 테마 상태 관리 (다크/라이트 모드 + MudTheme + 설정 연동) |
+| `Shared/Services/TabManager.cs` | 218 | 탭 관리 (LRU 퇴출, 메모리 제한 10MB/50MB, 알림 탭 지원) |
 
 ### 현재 동작
 
@@ -943,14 +953,16 @@ case "error"                            → 에러 메시지 추가
 - ~~메인 툴바~~ → `MainToolbar.razor`로 추출 (사이드바 토글 + 제목/브랜치 + 상태바 + 패널 토글)
 - MainLayout에 남은 책임: 3패널 셸 구성, 패널 리사이즈 상태 관리, MudThemeProvider 바인딩, 의존성 체크 → SetupDialog, UsageDashboard 다이얼로그
 
-**TabManager** (`TabManager.cs`):
-- 타입: Chat, FileContent, FileDiff, Activity
+**TabManager** (`TabManager.cs`, 218줄):
+- 타입: Chat, FileContent, FileDiff, Activity, Notifications
 - Chat 탭은 항상 존재. 다른 탭은 동적 추가/제거
+- 메모리 관리: `MaxSingleFileSizeBytes`(10MB), `MaxTotalContentBytes`(50MB). 초과 시 LRU 퇴출(`EvictLruContent()`)
+- `ContentEvicted` 플래그로 퇴출된 파일 콘텐츠 지연 리로드 지원
 - `OnTabChanged` 이벤트
 
 ### CSS 디자인 토큰 시스템
 
-`src/Cominomi/wwwroot/app.css` (3,169줄)에 정의된 토큰 시스템:
+`src/Cominomi/wwwroot/tokens.css` (73줄) + `app.css` (3,240줄)에 정의된 토큰 시스템:
 
 ```
 :root {
@@ -977,23 +989,24 @@ case "error"                            → 에러 메시지 추가
 | 디렉토리 | 개수 | 주요 파일 |
 |----------|------|-----------|
 | `Activity/` | 1 | ActivityView |
-| `Chat/` | 13 | ChatView, InputArea, MessageBubble, LinkIssueDialog, ActivitySummary, PlanReviewBar, QuickResponseBar, StreamingIndicator, **ModelSelector** (Phase 5), **AttachmentChips** (Phase 5), **BranchSelector** (Phase 6), **SessionWorkflowBar** (Phase 6), **LandingPage** (Phase 6) |
+| `Chat/` | 14 | ChatView, InputArea, **InputToolbar** (Phase 17), MessageBubble, LinkIssueDialog, ActivitySummary, PlanReviewBar, QuickResponseBar, StreamingIndicator, ModelSelector, AttachmentChips, BranchSelector, SessionWorkflowBar, LandingPage |
 | `Diff/` | 1 | DiffPanel |
 | `Files/` | 2 | FileContentView, FileDiffView |
-| `Layout/` | 7 | MainLayout, **SidebarToolbar** (Phase 7), **MainToolbar** (Phase 7), **PanelResizer**, DetailPanel, MainTabBar, StatusBar |
-| `Settings/` | 7 | SettingsPage, AppSettingsContent, WorkspaceSettingsContent, McpManagerDialog, **PluginManagerDialog**, SlashCommandsEditor, UsageDashboard |
+| `Layout/` | 7 | MainLayout, SidebarToolbar, MainToolbar, PanelResizer, DetailPanel, MainTabBar, StatusBar |
+| `Notifications/` | 1 | NotificationHistoryView |
+| `Settings/` | 7 | SettingsPage, AppSettingsContent, WorkspaceSettingsContent, McpManagerDialog, PluginManagerDialog, SlashCommandsEditor, UsageDashboard |
 | `Setup/` | 1 | SetupDialog |
-| `Sidebar/` | 6 | SessionList, SessionItem, SessionListToolbar, CreateWorkspaceDialog, SidebarExplorer, SidebarChanges |
+| `Sidebar/` | 8 | SessionList, SessionItem, SessionListToolbar, **AddSessionMenu** (Phase 17), CreateWorkspaceDialog, SidebarExplorer, **FileTreeNode** (Phase 17), SidebarChanges |
 | `Spotlight/` | 1 | SpotlightToggle |
 | `Tools/` | 7 | ToolCallCard, ToolGroupCard, BashToolWidget, EditToolWidget, GlobToolWidget, GrepToolWidget, ReadToolWidget |
-| 기타 | 3 | _Imports, Home, Routes |
-| **합계** | **47** | |
+| 기타 | 4 | _Imports, Home, NotFound, Routes |
+| **합계** | **54** | |
 
 ### 빠진 것 / 문제점
-- ~~**MainLayout이 너무 많은 책임**: 레이아웃 + 테마 + 의존성 체크 + 다이얼로그 관리~~ → ✅ **해결**: `IThemeService` + `SidebarToolbar` + `MainToolbar` 추출. 174줄로 축소
+- ~~**MainLayout이 너무 많은 책임**: 레이아웃 + 테마 + 의존성 체크 + 다이얼로그 관리~~ → ✅ **해결**: `IThemeService` + `SidebarToolbar` + `MainToolbar` 추출. 225줄 (패널 리사이즈 + 파일 콘텐츠 퇴출 + 알림 탭 등 기능 추가로 재증가)
 - ~~**패널 크기 조절 불가**~~ → ✅ **해결**: `PanelResizer.razor` 컴포넌트로 드래그 리사이즈 + 키보드(←/→, Shift 큰 폭) 지원. CSS 변수 실시간 갱신
 - ~~**키보드 네비게이션 없음**~~ → ✅ **해결**: `Ctrl/Cmd+B` 사이드바 토글, `Ctrl/Cmd+]` 디테일 패널 토글, 패널 리사이저에서 화살표 키 지원
-- **탭 메모리에 파일 콘텐츠 보관**: `MainTab.FileContent`가 문자열로 메모리에 상주. 퇴출 정책 없음
+- ~~**탭 메모리에 파일 콘텐츠 보관**: `MainTab.FileContent`가 문자열로 메모리에 상주. 퇴출 정책 없음~~ → ✅ **해결**: `TabManager`에 LRU 퇴출 도입. `MaxSingleFileSizeBytes`(10MB) + `MaxTotalContentBytes`(50MB) + `ContentEvicted` 플래그로 지연 리로드
 - ~~**디자인 토큰 파일 미분리**~~ → ✅ **해결**: `tokens.css`(73줄) 분리 완료. `app.css`는 컴포넌트 스타일 전용. `index.html`에서 `tokens.css` → `app.css` 순서 로드
 
 ---
@@ -1003,13 +1016,15 @@ case "error"                            → 에러 메시지 추가
 ### 관련 파일
 | 파일 | 줄수 | 역할 |
 |------|------|------|
-| `Shared/Components/Sidebar/SessionList.razor` | ~479 | 세션 목록 (Phase 3: 719→634줄, Phase 4: 634→479줄) |
-| `Shared/Components/Sidebar/SessionItem.razor` | ~91 | 세션 행 렌더링 (Phase 3 추출) |
-| `Shared/Components/Sidebar/SessionListToolbar.razor` | ~34 | 툴바 + 필터 (Phase 3 추출) |
-| `Shared/Services/SessionListDataService.cs` | 228 | 캐시/정렬/필터/diff stats/merge 상태 체크 (Phase 4 추출) |
-| `Shared/Components/Sidebar/CreateWorkspaceDialog.razor` | ~282 | 워크스페이스 생성 |
-| `Shared/Components/Sidebar/SidebarExplorer.razor` | ~396 | 파일 트리 |
-| `Shared/Components/Sidebar/SidebarChanges.razor` | ~212 | 변경사항 뷰 |
+| `Shared/Components/Sidebar/SessionList.razor` | 367 | 세션 목록 (가상화 적용, ISessionListFacade 파사드 위임) |
+| `Shared/Components/Sidebar/SessionItem.razor` | 91 | 세션 행 렌더링 (상태 인디케이터, diff stats 표시) |
+| `Shared/Components/Sidebar/SessionListToolbar.razor` | 34 | 툴바 + 검색/필터 |
+| `Shared/Components/Sidebar/AddSessionMenu.razor` | 21 | 세션 추가 메뉴 (새 세션 + 로컬 디렉토리) — Phase 17에서 3회 중복 추출 |
+| `Shared/Services/SessionListDataService.cs` | 241 | 캐시/정렬/필터/diff stats/merge 상태 체크/프로젝트 그룹화 |
+| `Shared/Components/Sidebar/CreateWorkspaceDialog.razor` | 282 | 워크스페이스 생성 (URL 클론 + 로컬 경로 탭) |
+| `Shared/Components/Sidebar/SidebarExplorer.razor` | 318 | 파일 트리 오케스트레이션 (FileSystemWatcher, 세션별 확장 상태) |
+| `Shared/Components/Sidebar/FileTreeNode.razor` | 85 | 재귀 파일 트리 노드 렌더링 — Phase 17에서 SidebarExplorer에서 추출 |
+| `Shared/Components/Sidebar/SidebarChanges.razor` | 210 | 변경사항 뷰 (diff 요약, 파일별 +/- 카운트, FileSystemWatcher) |
 
 ### 현재 동작
 
@@ -1031,7 +1046,7 @@ case "error"                            → 에러 메시지 추가
 - 세션별 확장 상태 유지
 
 ### 빠진 것 / 문제점
-- ~~**SessionList 719줄 God Component**~~ → ✅ **해결**: Phase 3에서 `SessionItem.razor`+`SessionListToolbar.razor` 자식 컴포넌트 추출(719→634줄). Phase 4에서 `SessionListDataService`로 데이터/캐시/필터 로직 추출(634→479줄). 총 33%↓
+- ~~**SessionList 719줄 God Component**~~ → ✅ **해결**: Phase 3+4 자식 컴포넌트/데이터 서비스 추출 + `ISessionListFacade` 파사드 + `AddSessionMenu` 중복 제거로 719→367줄(49%↓)
 - ~~**가상화 없음**: 세션이 많아지면 전체 DOM에 렌더링~~ → ✅ **해결**: 워크스페이스별 개별 `<Virtualize>` → 전체 사이드바를 단일 플랫 리스트(`SidebarRow` record)로 변환 후 하나의 `<Virtualize>` 적용. 프로젝트 헤더·워크스페이스 서브헤더·세션 아이템을 `SidebarRowKind` enum으로 구분
 - ~~**세션 선택 시 전체 로드**: `LoadSessionAsync()`가 전체 메시지 포함 파일을 동기적으로 읽음. 대형 세션은 UI 버벅임~~ → ✅ **해결**: `LoadSessionAsync` 2초 TTL 캐시 도입 (#134). 동일 세션 재로드 시 캐시 히트
 - ~~**FileSystemWatcher 플러딩**: Windows에서 빠른 파일 변경 시 이벤트 폭주 → UI 업데이트 과다~~ → ✅ **해결**: SpotlightService에서 Stop/Start 디바운스를 flag 기반 throttle로 전환. `InternalBufferSize` 64KB 확대 + `Error` 이벤트 핸들러 추가
@@ -1043,57 +1058,62 @@ case "error"                            → 에러 메시지 추가
 ### 관련 파일
 | 파일 | 줄수 | 역할 |
 |------|------|------|
-| `Shared/Components/Chat/MessageBubble.razor` | ~286 | 메시지 렌더링 |
-| `Shared/Components/Chat/InputArea.razor` | ~344 | 입력 영역 (Phase 5에서 459→344줄) |
-| `Shared/Components/Chat/StreamingIndicator.razor` | ~122 | 스트리밍 상태 |
-| `Shared/Components/Chat/PlanReviewBar.razor` | ~128 | 플랜 리뷰 |
-| `Shared/Components/Chat/QuickResponseBar.razor` | ~19 | 빠른 응답 |
+| `Shared/Components/Chat/ChatView.razor` | 458 | 채팅 메인 뷰 (메시지 표시, UI 이벤트 핸들링, Orchestrator 위임) |
+| `Shared/Components/Chat/MessageBubble.razor` | 286 | 메시지 렌더링 (역할별 아바타, 타임스탬프, 첨부, 활동 요약) |
+| `Shared/Components/Chat/InputArea.razor` | 271 | 입력 영역 (텍스트 입력, 첨부, 스킬 체이닝, JS interop) |
+| `Shared/Components/Chat/InputToolbar.razor` | 134 | 입력 툴바 (권한/노력/모델/액션 버튼) — Phase 17에서 InputArea에서 추출 |
+| `Shared/Components/Chat/SessionWorkflowBar.razor` | 210 | PR 생성/상태 전환/이슈 연결 워크플로우 바 |
+| `Shared/Components/Chat/StreamingIndicator.razor` | 122 | 스트리밍 상태 (준비/전송/사고/도구/텍스트 단계 + 경과 시간) |
+| `Shared/Components/Chat/PlanReviewBar.razor` | 128 | 플랜 리뷰 (마크다운 미리보기, 승인/거절, 피드백 입력) |
+| `Shared/Components/Chat/BranchSelector.razor` | 105 | 브랜치 선택 드롭다운 (필터/검색, 브랜치 그룹) |
+| `Shared/Components/Chat/ModelSelector.razor` | 97 | 모델 선택 (빌트인 모델 + 커스텀 입력) |
+| `Shared/Components/Chat/LandingPage.razor` | 92 | 랜딩 페이지 (로고, 워크스페이스 생성, 최근 세션) |
 | `Shared/Components/Chat/LinkIssueDialog.razor` | 209 | GitHub 이슈 연결 다이얼로그 |
 | `Shared/Components/Chat/ActivitySummary.razor` | 141 | 도구 활동 요약 (접기/펴기) |
-| `Shared/Components/Tools/ToolCallCard.razor` | ~130 | 도구 호출 카드 |
+| `Shared/Components/Chat/AttachmentChips.razor` | 31 | 첨부파일 칩 (이미지 미리보기, 파일 아이콘) |
+| `Shared/Components/Chat/QuickResponseBar.razor` | 19 | 빠른 응답 버튼 |
+| `Shared/Components/Tools/ToolCallCard.razor` | 153 | 도구 호출 카드 (ReferenceEquals 변경 감지 캐싱) |
 | `Shared/Components/Tools/ToolGroupCard.razor` | 92 | 연속 도구 호출 그룹 카드 |
-| `Shared/Services/ContentGrouper.cs` | ~244 | 파트 그룹화 |
-| `Shared/Services/QuestionDetector.cs` | ~96 | 질문 감지 |
-| `Shared/Services/ToolDisplayHelper.cs` | 217 | 도구 결과 UI 라벨 (헤더/요약/설명) |
+| `Shared/Services/ContentGrouper.cs` | 227 | 파트 그룹화 (구조적 마커 기반 언어 무관 휴리스틱, 도구명 정규화 → ToolDisplayHelper 위임) |
+| `Shared/Services/QuestionDetector.cs` | 128 | 질문 감지 (확인/선택/명령형 질문 32패턴 + `?` 폴백) |
+| `Shared/Services/ToolDisplayHelper.cs` | 216 | 도구 결과 UI 라벨 + `NormalizeToolName` 단일 소스 (헤더/요약/설명) |
 
 ### 현재 동작
+
+**ChatView** (458줄 — Phase 16에서 697→458줄): UI 이벤트 핸들링 전용. 비즈니스 로직은 `IChatMessageOrchestrator`에 위임:
+- 메시지 표시 영역 (스크롤, 스트리밍 상태)
+- `HandleSend` / `HandleContinue` → Orchestrator 위임
+- 스킬 체이닝: `_pendingChain` 필드로 자동 후속 스킬 전송
 
 **MessageBubble**: ContentGrouper로 Parts를 그룹화:
 - ToolGroup: 연속된 도구 호출을 접기
 - Thinking: 사고 블록 접기
 - Text: 최종 텍스트와 중간 텍스트 구분
 
-**InputArea** (~340줄 — Phase 5에서 축소):
-- 텍스트 입력 (자동 크기 조절)
-- Enter 전송, Shift+Enter 줄바꿈
-- 파일 첨부 (드래그/붙여넣기)
-- 모델 선택 드롭다운
-- 권한 모드 선택
-- 노력 수준 토글
-- 에이전트 타입 선택
+**InputArea** (271줄) + **InputToolbar** (134줄):
+- InputArea: 텍스트 입력 (자동 크기 조절), Enter 전송, 파일 첨부 (드래그/붙여넣기), 스킬 체이닝, "계속" 기능, JS interop
+- InputToolbar: 권한 모드 순환, 노력 수준 토글, `ModelSelector` 위임, 액션 버튼 (전송/중지/계속 3상태)
+
+**SessionWorkflowBar** (210줄): Git 세션 전용 워크플로우 바 — PR 생성/상태 전환/이슈 연결
 
 **도구 위젯**: 도구 타입별 전문 렌더링
-- `BashToolWidget`: 명령어 + 출력
-- `EditToolWidget`: 파일 경로 + 변경 내용
-- `GlobToolWidget`: 패턴 + 매칭 파일
-- `GrepToolWidget`: 검색 패턴 + 결과
-- `ReadToolWidget`: 파일 경로 + 내용
+- `BashToolWidget` (72줄): 명령어 + 출력 (ANSI 컬러 스트립)
+- `EditToolWidget` (80줄): 파일 경로 + old/new diff 표시
+- `GlobToolWidget` (89줄): 패턴 + 매칭 파일 (접기/더보기)
+- `GrepToolWidget` (138줄): 검색 패턴 + 파일별 결과 그룹
+- `ReadToolWidget` (94줄): 파일 경로 + 구문 강조 콘텐츠
 
-**ToolDisplayHelper** (217줄 — 정적 유틸리티):
+**ToolDisplayHelper** (216줄 — 정적 유틸리티):
+- `NormalizeToolName()`: 도구명 정규화 단일 소스 (ContentGrouper도 위임). MCP 도구명 파싱 포함
 - `GetHeaderLabel()`: 도구 입력 JSON에서 컨텍스트 추출 → "Read MessageBubble.razor" 같은 라벨 생성
 - `GetCompactResult()`: 출력에서 "50줄 읽음", "3개 파일 일치" 같은 힌트 생성
 - `BuildDescriptiveSummary()`: 도구 호출의 서술형 요약
-- Read/Write/Edit/Grep/Glob/Bash/Agent/WebFetch/WebSearch/NotebookEdit/TodoWrite 처리
-- ~~**한국어 문자열 하드코딩**~~ → ✅ **해결**: `Strings.*` 접근자로 전환 ("줄 읽음" → `Strings.Tool_ReadHint(lineCount)` 등)
-
-**LinkIssueDialog** (209줄): GitHub 이슈를 세션에 연결하는 모달. 이슈 목록 검색/필터 + 새 이슈 생성
-
-**ActivitySummary** (141줄): 도구 활동 요약 블록. 사고(thinking) 블록 접기/펴기, 도구 호출 카운트 표시
 
 ### 빠진 것 / 문제점
 - ~~**"중간 텍스트" 휴리스틱** (`ContentGrouper.cs`): 하드코딩된 한국어/영어 패턴으로 텍스트를 "중간"으로 분류. 오분류 가능~~ → ✅ **해결**: 언어별 패턴 배열 제거, 구조적 마커 기반(코드·링크·서식·다단락) 언어 무관 휴리스틱으로 교체
-- ~~**InputArea 459줄**: 텍스트 입력 + 파일 첨부 + 모델/권한/노력 선택이 한 컴포넌트에~~ → ✅ **해결**: Phase 5에서 `ModelSelector.razor`+`AttachmentChips.razor` 자식 컴포넌트 추출. 460→~340줄(26%↓)
-- **도구 입력 JSON 매 렌더 파싱**: ToolCallCard가 `JsonSerializer.Deserialize`를 매 렌더마다 수행. 캐싱 없음
+- ~~**InputArea 459줄**: 텍스트 입력 + 파일 첨부 + 모델/권한/노력 선택이 한 컴포넌트에~~ → ✅ **해결**: Phase 5에서 `ModelSelector`+`AttachmentChips` 추출, Phase 17에서 `InputToolbar` 추출. 459→271줄(41%↓)
+- ~~**도구 입력 JSON 매 렌더 파싱**: ToolCallCard가 `JsonSerializer.Deserialize`를 매 렌더마다 수행. 캐싱 없음~~ → ✅ **해결**: `ReferenceEquals` 변경 감지 캐싱 도입
+- ~~**도구 이름 매핑 중복**: ContentGrouper와 ToolDisplayHelper에 동일한 NormalizeToolName 중복~~ → ✅ **해결**: Phase 17에서 ContentGrouper의 중복 메서드 삭제, `ToolDisplayHelper.NormalizeToolName`(`internal`) 단일 소스로 통합
 - ~~**QuestionDetector 제한적**: 마지막 문장이 `?`로 끝나야 질문으로 감지. 질문이 본문 중간에 있으면 놓침~~ → ✅ **해결**: `ConfirmPatterns`(16패턴) + `ImperativeQuestionPatterns`(16패턴) 추가. `?` 필수 가드 제거 → 패턴 우선 매칭, `?`는 generic fallback으로만 사용
 
 ---
@@ -1640,15 +1660,16 @@ SessionList ───→ SessionListDataService          ← Phase 4 추출
 | 순위 | 문제 | 영향 | 난이도 |
 |------|------|------|--------|
 | **1** | **SendMessageAsync 15 파라미터 / ClaudeArgumentBuilder.Build 16 파라미터** — Parameter Object 패턴 필요. `SendMessageOptions` 클래스로 캡슐화 | API 가독성, 유지보수성, 호출부 실수 위험 | 중 |
-| **2** | **GitService 661줄 God Object** — cloning, branching, diff 파싱, 캐싱, stash, rebase를 단일 클래스에서 담당 | SRP 위반, 테스트 어려움 | 높 |
+| **2** | **GitService 602줄 God Object** — cloning, branching, diff 파싱, 캐싱, stash, rebase를 단일 클래스에서 담당 (ParseDiff 삭제로 661→602줄) | SRP 위반, 테스트 어려움 | 높 |
 | **3** | **SessionService 649줄 God Object** — 세션 CRUD, 캐시, 메타데이터, 라이프사이클, 워크트리를 단일 클래스에서 담당 | SRP 위반, 테스트 어려움 | 높 |
-| **4** | **도구 이름 매핑 중복** — `ContentGrouper`(172-182줄)와 `ToolDisplayHelper`(193-208줄)에 동일한 tool name 정규화 로직 중복. ToolDisplayHelper 쪽이 더 포괄적 | 유지보수 혼란, 매핑 불일치 위험 | 낮 |
-| **5** | **ParseDiff 레거시 코드 잔류** — static `ParseDiff` 메서드가 `GetDiffSummaryAsync`와 기능 중복. 프로덕션 호출부 없음 (테스트에서만 사용). Phase 14에서 삭제 예정이었으나 문서만 수정됨 | 코드 중복, 혼란 | 낮 |
-| **6** | **ChatMessageOrchestrator 10개 서비스 주입** — `IChatState, IClaudeService, ISessionService, IAttachmentService, IStreamEventProcessor, ISystemPromptBuilder, ISessionInitializer, IHooksEngine, IChatPrWorkflowService, ILogger`. 파사드 패턴이나 추가 분해 필요 | 커플링, 테스트 어려움 | 중 |
-| **7** | **설정 상수 산재** — 캐시 크기, 토큰 제한, 타임아웃 등 52+개 설정값이 14+개 파일에 `private const`로 분산. `CominomiConstants`/`AppSettings` 미활용 | 변경 추적 불가, 테스트 시 오버라이드 불가 | 중 |
-| **8** | **대형 Razor 컴포넌트** — McpManagerDialog(419줄), SidebarExplorer(401줄), AppSettingsContent(396줄), SessionList(377줄), InputArea(372줄). 각각 자식 컴포넌트 추출 가능 | UI 유지보수성 | 중 |
-| **9** | **캐시 용량 제한 미비** — `ActivityService._activityCache`, `GitService._branchListCache`, `GitService._branchGroupCache`에 TTL·용량 제한 없음. `SessionService`(64개 제한)와 불일치 | 장기 실행 시 메모리 누수 | 낮 |
-| **10** | **테스트 커버리지 갭** — ~102개 서비스 중 ~43개 테스트 없음(57% 커버리지). 미테스트 핵심 서비스: `ChatMessageOrchestrator`, `ContextService`, `SettingsService`, `ProcessRunner`, StreamEventHandler 6종 | 회귀 방지 불가 | 높 |
+| ~~**4**~~ | ~~**도구 이름 매핑 중복**~~ | ✅ **해결**: Phase 17 — `ContentGrouper.NormalizeToolName` 삭제, `ToolDisplayHelper.NormalizeToolName`(`internal`) 단일 소스 | |
+| ~~**5**~~ | ~~**ParseDiff 레거시 코드 잔류**~~ | ✅ **해결**: Phase 17 — `ParseDiff` 메서드 + 9개 테스트 삭제. GitService 661→602줄 | |
+| **4** | **ChatMessageOrchestrator 10개 서비스 주입** — `IChatState, IClaudeService, ISessionService, IAttachmentService, IStreamEventProcessor, ISystemPromptBuilder, ISessionInitializer, IHooksEngine, IChatPrWorkflowService, ILogger`. 파사드 패턴이나 추가 분해 필요 | 커플링, 테스트 어려움 | 중 |
+| **5** | **설정 상수 산재** — 캐시 크기, 토큰 제한, 타임아웃 등 52+개 설정값이 14+개 파일에 `private const`로 분산. `CominomiConstants`/`AppSettings` 미활용 | 변경 추적 불가, 테스트 시 오버라이드 불가 | 중 |
+| ~~**8**~~ | ~~**대형 Razor 컴포넌트**~~ | ✅ **부분 해결**: Phase 17 — SidebarExplorer 401→318줄(`FileTreeNode` 추출), InputArea 372→271줄(`InputToolbar` 추출), SessionList 377→367줄(`AddSessionMenu` 추출). 잔여: McpManagerDialog(419줄), AppSettingsContent(396줄) | |
+| **6** | **대형 Razor 컴포넌트 잔여** — McpManagerDialog(419줄), AppSettingsContent(396줄). 각각 자식 컴포넌트 추출 가능 | UI 유지보수성 | 중 |
+| **7** | **캐시 용량 제한 미비** — `ActivityService._activityCache`, `GitService._branchListCache`, `GitService._branchGroupCache`에 TTL·용량 제한 없음. `SessionService`(64개 제한)와 불일치 | 장기 실행 시 메모리 누수 | 낮 |
+| **8** | **테스트 커버리지 갭** — ~102개 서비스 중 ~43개 테스트 없음(57% 커버리지). 미테스트 핵심 서비스: `ChatMessageOrchestrator`, `ContextService`, `SettingsService`, `ProcessRunner`, StreamEventHandler 6종 | 회귀 방지 불가 | 높 |
 
 ### 차기 개선 후보
 
@@ -1676,6 +1697,9 @@ SessionList ───→ SessionListDataService          ← Phase 4 추출
 | ~~10~~ | ToolCallCard JSON 매 렌더 파싱 | ✅ `ReferenceEquals` 변경 감지 캐싱 도입 |
 | ~~차기1~~ | 알림 히스토리 없음 | ✅ NotificationHistoryService 도입 |
 | ~~차기2~~ | 스킬 체이닝 불가 | ✅ Phase 13 — 파이프 구문 + `chain:` 프론트매터 |
+| ~~4~~ | 도구 이름 매핑 중복 | ✅ Phase 17 — `ContentGrouper.NormalizeToolName` 삭제 → `ToolDisplayHelper` 위임 |
+| ~~5~~ | ParseDiff 레거시 코드 잔류 | ✅ Phase 17 — `ParseDiff` + 9개 테스트 삭제. GitService 661→602줄 |
+| ~~8~~ | 대형 Razor 컴포넌트 (Part IV) | ✅ Phase 17 — `FileTreeNode`+`InputToolbar`+`AddSessionMenu` 추출. SidebarExplorer 401→318, InputArea 372→271, SessionList 377→367 |
 
 </details>
 

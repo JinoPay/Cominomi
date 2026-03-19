@@ -1,0 +1,21 @@
+<MudMenu Icon="@Icons.Material.Filled.Add" Size="IconSize"
+         Dense="true" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
+         Style="@Style"
+         Class="@ButtonClass"
+         Disabled="Disabled"
+         ActivationEvent="@MouseEvent.LeftClick">
+    <MudMenuItem OnClick="@OnNewChat"
+                 Icon="@Icons.Material.Filled.AccountTree">새 세션</MudMenuItem>
+    <MudMenuItem OnClick="@OnAddLocalDir"
+                 Icon="@Icons.Material.Filled.Folder">로컬 디렉토리</MudMenuItem>
+</MudMenu>
+
+@code {
+    [Parameter] public string WorkspaceId { get; set; } = "";
+    [Parameter] public EventCallback OnNewChat { get; set; }
+    [Parameter] public EventCallback OnAddLocalDir { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? ButtonClass { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public Size IconSize { get; set; } = Size.Small;
+}
