@@ -1,0 +1,134 @@
+<div class="input-toolbar">
+    <div class="input-toolbar-left">
+        <MudTooltip Text="@GetPermissionModeTooltip()">
+            <MudIconButton Icon="@GetPermissionModeIcon()"
+                           Color="@GetPermissionModeColor()"
+                           Size="Size.Small"
+                           OnClick="CyclePermissionMode"
+                           Disabled="Disabled || IsStreaming" />
+        </MudTooltip>
+
+        <MudTooltip Text="@GetEffortLevelTooltip()">
+            <MudIconButton Icon="@Icons.Material.Filled.Psychology"
+                           Color="@GetEffortLevelColor()"
+                           Size="Size.Small"
+                           OnClick="CycleEffortLevel"
+                           Disabled="Disabled || IsStreaming" />
+        </MudTooltip>
+
+        <MudTooltip Text="파일 첨부">
+            <MudIconButton Icon="@Icons.Material.Filled.AttachFile"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           OnClick="@(() => OnPickFiles.InvokeAsync())"
+                           Disabled="Disabled || IsStreaming" />
+        </MudTooltip>
+    </div>
+
+    <div class="input-toolbar-right">
+        <ModelSelector Model="Model" ResolvedModel="ResolvedModel"
+                       OnModelChanged="OnModelChanged"
+                       Disabled="Disabled" IsStreaming="IsStreaming" />
+
+        @if (IsStreaming)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Stop"
+                       OnClick="@(() => OnCancel.InvokeAsync())"
+                       Class="stop-button-glow"
+                       Style="border-radius: 20px; text-transform: none; min-width: 72px;">
+                중지
+            </MudButton>
+        }
+        else if (CanContinue && !HasInput && !HasAttachments)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.PlayArrow"
+                       OnClick="@(() => OnContinue.InvokeAsync())"
+                       Disabled="Disabled"
+                       Style="border-radius: 20px; text-transform: none; min-width: 72px;">
+                계속
+            </MudButton>
+        }
+        else
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
+                           Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           OnClick="@(() => OnSend.InvokeAsync())"
+                           Disabled="@(Disabled || (!HasInput && !HasAttachments))"
+                           Size="Size.Small"
+                           Style="border-radius: 50%;" />
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string PermissionMode { get; set; } = "bypassAll";
+    [Parameter] public EventCallback<string> OnPermissionModeChanged { get; set; }
+    [Parameter] public string EffortLevel { get; set; } = "auto";
+    [Parameter] public EventCallback<string> OnEffortLevelChanged { get; set; }
+    [Parameter] public string Model { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> OnModelChanged { get; set; }
+    [Parameter] public string? ResolvedModel { get; set; }
+    [Parameter] public bool IsStreaming { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool CanContinue { get; set; }
+    [Parameter] public bool HasInput { get; set; }
+    [Parameter] public bool HasAttachments { get; set; }
+    [Parameter] public EventCallback OnSend { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnContinue { get; set; }
+    [Parameter] public EventCallback OnPickFiles { get; set; }
+
+    private static readonly string[] PermissionModes = ["bypassAll", "plan"];
+    private static readonly string[] EffortLevels = ["auto", "max"];
+
+    private string GetPermissionModeTooltip() => PermissionMode switch
+    {
+        "plan" => "플랜 모드 (읽기 전용)",
+        _ => "일반 모드 (모든 권한 우회)"
+    };
+
+    private string GetPermissionModeIcon() => PermissionMode switch
+    {
+        "plan" => Icons.Material.Filled.Description,
+        _ => Icons.Material.Filled.EditNote
+    };
+
+    private Color GetPermissionModeColor() => PermissionMode switch
+    {
+        "plan" => Color.Warning,
+        _ => Color.Default
+    };
+
+    private async Task CyclePermissionMode()
+    {
+        var idx = Array.IndexOf(PermissionModes, PermissionMode);
+        var next = PermissionModes[(idx + 1) % PermissionModes.Length];
+        await OnPermissionModeChanged.InvokeAsync(next);
+    }
+
+    private string GetEffortLevelTooltip() => EffortLevel switch
+    {
+        "max" => "Effort: Max (Thinking)",
+        _ => "Effort: Auto"
+    };
+
+    private Color GetEffortLevelColor() => EffortLevel switch
+    {
+        "max" => Color.Secondary,
+        _ => Color.Default
+    };
+
+    private async Task CycleEffortLevel()
+    {
+        var idx = Array.IndexOf(EffortLevels, EffortLevel);
+        var next = EffortLevels[(idx + 1) % EffortLevels.Length];
+        await OnEffortLevelChanged.InvokeAsync(next);
+    }
+}

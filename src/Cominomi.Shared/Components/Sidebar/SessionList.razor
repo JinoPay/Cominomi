@@ -30,15 +30,10 @@
                                     }
                                     @if (readyWs != null)
                                     {
-                                        <MudMenu Icon="@Icons.Material.Filled.Add" Size="Size.Small"
-                                                 Dense="true" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
-                                                 Style="width: 20px; height: 20px; opacity: 0.5;"
-                                                 ActivationEvent="@MouseEvent.LeftClick">
-                                            <MudMenuItem OnClick="@(() => CreateNewChat(readyWs))"
-                                                         Icon="@Icons.Material.Filled.AccountTree">새 세션</MudMenuItem>
-                                            <MudMenuItem OnClick="@(() => CreateLocalDirChat(readyWs))"
-                                                         Icon="@Icons.Material.Filled.Folder">로컬 디렉토리</MudMenuItem>
-                                        </MudMenu>
+                                        <AddSessionMenu WorkspaceId="@readyWs.Id"
+                                                        OnNewChat="@(() => CreateNewChat(readyWs))"
+                                                        OnAddLocalDir="@(() => CreateLocalDirChat(readyWs))"
+                                                        Style="width: 20px; height: 20px; opacity: 0.5;" />
                                     }
                                     <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small"
                                              Dense="true"
@@ -65,15 +60,10 @@
                             }
                             @if (row.Workspace.Status == WorkspaceStatus.Ready && !_isCreatingSession)
                             {
-                                <MudMenu Icon="@Icons.Material.Filled.Add" Size="Size.Small"
-                                         Dense="true" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
-                                         Style="width: 16px; height: 16px; opacity: 0.4;"
-                                         ActivationEvent="@MouseEvent.LeftClick">
-                                    <MudMenuItem OnClick="@(() => CreateNewChat(row.Workspace))"
-                                                 Icon="@Icons.Material.Filled.AccountTree">새 세션</MudMenuItem>
-                                    <MudMenuItem OnClick="@(() => CreateLocalDirChat(row.Workspace))"
-                                                 Icon="@Icons.Material.Filled.Folder">로컬 디렉토리</MudMenuItem>
-                                </MudMenu>
+                                <AddSessionMenu WorkspaceId="@row.Workspace.Id"
+                                                OnNewChat="@(() => CreateNewChat(row.Workspace))"
+                                                OnAddLocalDir="@(() => CreateLocalDirChat(row.Workspace))"
+                                                Style="width: 16px; height: 16px; opacity: 0.4;" />
                             }
                         </div>
                         break;

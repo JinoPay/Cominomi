@@ -616,66 +616,6 @@ public class GitService : IGitService
         fileDiff.Deletions = deletions;
     }
 
-    [Obsolete("Use GetDiffSummaryAsync which streams incrementally without loading full diff into memory.")]
-    public static DiffSummary ParseDiff(string nameStatus, string rawDiff)
-    {
-        var summary = new DiffSummary();
-        if (string.IsNullOrWhiteSpace(nameStatus))
-            return summary;
-
-        var fileMap = ParseNameStatusIntoFileMap(nameStatus, summary);
-
-        // Parse unified diff and assign to files
-        if (!string.IsNullOrWhiteSpace(rawDiff))
-        {
-            // Split by "diff --git" marker
-            var chunks = rawDiff.Split("diff --git ", StringSplitOptions.RemoveEmptyEntries);
-            foreach (var chunk in chunks)
-            {
-                // First line: "a/path b/path"
-                var firstNewline = chunk.IndexOf('\n');
-                if (firstNewline < 0) continue;
-
-                var header = chunk[..firstNewline];
-                var filePath = ExtractPathFromDiffHeader(header);
-                var diffContent = chunk[(firstNewline + 1)..];
-
-                // Fall back to +++ line for renames or ambiguous headers
-                if (filePath == null)
-                {
-                    foreach (var diffLine in diffContent.Split('\n'))
-                    {
-                        if (diffLine.StartsWith("+++ b/"))
-                        {
-                            filePath = diffLine[6..];
-                            break;
-                        }
-                    }
-                    if (filePath == null) continue;
-                }
-
-                // Count additions and deletions
-                int additions = 0, deletions = 0;
-                foreach (var line in diffContent.Split('\n'))
-                {
-                    if (line.StartsWith('+') && !line.StartsWith("+++"))
-                        additions++;
-                    else if (line.StartsWith('-') && !line.StartsWith("---"))
-                        deletions++;
-                }
-
-                if (fileMap.TryGetValue(filePath, out var fileDiff))
-                {
-                    fileDiff.UnifiedDiff = diffContent;
-                    fileDiff.Additions = additions;
-                    fileDiff.Deletions = deletions;
-                }
-            }
-        }
-
-        return summary;
-    }
-
     private void InvalidateBranchCaches(string repoDir)
     {
         var key = Path.GetFullPath(repoDir);
