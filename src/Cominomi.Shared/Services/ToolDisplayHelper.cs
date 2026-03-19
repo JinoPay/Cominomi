@@ -190,7 +190,7 @@ public static class ToolDisplayHelper
         return count;
     }
 
-    private static string NormalizeToolName(string name) => name.ToLowerInvariant() switch
+    internal static string NormalizeToolName(string name) => name.ToLowerInvariant() switch
     {
         "read" or "read_file" => "Read",
         "write" or "write_file" => "Write",

@@ -31,7 +31,11 @@
     else
     {
         <div class="sidebar-explorer-tree">
-            @RenderNodes(_tree, 0)
+            <FileTreeNode Nodes="_tree"
+                          ExpandedDirs="_expandedDirs"
+                          Diff="_diff"
+                          OnToggleDir="ToggleDir"
+                          OnOpenFile="OpenFile" />
         </div>
     }
 </div>
@@ -215,62 +219,6 @@
     // Parameterless overload for button click
     private Task LoadFilesAsync() => LoadFilesAsync(preserveExpanded: false);
 
-    private RenderFragment RenderNodes(List<FileNode> nodes, int depth) => builder =>
-    {
-        foreach (var node in nodes)
-        {
-            var indent = depth * 12;
-            if (node.IsDirectory)
-            {
-                var expanded = _expandedDirs.Contains(node.FullPath);
-                var hasDiff = _diff != null && _diff.Files.Any(f => f.FilePath.StartsWith(node.FullPath + "/"));
-                builder.OpenElement(0, "div");
-                builder.AddAttribute(1, "class", $"sidebar-file-item dir{(hasDiff ? " has-diff" : "")}");
-                builder.AddAttribute(2, "style", $"padding-left: {indent + 8}px;");
-                builder.AddAttribute(3, "onclick", EventCallback.Factory.Create(this, () => ToggleDir(node.FullPath)));
-
-                builder.OpenComponent<MudIcon>(4);
-                builder.AddComponentParameter(5, "Icon", expanded ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder);
-                builder.AddComponentParameter(6, "Size", Size.Small);
-                builder.AddComponentParameter(7, "Style", $"width: 14px; height: 14px; {(hasDiff ? "opacity: 0.8; color: #89b4fa;" : "opacity: 0.6;")}");
-                builder.CloseComponent();
-
-                builder.OpenElement(8, "span");
-                builder.AddAttribute(9, "class", "sidebar-file-name");
-                builder.AddContent(10, node.Name);
-                builder.CloseElement();
-
-                builder.CloseElement();
-
-                if (expanded)
-                {
-                    RenderNodes(node.Children, depth + 1)(builder);
-                }
-            }
-            else
-            {
-                var fileDiff = _diff?.Files.FirstOrDefault(f => f.FilePath == node.FullPath);
-                builder.OpenElement(0, "div");
-                builder.AddAttribute(1, "class", $"sidebar-file-item file{(fileDiff != null ? " modified" : "")}");
-                builder.AddAttribute(2, "style", $"padding-left: {indent + 8}px;");
-                builder.AddAttribute(3, "onclick", EventCallback.Factory.Create(this, () => OpenFile(node.FullPath)));
-
-                builder.OpenComponent<MudIcon>(4);
-                builder.AddComponentParameter(5, "Icon", GetFileIcon(fileDiff));
-                builder.AddComponentParameter(6, "Size", Size.Small);
-                builder.AddComponentParameter(7, "Style", $"width: 14px; height: 14px; {GetFileIconColor(fileDiff)}");
-                builder.CloseComponent();
-
-                builder.OpenElement(8, "span");
-                builder.AddAttribute(9, "class", "sidebar-file-name");
-                builder.AddContent(10, node.Name);
-                builder.CloseElement();
-
-                builder.CloseElement();
-            }
-        }
-    };
-
     private async Task OpenFile(string filePath)
     {
         var session = ChatState.CurrentSession;
@@ -302,30 +250,6 @@
             currentPath = i == 0 ? parts[i] : $"{currentPath}/{parts[i]}";
             _expandedDirs.Add(currentPath);
         }
-    }
-
-    private static string GetFileIcon(FileDiff? diff)
-    {
-        if (diff == null) return Icons.Material.Filled.InsertDriveFile;
-        return diff.ChangeType switch
-        {
-            FileChangeType.Added => Icons.Material.Filled.NoteAdd,
-            FileChangeType.Deleted => Icons.Material.Filled.Delete,
-            FileChangeType.Renamed => Icons.Material.Filled.DriveFileRenameOutline,
-            _ => Icons.Material.Filled.EditNote
-        };
-    }
-
-    private static string GetFileIconColor(FileDiff? diff)
-    {
-        if (diff == null) return "opacity: 0.4;";
-        return diff.ChangeType switch
-        {
-            FileChangeType.Added => "color: #a6e3a1;",
-            FileChangeType.Deleted => "color: #f38ba8;",
-            FileChangeType.Renamed => "color: #fab387;",
-            _ => "color: #89b4fa;"
-        };
     }
 
     private void ExpandAllDirs(List<FileNode> nodes)
@@ -391,11 +315,4 @@
             _sessionExpandedDirs[_lastSessionId] = _expandedDirs;
     }
 
-    private class FileNode
-    {
-        public string Name { get; set; } = "";
-        public string FullPath { get; set; } = "";
-        public bool IsDirectory { get; set; }
-        public List<FileNode> Children { get; set; } = new();
-    }
 }

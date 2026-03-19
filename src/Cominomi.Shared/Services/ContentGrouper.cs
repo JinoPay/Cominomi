@@ -170,18 +170,6 @@ public static partial class ContentGrouper
         return ToolDisplayHelper.BuildDescriptiveSummary(toolParts);
     }
 
-    private static string NormalizeToolName(string name) => name.ToLowerInvariant() switch
-    {
-        "read" or "read_file" => "Read",
-        "write" or "write_file" => "Write",
-        "edit" or "edit_file" => "Edit",
-        "bash" or "execute_bash" => "Bash",
-        "glob" => "Glob",
-        "grep" => "Grep",
-        "agent" => "Agent",
-        _ => name
-    };
-
     public static ActivitySummaryInfo BuildActivitySummary(List<ContentGroup> activityGroups)
     {
         var info = new ActivitySummaryInfo();
@@ -218,7 +206,7 @@ public static partial class ContentGrouper
     private static void ExtractFilePath(ToolCall? tool, Dictionary<string, string> fileChanges)
     {
         if (tool == null || string.IsNullOrEmpty(tool.Input)) return;
-        var name = NormalizeToolName(tool.Name);
+        var name = ToolDisplayHelper.NormalizeToolName(tool.Name);
         if (name is not ("Edit" or "Write")) return;
 
         try
