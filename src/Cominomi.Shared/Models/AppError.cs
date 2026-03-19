@@ -22,6 +22,7 @@ public enum ErrorCode
     PrNotFound,
     PrMergeFailed,
     PrMergeConflict,
+    CiChecksFailed,
 
     // Claude / Streaming
     StreamingFailed,
@@ -82,6 +83,9 @@ public record AppError(
     public static AppError PrConflict(string message) =>
         new(ErrorCode.PrMergeConflict, ErrorCategory.Transient, message);
 
+    public static AppError CiChecksFailed(string message) =>
+        new(ErrorCode.CiChecksFailed, ErrorCategory.Transient, message);
+
     // --- Streaming ---
 
     public static AppError Streaming(string message, string? details = null) =>
@@ -108,12 +112,13 @@ public record AppError(
 
     /// <summary>
     /// Classify a merge error as Conflict or generic failure
-    /// by inspecting the error text.
+    /// by inspecting the error text with specific patterns to reduce false positives.
     /// </summary>
     public static AppError ClassifyMergeError(string errorText, string? output = null)
     {
-        var combined = (errorText + output).ToLowerInvariant();
-        if (combined.Contains("conflict") || combined.Contains("not mergeable"))
+        var combined = (errorText + " " + output).ToLowerInvariant();
+        if (combined.Contains("merge conflict") || combined.Contains("not mergeable")
+            || combined.Contains("conflicting files") || combined.Contains("required status check"))
             return PrConflict(errorText);
         return PrMerge(errorText);
     }
