@@ -58,13 +58,4 @@ public static class Strings
     public static string Tool_GrepHint(int lineCount) => Get(nameof(Tool_GrepHint), lineCount);
     public static string Tool_GlobHint(int lineCount) => Get(nameof(Tool_GlobHint), lineCount);
 
-    // ── Question Detector Suggestions ──
-
-    public static string Suggest_Proceed => Get(nameof(Suggest_Proceed));
-    public static string Suggest_No => Get(nameof(Suggest_No));
-    public static string Suggest_Alternative => Get(nameof(Suggest_Alternative));
-    public static string Suggest_First => Get(nameof(Suggest_First));
-    public static string Suggest_Second => Get(nameof(Suggest_Second));
-    public static string Suggest_Explain => Get(nameof(Suggest_Explain));
-    public static string Suggest_Yes => Get(nameof(Suggest_Yes));
 }

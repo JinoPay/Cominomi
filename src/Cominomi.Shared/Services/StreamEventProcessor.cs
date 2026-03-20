@@ -108,9 +108,16 @@ public class StreamEventProcessor : IStreamEventProcessor
         {
             ctx.PlanReviewVisible = false;
 
-            var (isQuestion, options) = QuestionDetector.Detect(ctx.AssistantMessage);
-            ctx.QuickResponseVisible = isQuestion;
-            ctx.QuickResponseOptions = options;
+            if (HasAskUserQuestionToolCall(ctx))
+            {
+                ctx.QuickResponseVisible = true;
+                ctx.QuickResponseOptions = [];
+            }
+            else
+            {
+                ctx.QuickResponseVisible = false;
+                ctx.QuickResponseOptions = [];
+            }
         }
     }
 
