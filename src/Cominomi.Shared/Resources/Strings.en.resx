@@ -73,12 +73,4 @@
   <data name="Tool_GrepHint" xml:space="preserve"><value>{0} results</value></data>
   <data name="Tool_GlobHint" xml:space="preserve"><value>{0} files found</value></data>
 
-  <!-- QuestionDetector -->
-  <data name="Suggest_Proceed" xml:space="preserve"><value>Yes, please proceed</value></data>
-  <data name="Suggest_No" xml:space="preserve"><value>No</value></data>
-  <data name="Suggest_Alternative" xml:space="preserve"><value>Try another way</value></data>
-  <data name="Suggest_First" xml:space="preserve"><value>First option</value></data>
-  <data name="Suggest_Second" xml:space="preserve"><value>Second option</value></data>
-  <data name="Suggest_Explain" xml:space="preserve"><value>Please explain</value></data>
-  <data name="Suggest_Yes" xml:space="preserve"><value>Yes</value></data>
 </root>
