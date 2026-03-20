@@ -64,9 +64,8 @@
     @* Input area *@
     @if (ChatState.CurrentSession != null)
     {
-        <InputArea OnSend="HandleSend" OnCancel="HandleCancel" OnContinue="HandleContinue"
+        <InputArea OnSend="HandleSend" OnCancel="HandleCancel"
                    IsStreaming="ChatState.IsStreaming"
-                   CanContinue="@(!string.IsNullOrEmpty(ChatState.CurrentSession.ConversationId))"
                    Disabled="@(ChatState.CurrentSession.Status == SessionStatus.Archived)"
                    PermissionMode="@(ChatState.CurrentSession.PermissionMode ?? "bypassAll")"
                    PermissionModeChanged="HandlePermissionModeChanged"
@@ -318,39 +317,6 @@
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Unhandled exception in SendAsync for session {SessionId}", session.Id);
-            }
-        });
-        return Task.CompletedTask;
-    }
-
-    private Task HandleContinue()
-    {
-        if (ChatState.CurrentSession == null || ChatState.IsStreaming
-            || string.IsNullOrEmpty(ChatState.CurrentSession.ConversationId))
-            return Task.CompletedTask;
-
-        _quickResponseVisible = false;
-        _quickResponseOptions = [];
-        _planReviewVisible = false;
-
-        _messageCts?.Cancel();
-        _messageCts?.Dispose();
-        _messageCts = new CancellationTokenSource();
-        var ct = _messageCts.Token;
-        var session = ChatState.CurrentSession;
-        var workspace = ChatState.CurrentWorkspace;
-
-        _messageTask = Task.Run(async () =>
-        {
-            try
-            {
-                var result = await Orchestrator.ContinueAsync(session, workspace, ct);
-                await ApplyResultAsync(result, session);
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Unhandled exception in ContinueAsync for session {SessionId}", session.Id);
             }
         });
         return Task.CompletedTask;

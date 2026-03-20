@@ -70,7 +70,14 @@
         // Try keyword normalization for non-standard IDs (e.g. "claude-opus-4-6-...")
         var normalized = ModelDefinitions.NormalizeModelId(Model);
         var normalizedModel = ModelDefinitions.All.FirstOrDefault(m => m.Id == normalized);
-        return normalizedModel?.DisplayName ?? Model;
+        if (normalizedModel != null) return normalizedModel.DisplayName;
+
+        // Custom model IDs that look like API model IDs (e.g. "claude-...") — show as-is
+        if (Model.StartsWith("claude-", StringComparison.OrdinalIgnoreCase))
+            return Model;
+
+        // Unknown short strings (e.g. "Model") — fall back to default display name
+        return ModelDefinitions.Default.DisplayName;
     }
 
     private string GetTooltip()

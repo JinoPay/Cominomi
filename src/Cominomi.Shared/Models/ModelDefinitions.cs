@@ -79,7 +79,12 @@ public static class ModelDefinitions
             }
         }
 
-        return modelId;
+        // Custom API model IDs (e.g. "claude-...") are kept as-is
+        if (modelId.StartsWith("claude-", StringComparison.OrdinalIgnoreCase))
+            return modelId;
+
+        // Unknown short strings (e.g. "Model") — normalize to default
+        return Default.Id;
     }
 
     public static ModelPricing? GetPricing(string modelId)
