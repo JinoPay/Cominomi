@@ -41,9 +41,11 @@
 @code {
     private DiffPanelTab _activeTab = DiffPanelTab.Changes;
     private FileDiff? _selectedFile;
+    private string? _lastSessionId;
 
     protected override void OnInitialized()
     {
+        _lastSessionId = ChatState.CurrentSession?.Id;
         ChatState.OnChange += HandleStateChanged;
     }
 
@@ -55,7 +57,16 @@
 
     private void HandleStateChanged()
     {
-        _ = InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(() =>
+        {
+            var sessionId = ChatState.CurrentSession?.Id;
+            if (sessionId != _lastSessionId)
+            {
+                _lastSessionId = sessionId;
+                _selectedFile = null;
+            }
+            StateHasChanged();
+        });
     }
 
     public void Dispose()
