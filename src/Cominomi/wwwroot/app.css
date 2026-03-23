@@ -947,6 +947,57 @@ html *::after {
     white-space: pre;
 }
 
+/* ===== Highlighted Code View ===== */
+.filecontent-code-container {
+    display: flex;
+    flex: 1;
+    overflow: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+}
+
+.filecontent-gutter {
+    flex-shrink: 0;
+    width: 48px;
+    text-align: right;
+    padding: var(--space-2) 0;
+    user-select: none;
+    opacity: 0.25;
+    border-right: 1px solid var(--border-subtle);
+}
+
+.filecontent-gutter-line {
+    padding-right: var(--space-3);
+}
+
+.filecontent-pre {
+    flex: 1;
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    overflow-x: auto;
+    background: transparent !important;
+}
+
+.filecontent-pre code {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    line-height: 1.6;
+    background: transparent !important;
+}
+
+.filecontent-code-container .hljs {
+    background: transparent;
+}
+
+/* ===== Markdown File View ===== */
+.filecontent-markdown {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-4) var(--space-6);
+    max-width: 800px;
+}
+
 /* ===== Embedded Diff Panel ===== */
 .embedded-diff-panel {
     display: flex;

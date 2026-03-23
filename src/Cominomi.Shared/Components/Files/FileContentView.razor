@@ -1,4 +1,6 @@
+@using Markdig
 @using Cominomi.Shared.Models
+@inject IJSRuntime JS
 
 <div class="filediff-view">
     <div class="filediff-header">
@@ -7,17 +9,39 @@
         <span class="filediff-path">@FilePath</span>
     </div>
 
-    <div class="filecontent-body">
-        @if (string.IsNullOrEmpty(Content))
-        {
+    @if (string.IsNullOrEmpty(Content))
+    {
+        <div class="filecontent-body">
             <div class="filediff-empty">
                 <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Style="opacity: 0.3;" />
                 <span>Empty file</span>
             </div>
-        }
-        else
-        {
-            var lines = Content.Split('\n');
+        </div>
+    }
+    else if (_viewMode == FileViewMode.Markdown)
+    {
+        <div class="filecontent-markdown markdown-body">
+            @((MarkupString)_renderedHtml)
+        </div>
+    }
+    else if (_viewMode == FileViewMode.Code)
+    {
+        <div id="@_elementId" class="filecontent-code-container">
+            <div class="filecontent-gutter" aria-hidden="true">
+                @for (int i = 1; i <= _lineCount; i++)
+                {
+                    <div class="filecontent-gutter-line">@i</div>
+                }
+            </div>
+            <pre class="filecontent-pre"><code class="@_langClass">@Content</code></pre>
+        </div>
+    }
+    else
+    {
+        <div class="filecontent-body">
+            @{
+                var lines = Content.Split('\n');
+            }
             @for (int i = 0; i < lines.Length; i++)
             {
                 var lineNum = i + 1;
@@ -27,8 +51,8 @@
                     <span class="filecontent-text">@line</span>
                 </div>
             }
-        }
-    </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -37,4 +61,116 @@
 
     [Parameter, EditorRequired]
     public string Content { get; set; } = "";
+
+    private enum FileViewMode { Code, Markdown, PlainText }
+
+    private FileViewMode _viewMode;
+    private string _langClass = "";
+    private string _elementId = "";
+    private string _renderedHtml = "";
+    private int _lineCount;
+    private bool _needsHighlight;
+    private string? _lastFilePath;
+
+    private static readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .Build();
+
+    protected override void OnParametersSet()
+    {
+        if (_lastFilePath == FilePath) return;
+        _lastFilePath = FilePath;
+
+        // Large files fall back to plain text to avoid UI freeze
+        if (Content.Length > 500_000)
+        {
+            _viewMode = FileViewMode.PlainText;
+            return;
+        }
+
+        _viewMode = GetViewMode(FilePath);
+        _langClass = GetLanguageClass(FilePath);
+        _elementId = $"hljs-{FilePath.GetHashCode():x8}";
+        _lineCount = string.IsNullOrEmpty(Content) ? 0 : Content.Split('\n').Length;
+
+        if (_viewMode == FileViewMode.Markdown && !string.IsNullOrEmpty(Content))
+        {
+            _renderedHtml = Markdown.ToHtml(Content, _pipeline);
+        }
+
+        _needsHighlight = _viewMode == FileViewMode.Code && !string.IsNullOrEmpty(Content);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needsHighlight)
+        {
+            _needsHighlight = false;
+            try
+            {
+                await JS.InvokeVoidAsync("highlightCodeBlock", _elementId);
+            }
+            catch
+            {
+                // JS interop may fail during disposal
+            }
+        }
+    }
+
+    private static FileViewMode GetViewMode(string filePath)
+    {
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        return ext switch
+        {
+            ".md" or ".mdx" => FileViewMode.Markdown,
+            ".cs" or ".js" or ".jsx" or ".ts" or ".tsx" or ".py" or ".rs" or ".go"
+                or ".java" or ".html" or ".razor" or ".css" or ".scss" or ".json"
+                or ".yaml" or ".yml" or ".xml" or ".csproj" or ".sln" or ".rb"
+                or ".swift" or ".kt" or ".dart" or ".php" or ".sql" or ".sh"
+                or ".bash" or ".zsh" or ".ps1" or ".dockerfile" or ".toml"
+                or ".ini" or ".cfg" or ".vue" or ".svelte" or ".c" or ".cpp"
+                or ".h" or ".hpp" or ".m" or ".mm" or ".r" or ".lua" or ".pl"
+                or ".makefile" or ".gradle" or ".graphql" or ".proto"
+                => FileViewMode.Code,
+            _ => FileViewMode.PlainText
+        };
+    }
+
+    private static string GetLanguageClass(string filePath)
+    {
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        return ext switch
+        {
+            ".cs" => "language-csharp",
+            ".js" or ".jsx" => "language-javascript",
+            ".ts" or ".tsx" => "language-typescript",
+            ".py" => "language-python",
+            ".rs" => "language-rust",
+            ".go" => "language-go",
+            ".java" => "language-java",
+            ".html" or ".razor" => "language-xml",
+            ".css" or ".scss" => "language-css",
+            ".json" => "language-json",
+            ".yaml" or ".yml" => "language-yaml",
+            ".xml" or ".csproj" or ".sln" => "language-xml",
+            ".sh" or ".bash" or ".zsh" => "language-bash",
+            ".sql" => "language-sql",
+            ".rb" => "language-ruby",
+            ".swift" => "language-swift",
+            ".kt" => "language-kotlin",
+            ".dart" => "language-dart",
+            ".php" => "language-php",
+            ".dockerfile" => "language-dockerfile",
+            ".toml" or ".ini" or ".cfg" => "language-ini",
+            ".c" or ".cpp" or ".h" or ".hpp" => "language-cpp",
+            ".m" or ".mm" => "language-objectivec",
+            ".r" => "language-r",
+            ".lua" => "language-lua",
+            ".pl" => "language-perl",
+            ".makefile" => "language-makefile",
+            ".graphql" => "language-graphql",
+            ".proto" => "language-protobuf",
+            _ => ""
+        };
+    }
 }
