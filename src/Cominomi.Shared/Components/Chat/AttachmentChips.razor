@@ -1,4 +1,6 @@
 @using Cominomi.Shared.Models
+@using Cominomi.Shared.Services
+@inject LightboxService Lightbox
 
 @if (Attachments.Count > 0)
 {
@@ -12,7 +14,9 @@
                 @if (attachment.IsImage && attachment.PreviewDataUrl != null)
                 {
                     <img src="@attachment.PreviewDataUrl" alt="@attachment.FileName"
-                         style="max-height: 28px; max-width: 40px; border-radius: 4px; margin-right: 4px; vertical-align: middle;" />
+                         @onclick="@(() => Lightbox.Open(attachment.PreviewDataUrl!, attachment.FileName))"
+                         @onclick:stopPropagation="true"
+                         style="max-height: 48px; max-width: 80px; border-radius: 4px; margin-right: 4px; vertical-align: middle; cursor: pointer;" />
                 }
                 @TruncateFileName(attachment.FileName)
             </MudChip>

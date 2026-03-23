@@ -6,7 +6,13 @@
 @implements IAsyncDisposable
 
 <div class="input-area-container" id="input-area">
-    <div class="input-area-float">
+    <div class="input-area-float" style="position: relative;">
+        <SlashCommandPopup IsOpen="_slashPopupOpen"
+                           FilteredCommands="_filteredCommands"
+                           SelectedIndex="_slashSelectedIndex"
+                           OnCommandSelected="SelectSlashCommand"
+                           OnDismiss="DismissSlashPopup" />
+
         <AttachmentChips Attachments="_pendingAttachments" OnRemove="RemoveAttachment" />
 
         <MudTextField T="string" Value="@_inputText" ValueChanged="@HandleInputValueChanged"
@@ -75,6 +81,11 @@
     private bool _forceRender;
     private bool _isComposing;
 
+    // Slash command autocomplete state
+    private bool _slashPopupOpen;
+    private IReadOnlyList<SkillDefinition> _filteredCommands = Array.Empty<SkillDefinition>();
+    private int _slashSelectedIndex;
+
     protected override void OnParametersSet()
     {
         // Sync local copies from parent parameters
@@ -142,6 +153,9 @@
         var wasEmpty = string.IsNullOrWhiteSpace(_inputText);
         _inputText = value;
         var isEmpty = string.IsNullOrWhiteSpace(_inputText);
+
+        UpdateSlashPopupState();
+
         if (wasEmpty != isEmpty && !_isComposing)
         {
             _forceRender = true;
@@ -234,6 +248,99 @@
     public void OnNewlineInserted(string value)
     {
         _inputText = value;
+    }
+
+    // --- Slash command autocomplete ---
+
+    private void UpdateSlashPopupState()
+    {
+        if (_isComposing) return;
+
+        var wasOpen = _slashPopupOpen;
+
+        if (_inputText.StartsWith('/') && !_inputText.Contains(' '))
+        {
+            var filter = _inputText[1..];
+            var all = SkillRegistry.GetAll();
+            _filteredCommands = string.IsNullOrEmpty(filter)
+                ? all
+                : all.Where(s => s.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            _slashPopupOpen = _filteredCommands.Count > 0;
+            _slashSelectedIndex = Math.Clamp(_slashSelectedIndex, 0, Math.Max(0, _filteredCommands.Count - 1));
+        }
+        else
+        {
+            _slashPopupOpen = false;
+            _filteredCommands = Array.Empty<SkillDefinition>();
+            _slashSelectedIndex = 0;
+        }
+
+        if (wasOpen != _slashPopupOpen)
+        {
+            _ = JSRuntime.InvokeVoidAsync("setSlashPopupState", "input-area", _slashPopupOpen);
+            _forceRender = true;
+            StateHasChanged();
+        }
+        else if (_slashPopupOpen)
+        {
+            _forceRender = true;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnSlashArrowDown()
+    {
+        if (_filteredCommands.Count == 0) return;
+        _slashSelectedIndex = (_slashSelectedIndex + 1) % _filteredCommands.Count;
+        _forceRender = true;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnSlashArrowUp()
+    {
+        if (_filteredCommands.Count == 0) return;
+        _slashSelectedIndex = (_slashSelectedIndex - 1 + _filteredCommands.Count) % _filteredCommands.Count;
+        _forceRender = true;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnSlashEnterSelect()
+    {
+        if (_slashSelectedIndex >= 0 && _slashSelectedIndex < _filteredCommands.Count)
+            await SelectSlashCommand(_filteredCommands[_slashSelectedIndex]);
+    }
+
+    [JSInvokable]
+    public void OnSlashDismiss()
+    {
+        DismissSlashPopup();
+    }
+
+    private void DismissSlashPopup()
+    {
+        _slashPopupOpen = false;
+        _forceRender = true;
+        StateHasChanged();
+        _ = JSRuntime.InvokeVoidAsync("setSlashPopupState", "input-area", false);
+    }
+
+    private async Task SelectSlashCommand(SkillDefinition command)
+    {
+        _slashPopupOpen = false;
+        _slashSelectedIndex = 0;
+
+        var newText = $"/{command.Name} ";
+        _inputText = newText;
+
+        _forceRender = true;
+        StateHasChanged();
+
+        await JSRuntime.InvokeVoidAsync("setSlashPopupState", "input-area", false);
+        await JSRuntime.InvokeVoidAsync("replaceSlashCommand", "input-area", newText);
     }
 
     [JSInvokable]

@@ -1,0 +1,49 @@
+@using Cominomi.Shared.Services
+@inject LightboxService Lightbox
+@implements IDisposable
+
+@if (Lightbox.IsOpen)
+{
+    <div class="image-lightbox-overlay" @onclick="Close" @onkeydown="HandleKeyDown" tabindex="0">
+        <button class="image-lightbox-close" @onclick="Close" @onclick:stopPropagation="true">
+            <MudIcon Icon="@Icons.Material.Filled.Close" Style="color: inherit; width: 20px; height: 20px;" />
+        </button>
+
+        <img src="@Lightbox.ImageSrc" alt="@Lightbox.AltText"
+             class="image-lightbox-img"
+             @onclick:stopPropagation="true" />
+
+        @if (!string.IsNullOrEmpty(Lightbox.AltText))
+        {
+            <div class="image-lightbox-caption">@Lightbox.AltText</div>
+        }
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Lightbox.OnChange += OnLightboxChanged;
+    }
+
+    private void OnLightboxChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Close()
+    {
+        Lightbox.Close();
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            Lightbox.Close();
+    }
+
+    public void Dispose()
+    {
+        Lightbox.OnChange -= OnLightboxChanged;
+    }
+}
