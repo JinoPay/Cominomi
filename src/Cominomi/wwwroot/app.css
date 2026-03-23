@@ -1069,6 +1069,10 @@ html, body {
     background: var(--surface-3);
 }
 
+.scroll-to-bottom-btn.askbar-active {
+    bottom: 300px;
+}
+
 .message-container {
     max-width: 1000px;
     margin: 0 auto;
@@ -3614,21 +3618,9 @@ html, body {
     border-radius: var(--radius-md);
     background: transparent;
     color: var(--text-primary);
-    cursor: pointer;
-    text-align: left;
-    transition: all var(--transition);
-    font-family: inherit;
-}
-
-.askuser-option:hover:not(.selected):not(.disabled) {
-    border-color: var(--accent);
-    background: rgba(137, 180, 250, 0.06);
-}
-
-.askuser-option.selected {
-    border-color: var(--accent);
-    background: rgba(137, 180, 250, 0.1);
     cursor: default;
+    text-align: left;
+    font-family: inherit;
 }
 
 .askuser-option.disabled {
@@ -3782,9 +3774,22 @@ html, body {
 
 .askbar-actions {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
     padding: 8px 14px 12px;
     border-top: 1px solid rgba(137, 180, 250, 0.08);
+}
+
+.askbar-actions-spacer {
+    flex: 1;
+}
+
+.askbar-nav-btn {
+    text-transform: none !important;
+    font-size: var(--text-sm) !important;
+    min-width: 0 !important;
+    font-weight: 500 !important;
+    color: rgba(137, 180, 250, 0.8) !important;
+    letter-spacing: 0.2px !important;
 }
 
 .askbar-submit-btn {
