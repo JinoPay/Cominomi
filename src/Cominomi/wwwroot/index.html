@@ -133,8 +133,36 @@
             inputEl.addEventListener('compositionstart', inputEl._compositionStartHandler);
             inputEl.addEventListener('compositionend', inputEl._compositionEndHandler);
 
-            // --- Enter / Shift+Enter ---
-            inputEl._enterHandler = function(e) {
+            // --- Slash popup flag (synced from C#) ---
+            inputEl._slashPopupOpen = false;
+
+            // --- Keydown: slash popup routing + Enter / Shift+Enter ---
+            inputEl._keydownHandler = function(e) {
+                // Slash popup keyboard routing
+                if (inputEl._slashPopupOpen && !e.isComposing && !inputEl._isComposing) {
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('OnSlashArrowDown');
+                        return;
+                    }
+                    if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('OnSlashArrowUp');
+                        return;
+                    }
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('OnSlashEnterSelect');
+                        return;
+                    }
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('OnSlashDismiss');
+                        return;
+                    }
+                }
+
+                // Original Enter / Shift+Enter handling
                 if (e.key === 'Enter' && !e.isComposing && !inputEl._isComposing) {
                     e.preventDefault();
                     if (e.shiftKey && isTextarea) {
@@ -147,14 +175,13 @@
                         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
                         inputEl.style.height = 'auto';
                         inputEl.style.height = inputEl.scrollHeight + 'px';
-                        // Sync value to C# directly (synthetic events may not trigger Blazor binding)
                         dotNetRef.invokeMethodAsync('OnNewlineInserted', newValue);
                     } else {
                         dotNetRef.invokeMethodAsync('SendFromJs');
                     }
                 }
             };
-            inputEl.addEventListener('keydown', inputEl._enterHandler);
+            inputEl.addEventListener('keydown', inputEl._keydownHandler);
 
             // --- Paste (images/files from clipboard) ---
             inputEl._pasteHandler = async function(e) {
@@ -223,7 +250,7 @@
         // Detach all handlers from an input element.
         window._detachInputHandlers = function(inputEl) {
             if (!inputEl || !inputEl._cominomiHandlers) return;
-            if (inputEl._enterHandler) inputEl.removeEventListener('keydown', inputEl._enterHandler);
+            if (inputEl._keydownHandler) inputEl.removeEventListener('keydown', inputEl._keydownHandler);
             if (inputEl._compositionStartHandler) inputEl.removeEventListener('compositionstart', inputEl._compositionStartHandler);
             if (inputEl._compositionEndHandler) inputEl.removeEventListener('compositionend', inputEl._compositionEndHandler);
             if (inputEl._pasteHandler) inputEl.removeEventListener('paste', inputEl._pasteHandler);
@@ -312,6 +339,28 @@
                 inputEl.dispatchEvent(new Event('input', { bubbles: true }));
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
             }
+        };
+
+        // --- Slash popup helpers ---
+        window.setSlashPopupState = function(elementId, isOpen) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+            var inputEl = window._findInputEl(container);
+            if (inputEl) inputEl._slashPopupOpen = !!isOpen;
+        };
+
+        window.replaceSlashCommand = function(elementId, newText) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+            var inputEl = window._findInputEl(container);
+            if (!inputEl) return;
+            inputEl.value = newText;
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            inputEl.style.height = 'auto';
+            inputEl.style.height = inputEl.scrollHeight + 'px';
+            inputEl.selectionStart = inputEl.selectionEnd = newText.length;
+            inputEl.focus();
         };
 
         // Legacy aliases — keep for backward compat during transition

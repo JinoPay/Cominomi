@@ -1,0 +1,29 @@
+@using Cominomi.Shared.Models
+
+@if (IsOpen && FilteredCommands.Count > 0)
+{
+    <div class="slash-popup">
+        @for (int i = 0; i < FilteredCommands.Count; i++)
+        {
+            var idx = i;
+            var cmd = FilteredCommands[idx];
+            <div class="slash-popup-item @(idx == SelectedIndex ? "slash-popup-item-active" : "")"
+                 @onclick="@(() => OnCommandSelected.InvokeAsync(cmd))"
+                 @onclick:stopPropagation="true">
+                <span class="slash-popup-name">/@cmd.Name</span>
+                <span class="slash-popup-desc">@cmd.Description</span>
+            </div>
+        }
+    </div>
+
+    <MudOverlay Visible="true" OnClick="@(() => OnDismiss.InvokeAsync())"
+                DarkBackground="false" ZIndex="1" />
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public IReadOnlyList<SkillDefinition> FilteredCommands { get; set; } = [];
+    [Parameter] public int SelectedIndex { get; set; }
+    [Parameter] public EventCallback<SkillDefinition> OnCommandSelected { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+}

@@ -87,6 +87,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IActiveSessionRegistry, ActiveSessionRegistry>();
         builder.Services.AddSingleton<IChatEventBus, ChatEventBus>();
         builder.Services.AddSingleton<IChatState, ChatState>();
+        builder.Services.AddSingleton<LightboxService>();
         builder.Services.AddSingleton<IGitService, GitService>();
         builder.Services.AddSingleton<IClaudeService, ClaudeService>();
         builder.Services.AddSingleton<IContextService, ContextService>();
