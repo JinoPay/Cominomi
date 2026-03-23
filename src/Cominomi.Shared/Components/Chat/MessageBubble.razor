@@ -3,6 +3,7 @@
 @using Cominomi.Shared.Services
 @using Cominomi.Shared.Components.Tools
 @inject IChatState ChatState
+@inject LightboxService Lightbox
 
 @if (Message.Role == MessageRole.System)
 {
@@ -52,7 +53,8 @@
                     {
                         @if (attachment.IsImage)
                         {
-                            <div style="margin: 4px 0;">
+                            <div style="margin: 4px 0; cursor: pointer;"
+                                 @onclick="@(() => Lightbox.Open(GetImageSrc(attachment), attachment.OriginalFileName))">
                                 <img src="@GetImageSrc(attachment)"
                                      alt="@attachment.OriginalFileName"
                                      style="max-width: 300px; max-height: 200px; border-radius: 8px; object-fit: contain;" />
@@ -63,7 +65,8 @@
                         {
                             <MudChip T="string" Icon="@Icons.Material.Filled.InsertDriveFile"
                                      Size="Size.Small" Variant="Variant.Outlined"
-                                     Style="font-size: 0.75rem;">
+                                     OnClick="@(() => OpenFileInTab(attachment))"
+                                     Style="font-size: 0.75rem; cursor: pointer;">
                                 @attachment.OriginalFileName @($"({FormatFileSize(attachment.SizeBytes)})")
                             </MudChip>
                         }
@@ -258,6 +261,40 @@
         if (duration.TotalSeconds < 60)
             return $"{(int)duration.TotalSeconds}초";
         return $"{(int)duration.TotalMinutes}분 {duration.Seconds}초";
+    }
+
+    private static readonly HashSet<string> TextContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "text/plain", "text/markdown", "text/csv", "text/html", "text/css",
+        "application/json", "application/xml", "application/javascript",
+        "application/x-yaml", "text/yaml", "text/x-log"
+    };
+
+    private void OpenFileInTab(FileAttachment attachment)
+    {
+        if (attachment.IsImage)
+        {
+            Lightbox.Open(GetImageSrc(attachment), attachment.OriginalFileName);
+            return;
+        }
+
+        // Only open text-based files in tab
+        if (!TextContentTypes.Contains(attachment.ContentType)
+            && !attachment.OriginalFileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+            && !attachment.OriginalFileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+            && !attachment.OriginalFileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            && !attachment.OriginalFileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
+            && !attachment.OriginalFileName.EndsWith(".log", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var worktreePath = ChatState.CurrentSession?.Git.WorktreePath;
+        if (string.IsNullOrEmpty(worktreePath)) return;
+
+        var filePath = Path.Combine(worktreePath, ".cominomi-attachments", attachment.StoredFileName);
+        if (!File.Exists(filePath)) return;
+
+        var content = File.ReadAllText(filePath);
+        ChatState.Tabs.OpenFileContentTab(filePath, content);
     }
 
     private string GetImageSrc(FileAttachment attachment)
