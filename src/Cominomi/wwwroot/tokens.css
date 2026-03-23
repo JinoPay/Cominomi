@@ -96,7 +96,7 @@
     /* Hover / Active / Selected */
     --bg-hover:     rgba(255, 255, 255, 0.05);
     --bg-active:    rgba(255, 255, 255, 0.08);
-    --bg-selected:  rgba(94, 234, 212, 0.08);
+    --bg-selected:  rgba(167, 139, 250, 0.08);
 
     /* --- Text (white + opacity hierarchy) --- */
     --text-primary:   rgba(255, 255, 255, 0.87);
@@ -106,15 +106,15 @@
 
     /* --- Borders --- */
     --border-default: rgba(255, 255, 255, 0.10);
-    --border-active:  rgba(94, 234, 212, 0.40);
+    --border-active:  rgba(167, 139, 250, 0.40);
     --border-subtle:  rgba(255, 255, 255, 0.05);
     --border-strong:  rgba(255, 255, 255, 0.16);
 
-    /* --- Accent: Teal (dark = bright, soft mint) --- */
-    --accent:         #5eead4;
-    --accent-hover:   #99f6e4;
-    --accent-dim:     rgba(94, 234, 212, 0.10);
-    --accent-subtle:  rgba(94, 234, 212, 0.06);
+    /* --- Accent: Violet (dark = bright, soft purple) --- */
+    --accent:         #a78bfa;
+    --accent-hover:   #c4b5fd;
+    --accent-dim:     rgba(167, 139, 250, 0.10);
+    --accent-subtle:  rgba(167, 139, 250, 0.06);
 
     /* --- Semantic Colors (dark = desaturated/pastel) --- */
     --color-success:        #86efac;
@@ -150,7 +150,7 @@
     --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.30);
     --shadow-md:    0 4px 12px rgba(0, 0, 0, 0.40);
     --shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.50);
-    --shadow-focus: 0 0 0 2px rgba(94, 234, 212, 0.30);
+    --shadow-focus: 0 0 0 2px rgba(167, 139, 250, 0.30);
     --focus-ring:   0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
 
     /* --- Transitions --- */
@@ -170,7 +170,7 @@
 
     --bg-hover:     rgba(0, 0, 0, 0.04);
     --bg-active:    rgba(0, 0, 0, 0.06);
-    --bg-selected:  rgba(13, 148, 136, 0.06);
+    --bg-selected:  rgba(124, 58, 237, 0.06);
 
     /* Text */
     --text-primary:   rgba(0, 0, 0, 0.87);
@@ -180,15 +180,15 @@
 
     /* Borders */
     --border-default: rgba(0, 0, 0, 0.10);
-    --border-active:  rgba(13, 148, 136, 0.50);
+    --border-active:  rgba(124, 58, 237, 0.50);
     --border-subtle:  rgba(0, 0, 0, 0.05);
     --border-strong:  rgba(0, 0, 0, 0.16);
 
-    /* Accent: Teal (light = deep, saturated) */
-    --accent:         #0d9488;
-    --accent-hover:   #0f766e;
-    --accent-dim:     rgba(13, 148, 136, 0.08);
-    --accent-subtle:  rgba(13, 148, 136, 0.04);
+    /* Accent: Violet (light = deep, saturated) */
+    --accent:         #7c3aed;
+    --accent-hover:   #6d28d9;
+    --accent-dim:     rgba(124, 58, 237, 0.08);
+    --accent-subtle:  rgba(124, 58, 237, 0.04);
 
     /* Semantic Colors (light = saturated) */
     --color-success:        #16a34a;
@@ -218,6 +218,6 @@
     --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.10);
     --shadow-md:  0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 15px rgba(0, 0, 0, 0.10);
     --shadow-lg:  0 10px 15px rgba(0, 0, 0, 0.04), 0 20px 25px rgba(0, 0, 0, 0.10);
-    --shadow-focus: 0 0 0 2px rgba(13, 148, 136, 0.25);
+    --shadow-focus: 0 0 0 2px rgba(124, 58, 237, 0.25);
     --focus-ring:   0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
 }

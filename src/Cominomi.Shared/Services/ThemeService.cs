@@ -32,7 +32,7 @@ public class ThemeService : IThemeService
         },
         PaletteLight = new PaletteLight
         {
-            Primary = "#0d9488",
+            Primary = "#7c3aed",
             Secondary = "#2563eb",
             Tertiary = "#16a34a",
             Background = "#ffffff",
@@ -56,7 +56,7 @@ public class ThemeService : IThemeService
         },
         PaletteDark = new PaletteDark
         {
-            Primary = "#5eead4",
+            Primary = "#a78bfa",
             Secondary = "#93c5fd",
             Tertiary = "#86efac",
             Background = "#0f172a",
