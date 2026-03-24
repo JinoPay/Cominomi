@@ -23,6 +23,8 @@ public class UpdateService : IUpdateService
 
     public bool IsInstalled => _updateManager.IsInstalled;
 
+    public bool CanApplyUpdate => true;
+
     public async Task<AppUpdateInfo?> CheckForUpdateAsync()
     {
         if (!IsInstalled)

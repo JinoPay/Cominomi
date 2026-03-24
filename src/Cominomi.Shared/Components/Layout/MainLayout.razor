@@ -257,10 +257,13 @@
                     try
                     {
                         await UpdateService.DownloadUpdateAsync();
-                        await InvokeAsync(() =>
+                        if (UpdateService.CanApplyUpdate)
                         {
-                            Snackbar.AppUpdateReady(() => UpdateService.ApplyUpdateAndRestart());
-                        });
+                            await InvokeAsync(() =>
+                            {
+                                Snackbar.AppUpdateReady(() => UpdateService.ApplyUpdateAndRestart());
+                            });
+                        }
                     }
                     catch (Exception ex)
                     {

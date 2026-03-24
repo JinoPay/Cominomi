@@ -8,4 +8,5 @@ public interface IUpdateService
     Task DownloadUpdateAsync();
     void ApplyUpdateAndRestart();
     bool IsInstalled { get; }
+    bool CanApplyUpdate { get; }
 }

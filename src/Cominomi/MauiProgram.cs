@@ -100,7 +100,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<ISettingsService, SettingsService>();
         builder.Services.AddSingleton<IDependencyCheckService, DependencyCheckService>();
         builder.Services.AddSingleton<ILauncherService, LauncherService>();
+#if MACCATALYST
+        builder.Services.AddSingleton<IUpdateService, MacUpdateService>();
+#else
         builder.Services.AddSingleton<IUpdateService, UpdateService>();
+#endif
         builder.Services.AddSingleton<IFolderPickerService, FolderPickerService>();
         builder.Services.AddSingleton<IFilePickerService, FilePickerService>();
         builder.Services.AddSingleton<IAttachmentService, AttachmentService>();
