@@ -162,7 +162,7 @@ public static class Program
         app.MainWindow
             .SetTitle("Cominomi")
             .SetSize(1400, 900)
-            .SetMinSize(800, 600)
+            .SetMinSize(1400, 900)
 #if DEBUG
             .SetDevToolsEnabled(true)
 #endif
