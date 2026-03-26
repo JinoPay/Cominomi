@@ -220,13 +220,14 @@ public partial class SessionService : ISessionService
 
         var settings = _appSettings.CurrentValue;
         var cityName = CityNames.GetRandom();
+        var branch = await _gitService.GetCurrentBranchAsync(workspace.RepoLocalPath);
         var session = new Session
         {
             Model = model,
             WorkspaceId = workspaceId,
             CityName = cityName,
             Title = cityName,
-            Git = { IsLocalDir = true, WorktreePath = workspace.RepoLocalPath },
+            Git = { IsLocalDir = true, WorktreePath = workspace.RepoLocalPath, BranchName = branch ?? "" },
             EffortLevel = settings.DefaultEffortLevel,
             PermissionMode = settings.DefaultPermissionMode
         };
