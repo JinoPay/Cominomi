@@ -279,8 +279,10 @@ public class ClaudeService : IClaudeService, IDisposable
         try
         {
             var settings = _appSettings.CurrentValue;
-            var (fileName, _) = await _cliResolver.ResolveAsync(settings.ClaudePath);
-            return (true, fileName);
+            var result = await _cliResolver.DetectAsync(settings.ClaudePath);
+            if (result is null)
+                return (false, "");
+            return (true, result.Value.fileName);
         }
         catch (Exception ex)
         {
