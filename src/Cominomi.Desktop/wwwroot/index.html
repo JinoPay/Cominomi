@@ -592,7 +592,6 @@
 
         // --- Integrated Terminal (xterm.js) ---
         window._terminals = {};
-        window._terminalBuffers = {};
 
         window.initTerminal = function(elementId, dotNetRef) {
             var container = document.getElementById(elementId);
@@ -625,44 +624,19 @@
             term.loadAddon(fitAddon);
             term.open(container);
 
-            // Fit immediately so terminal starts with correct dimensions
-            try { fitAddon.fit(); } catch(_) {}
-            // Also fit on next frame in case container layout wasn't finalized
-            requestAnimationFrame(function() { try { fitAddon.fit(); } catch(_) {} });
-
-            // Auto-fit when container resizes (window resize, panel drag, etc.)
-            var ro = new ResizeObserver(function() {
-                try { fitAddon.fit(); } catch(_) {}
-            });
-            ro.observe(container);
+            // Delay fit slightly to ensure container has layout
+            requestAnimationFrame(function() { fitAddon.fit(); });
 
             term.onData(function(data) {
                 dotNetRef.invokeMethodAsync('OnTerminalInput', data);
             });
 
-            window._terminals[elementId] = { term: term, fitAddon: fitAddon, dotNetRef: dotNetRef, resizeObserver: ro };
-
-            // Flush any buffered output that arrived before init
-            var buf = window._terminalBuffers[elementId];
-            if (buf) {
-                for (var i = 0; i < buf.length; i++) {
-                    term.write(buf[i]);
-                }
-                delete window._terminalBuffers[elementId];
-            }
+            window._terminals[elementId] = { term: term, fitAddon: fitAddon, dotNetRef: dotNetRef };
         };
 
         window.terminalWrite = function(elementId, data) {
             var t = window._terminals[elementId];
-            if (t) {
-                t.term.write(data);
-            } else {
-                // Buffer output until xterm is initialized
-                if (!window._terminalBuffers[elementId]) {
-                    window._terminalBuffers[elementId] = [];
-                }
-                window._terminalBuffers[elementId].push(data);
-            }
+            if (t) t.term.write(data);
         };
 
         window.terminalFit = function(elementId) {
@@ -680,11 +654,9 @@
         window.disposeTerminal = function(elementId) {
             var t = window._terminals[elementId];
             if (t) {
-                if (t.resizeObserver) t.resizeObserver.disconnect();
                 t.term.dispose();
                 delete window._terminals[elementId];
             }
-            delete window._terminalBuffers[elementId];
         };
 
         window.terminalUpdateTheme = function(elementId) {

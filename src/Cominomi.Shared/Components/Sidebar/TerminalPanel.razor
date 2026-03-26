@@ -35,7 +35,6 @@
 
 @code {
     private readonly Dictionary<string, string> _instances = new(); // sessionKey → elementId
-    private readonly HashSet<string> _exitedSessions = new();
     private DotNetObjectReference<TerminalPanel>? _dotNetRef;
     private string? _currentSessionKey;
     private bool _isRunning;
@@ -106,14 +105,11 @@
 
     private void HandleExited(string sessionKey, int exitCode)
     {
+        if (sessionKey != _currentSessionKey) return;
         _ = InvokeAsync(() =>
         {
-            _exitedSessions.Add(sessionKey);
-            if (sessionKey == _currentSessionKey)
-            {
-                _isRunning = false;
-                StateHasChanged();
-            }
+            _isRunning = false;
+            StateHasChanged();
         });
     }
 
@@ -139,9 +135,8 @@
         if (!_instances.ContainsKey(key))
         {
             _instances[key] = $"term-{Guid.NewGuid():N}";
-            StateHasChanged();
-            await Task.Yield(); // Let Blazor create the DOM element
-            await InitPendingTerminals(); // Initialize xterm.js BEFORE process starts
+            StateHasChanged(); // Trigger render to create the DOM element
+            // The actual xterm init will happen in OnAfterRenderAsync → InitPendingTerminals
         }
 
         if (TerminalService.IsRunning(key))
@@ -160,31 +155,12 @@
             return;
         }
 
-        // If this session's process has exited, just update the button state
-        if (_exitedSessions.Contains(key))
-        {
-            _isRunning = false;
-            return;
-        }
-
         var workDir = !string.IsNullOrEmpty(session.Git.WorktreePath)
             ? session.Git.WorktreePath
             : Environment.CurrentDirectory;
 
-        _exitedSessions.Remove(key);
         await TerminalService.StartAsync(key, workDir);
         _isRunning = TerminalService.IsRunning(key);
-
-        // Re-fit after process starts so the prompt isn't at the bottom of an oversized terminal
-        if (_instances.TryGetValue(key, out var fitElId))
-        {
-            try
-            {
-                await Task.Yield();
-                await JS.InvokeVoidAsync("terminalFit", fitElId);
-            }
-            catch { }
-        }
     }
 
     /// <summary>Initialize xterm.js for any containers that don't have a terminal yet.</summary>
@@ -209,48 +185,22 @@
 
     private async Task StartTerminal()
     {
-        // Resolve session key from current session if not yet set
-        var session = ChatState.CurrentSession;
-        if (session == null) return;
-
-        var key = session.Id;
-        _currentSessionKey = key;
-
-        // Ensure xterm container exists for this session
-        if (!_instances.ContainsKey(key))
-        {
-            _instances[key] = $"term-{Guid.NewGuid():N}";
-            StateHasChanged();
-            await Task.Yield(); // Let Blazor create the DOM element
-            await InitPendingTerminals();
-        }
+        if (_currentSessionKey == null) return;
 
         // Clear existing terminal display
-        if (_instances.TryGetValue(key, out var elId))
+        if (_instances.TryGetValue(_currentSessionKey, out var elId))
         {
             try { await JS.InvokeVoidAsync("terminalClear", elId); }
             catch { }
         }
 
-        var workDir = !string.IsNullOrEmpty(session.Git.WorktreePath)
+        var session = ChatState.CurrentSession;
+        var workDir = session != null && !string.IsNullOrEmpty(session.Git.WorktreePath)
             ? session.Git.WorktreePath
             : Environment.CurrentDirectory;
 
-        _exitedSessions.Remove(key);
-        await TerminalService.StartAsync(key, workDir);
-        _isRunning = TerminalService.IsRunning(key);
-        StateHasChanged();
-
-        // Re-fit after process starts
-        if (_instances.TryGetValue(key, out var fitElId))
-        {
-            try
-            {
-                await Task.Yield();
-                await JS.InvokeVoidAsync("terminalFit", fitElId);
-            }
-            catch { }
-        }
+        await TerminalService.StartAsync(_currentSessionKey, workDir);
+        _isRunning = TerminalService.IsRunning(_currentSessionKey);
     }
 
     private async Task RestartTerminal()
