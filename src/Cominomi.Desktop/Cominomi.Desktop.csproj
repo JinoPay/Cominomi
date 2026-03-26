@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <None Update="icon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="icon.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

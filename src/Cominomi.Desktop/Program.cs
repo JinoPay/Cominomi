@@ -164,7 +164,7 @@ public static class Program
         // Window configuration
         app.MainWindow
             .SetTitle("Cominomi")
-            .SetIconFile("icon.ico")
+            .SetIconFile(GetIconPath())
             .SetSize(1400, 900)
             .SetMinSize(1400, 900)
 #if DEBUG
@@ -246,6 +246,13 @@ public static class Program
 
         // Force exit — Photino may leave native threads alive on macOS
         Environment.Exit(0);
+    }
+
+    private static string GetIconPath()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        var iconFile = OperatingSystem.IsWindows() ? "icon.ico" : "icon.png";
+        return Path.Combine(baseDir, iconFile);
     }
 
     private static void CleanUp(IServiceProvider services)
