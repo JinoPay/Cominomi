@@ -45,10 +45,9 @@ public class TerminalService : ITerminalService
             StandardErrorEncoding = Encoding.UTF8,
         };
 
-        // For Git Bash on Windows, start in interactive login mode
+        // For Git Bash on Windows, start in interactive mode (no --login to avoid PTY errors)
         if (shell.Type == ShellType.Bash)
         {
-            psi.ArgumentList.Add("--login");
             psi.ArgumentList.Add("-i");
         }
         else if (shell.Type == ShellType.Cmd)
