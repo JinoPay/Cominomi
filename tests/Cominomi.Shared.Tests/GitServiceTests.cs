@@ -254,6 +254,10 @@ public class GitServiceTests
     {
         public Task<ShellInfo> GetShellAsync()
             => Task.FromResult(new ShellInfo("/bin/sh", "-c", ShellType.Sh));
+        public Task<ShellInfo> GetTerminalShellAsync()
+            => GetShellAsync();
+        public Task<List<ShellInfo>> GetAvailableShellsAsync()
+            => Task.FromResult(new List<ShellInfo> { new("/bin/sh", "-c", ShellType.Sh) });
         public Task<string?> WhichAsync(string executableName)
             => Task.FromResult<string?>(null);
         public void InvalidateCache() { }

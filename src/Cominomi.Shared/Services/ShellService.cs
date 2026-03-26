@@ -7,14 +7,17 @@ public class ShellService : IShellService
 {
     private readonly ILogger<ShellService> _logger;
     private readonly IProcessRunner _processRunner;
+    private readonly ISettingsService _settingsService;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private ShellInfo? _cached;
     private DateTime _cachedAt;
+    private List<ShellInfo>? _availableShellsCache;
 
-    public ShellService(ILogger<ShellService> logger, IProcessRunner processRunner)
+    public ShellService(ILogger<ShellService> logger, IProcessRunner processRunner, ISettingsService settingsService)
     {
         _logger = logger;
         _processRunner = processRunner;
+        _settingsService = settingsService;
     }
 
     public async Task<ShellInfo> GetShellAsync()
@@ -39,9 +42,49 @@ public class ShellService : IShellService
         }
     }
 
+    public async Task<ShellInfo> GetTerminalShellAsync()
+    {
+        var settings = await _settingsService.LoadAsync();
+        if (string.IsNullOrEmpty(settings.TerminalShell))
+            return await GetShellAsync();
+
+        var available = await GetAvailableShellsAsync();
+        var match = available.FirstOrDefault(s => ShellTypeToKey(s.Type) == settings.TerminalShell);
+        return match ?? await GetShellAsync();
+    }
+
+    public async Task<List<ShellInfo>> GetAvailableShellsAsync()
+    {
+        if (_availableShellsCache != null)
+            return _availableShellsCache;
+
+        var shells = new List<ShellInfo>();
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            if (File.Exists("/bin/zsh")) shells.Add(new("/bin/zsh", "-c ", ShellType.Zsh));
+            if (File.Exists("/bin/bash")) shells.Add(new("/bin/bash", "-c ", ShellType.Bash));
+            if (File.Exists("/bin/sh")) shells.Add(new("/bin/sh", "-c ", ShellType.Sh));
+        }
+        else
+        {
+            var bashPath = await FindGitBashAsync();
+            if (bashPath != null) shells.Add(new(bashPath, "-c ", ShellType.Bash));
+            shells.Add(new("cmd.exe", "/c ", ShellType.Cmd));
+
+            // PowerShell 7+ (pwsh) or Windows PowerShell 5.1
+            var pwshPath = await FindPowerShellAsync();
+            if (pwshPath != null) shells.Add(new(pwshPath, "-Command ", ShellType.PowerShell));
+        }
+
+        _availableShellsCache = shells;
+        return shells;
+    }
+
     public void InvalidateCache()
     {
         _cached = null;
+        _availableShellsCache = null;
     }
 
     public async Task<string?> WhichAsync(string executableName)
@@ -79,7 +122,7 @@ public class ShellService : IShellService
                     };
                     break;
 
-                default: // ShellType.Sh — macOS/Linux
+                default: // ShellType.Sh, Zsh — macOS/Linux
                     options = new ProcessRunOptions
                     {
                         FileName = shell.FileName,
@@ -130,14 +173,62 @@ public class ShellService : IShellService
         return null;
     }
 
+    public static string ShellTypeToKey(ShellType type) => type switch
+    {
+        ShellType.Zsh => "zsh",
+        ShellType.Bash when !RuntimeInformation.IsOSPlatform(OSPlatform.Windows) => "bash",
+        ShellType.Bash => "gitbash",
+        ShellType.Sh => "sh",
+        ShellType.Cmd => "cmd",
+        ShellType.PowerShell => "powershell",
+        _ => "sh"
+    };
+
+    public static string GetShellDisplayName(ShellInfo shell) => shell.Type switch
+    {
+        ShellType.Zsh => "zsh",
+        ShellType.Bash when RuntimeInformation.IsOSPlatform(OSPlatform.Windows) => "Git Bash",
+        ShellType.Bash => "bash",
+        ShellType.Sh => "sh",
+        ShellType.Cmd => "cmd",
+        ShellType.PowerShell => "PowerShell",
+        _ => shell.FileName
+    };
+
     private static bool IsValidExecutableName(string name)
         => !string.IsNullOrEmpty(name) && name.All(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.');
 
-    private async Task<ShellInfo> ResolveShellAsync()
+    private Task<ShellInfo> ResolveShellAsync()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return new ShellInfo("/bin/sh", "-c ", ShellType.Sh);
+            return Task.FromResult(ResolveUnixShell());
 
+        return ResolveWindowsShellAsync();
+    }
+
+    private ShellInfo ResolveUnixShell()
+    {
+        // Detect user's default shell from $SHELL
+        var envShell = Environment.GetEnvironmentVariable("SHELL");
+        if (!string.IsNullOrEmpty(envShell) && File.Exists(envShell))
+        {
+            var type = Path.GetFileName(envShell) switch
+            {
+                "zsh" => ShellType.Zsh,
+                "bash" => ShellType.Bash,
+                _ => ShellType.Sh
+            };
+            return new ShellInfo(envShell, "-c ", type);
+        }
+
+        // Fallback chain: /bin/zsh → /bin/bash → /bin/sh
+        if (File.Exists("/bin/zsh")) return new ShellInfo("/bin/zsh", "-c ", ShellType.Zsh);
+        if (File.Exists("/bin/bash")) return new ShellInfo("/bin/bash", "-c ", ShellType.Bash);
+        return new ShellInfo("/bin/sh", "-c ", ShellType.Sh);
+    }
+
+    private async Task<ShellInfo> ResolveWindowsShellAsync()
+    {
         // Try to find Git Bash via git installation
         var bashPath = await FindGitBashAsync();
         if (bashPath != null)
@@ -205,6 +296,47 @@ public class ShellService : IShellService
         }
 
         _logger.LogDebug("Git Bash not found, will fall back to cmd.exe");
+        return null;
+    }
+
+    private async Task<string?> FindPowerShellAsync()
+    {
+        // PowerShell 7+ (pwsh)
+        string[] pwshPaths =
+        [
+            @"C:\Program Files\PowerShell\7\pwsh.exe",
+            @"C:\Program Files (x86)\PowerShell\7\pwsh.exe"
+        ];
+
+        foreach (var path in pwshPaths)
+        {
+            if (File.Exists(path))
+                return path;
+        }
+
+        // Try via where.exe
+        try
+        {
+            var result = await _processRunner.RunAsync(new ProcessRunOptions
+            {
+                FileName = "where.exe",
+                Arguments = ["pwsh"],
+                Timeout = CominomiConstants.WhichTimeout
+            });
+
+            var firstLine = result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+            if (result.Success && !string.IsNullOrWhiteSpace(firstLine))
+                return firstLine;
+        }
+        catch { /* ignore */ }
+
+        // Fallback to Windows PowerShell 5.1
+        var winPwsh = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            "WindowsPowerShell", "v1.0", "powershell.exe");
+        if (File.Exists(winPwsh))
+            return winPwsh;
+
         return null;
     }
 }

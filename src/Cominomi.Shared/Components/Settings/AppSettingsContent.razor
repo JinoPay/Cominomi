@@ -7,6 +7,7 @@
 @inject INotificationService NotificationService
 @inject IDependencyCheckService DependencyCheckService
 @inject IUpdateService UpdateService
+@inject IShellService ShellSvc
 
 <div class="settings-content-area">
     <div class="settings-content-header">
@@ -129,6 +130,27 @@
                         알림이 보이지 않으면 시스템 설정 > 알림 > Script Editor가 허용되어 있는지 확인하세요.
                     </MudAlert>
                 }
+            </div>
+        }
+        else if (Section == "terminal")
+        {
+            <div class="settings-section-title">터미널</div>
+            <div class="settings-section-desc">내장 터미널의 기본 셸을 설정합니다.</div>
+
+            <div class="stack gap-3">
+                <MudSelect T="string" @bind-Value="_settings.TerminalShell" Label="기본 셸"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@((string?)null)">자동 감지 (@_detectedShellLabel)</MudSelectItem>
+                    @foreach (var shell in _availableShells)
+                    {
+                        <MudSelectItem T="string" Value="@(ShellService.ShellTypeToKey(shell.Type))">
+                            @ShellService.GetShellDisplayName(shell)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+                <small class="typo-caption text-secondary">
+                    터미널 패널에서 사용할 셸입니다. "자동 감지"는 시스템 기본 셸을 사용합니다.
+                </small>
             </div>
         }
         else if (Section == "ai")
@@ -652,6 +674,8 @@
     private bool _slashCommandsOpen;
     private bool _pluginManagerOpen;
     private double _autoDefault = 1.0;
+    private List<ShellInfo> _availableShells = [];
+    private string _detectedShellLabel = "";
     private bool _updateChecking;
     private UpdateInfo? _updateInfo;
     private bool _updateDownloading;
@@ -669,7 +693,11 @@
         if (Section != _lastSection)
         {
             _lastSection = Section;
-            if (Section == "integrations")
+            if (Section == "terminal")
+            {
+                _ = LoadAvailableShells();
+            }
+            else if (Section == "integrations")
             {
                 _ = CheckIntegrations();
             }
@@ -678,6 +706,14 @@
                 _ = CheckForUpdates();
             }
         }
+    }
+
+    private async Task LoadAvailableShells()
+    {
+        _availableShells = await ShellSvc.GetAvailableShellsAsync();
+        var detected = await ShellSvc.GetShellAsync();
+        _detectedShellLabel = ShellService.GetShellDisplayName(detected);
+        StateHasChanged();
     }
 
     private async Task CheckIntegrations()

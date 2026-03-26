@@ -13,6 +13,7 @@ public static class SettingsValidator
     private static readonly HashSet<string> ValidPermissionModes =
         ["default", "plan", "acceptEdits", "dontAsk", "bypassPermissions", "bypassAll"];
     private static readonly HashSet<string> ValidEffortLevels = ["auto", "low", "medium", "high", "max"];
+    private static readonly HashSet<string> ValidTerminalShells = ["zsh", "bash", "sh", "cmd", "gitbash", "powershell"];
     public static List<string> Validate(AppSettings settings)
     {
         var issues = new List<string>();
@@ -48,6 +49,10 @@ public static class SettingsValidator
         if (settings.UiScale != 0 && (settings.UiScale < 0.5 || settings.UiScale > 2.0))
             issues.Add($"UiScale must be 0 (auto) or between 0.5 and 2.0, got {settings.UiScale}");
 
+        // Terminal shell
+        if (settings.TerminalShell != null && !ValidTerminalShells.Contains(settings.TerminalShell))
+            issues.Add($"Invalid terminal shell '{settings.TerminalShell}'. Must be one of: {string.Join(", ", ValidTerminalShells)}");
+
         // Path validation (only if set)
         ValidatePath(settings.ClaudePath, "ClaudePath", issues);
         ValidatePath(settings.GitPath, "GitPath", issues);
@@ -80,6 +85,10 @@ public static class SettingsValidator
         // Clamp UI scale
         if (settings.UiScale != 0)
             settings.UiScale = Math.Clamp(settings.UiScale, 0.5, 2.0);
+
+        // Terminal shell
+        if (settings.TerminalShell != null && !ValidTerminalShells.Contains(settings.TerminalShell))
+            settings.TerminalShell = null;
 
         // Clamp optional numeric values
         if (settings.DefaultMaxTurns is < 1)

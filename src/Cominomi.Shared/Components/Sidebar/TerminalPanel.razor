@@ -1,5 +1,6 @@
 @using Cominomi.Shared.Models
 @inject ITerminalService TerminalService
+@inject IShellService ShellSvc
 @inject IChatState ChatState
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -8,6 +9,20 @@
     <div class="terminal-panel-toolbar">
         <span class="embedded-diff-tab active">Terminal</span>
         <div style="flex:1"></div>
+        <MudMenu Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                 Dense="true"
+                 AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                 Class="terminal-btn"
+                 ActivationEvent="@MouseEvent.LeftClick"
+                 Title="새 터미널">
+            @foreach (var shell in _availableShells)
+            {
+                <MudMenuItem OnClick="@(() => StartWithShell(shell))"
+                             Icon="@Icons.Material.Filled.Terminal">
+                    @ShellService.GetShellDisplayName(shell)
+                </MudMenuItem>
+            }
+        </MudMenu>
         @if (_isRunning)
         {
             <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
@@ -30,6 +45,7 @@
     private string? _currentSessionKey;
     private bool _isRunning;
     private bool _initialized;
+    private List<ShellInfo> _availableShells = [];
 
     protected override void OnInitialized()
     {
@@ -45,7 +61,9 @@
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("initTerminal", _elementId, _dotNetRef);
             _initialized = true;
+            _availableShells = await ShellSvc.GetAvailableShellsAsync();
             await TryStartForCurrentSession();
+            StateHasChanged();
         }
     }
 
@@ -154,6 +172,27 @@
             : Environment.CurrentDirectory;
 
         await TerminalService.StartAsync(_currentSessionKey, workDir);
+        _isRunning = TerminalService.IsRunning(_currentSessionKey);
+    }
+
+    private async Task StartWithShell(ShellInfo shell)
+    {
+        if (_currentSessionKey == null) return;
+
+        await TerminalService.StopAsync(_currentSessionKey);
+
+        if (_initialized)
+        {
+            try { await JS.InvokeVoidAsync("terminalClear", _elementId); }
+            catch { }
+        }
+
+        var session = ChatState.CurrentSession;
+        var workDir = session != null && !string.IsNullOrEmpty(session.Git.WorktreePath)
+            ? session.Git.WorktreePath
+            : Environment.CurrentDirectory;
+
+        await TerminalService.StartAsync(_currentSessionKey, workDir, shell);
         _isRunning = TerminalService.IsRunning(_currentSessionKey);
     }
 
