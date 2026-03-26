@@ -271,10 +271,20 @@
 
     private string GetStreamingStatusText(Session session)
     {
-        if (session.PermissionMode == "plan")
-            return "계획 중...";
-
         var phase = ChatState.GetSessionPhase(session.Id);
+
+        if (session.PermissionMode == "plan")
+        {
+            return phase switch
+            {
+                StreamingPhase.Preparing or StreamingPhase.Sending => "준비 중...",
+                StreamingPhase.Thinking => "생각 중...",
+                StreamingPhase.WritingText => "작성 중...",
+                StreamingPhase.UsingTool => GetSidebarToolLabel(ChatState.GetSessionToolName(session.Id)),
+                _ => "계획 중..."
+            };
+        }
+
         return phase switch
         {
             StreamingPhase.Preparing or StreamingPhase.Sending => "준비 중...",
