@@ -21,6 +21,10 @@ public class ClaudeCliResolver
         _logger = logger;
     }
 
+    /// <summary>
+    /// Returns a command to execute Claude CLI, falling back to a bare name if not found.
+    /// Use this when you intend to *run* Claude (best-effort).
+    /// </summary>
     public async Task<(string fileName, string argPrefix)> ResolveAsync(string? configuredPath)
     {
         await _resolveLock.WaitAsync();
@@ -29,7 +33,10 @@ public class ClaudeCliResolver
             if (_resolvedCommand.HasValue && _resolvedCommandPath == configuredPath)
                 return _resolvedCommand.Value;
 
-            var result = await ResolveClaudeCommandAsync(configuredPath);
+            var result = await FindClaudeCommandAsync(configuredPath)
+                         ?? (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                             ? ("claude.exe", "")
+                             : ("claude", ""));
             _resolvedCommand = result;
             _resolvedCommandPath = configuredPath;
             return result;
@@ -40,7 +47,16 @@ public class ClaudeCliResolver
         }
     }
 
-    private async Task<(string fileName, string argPrefix)> ResolveClaudeCommandAsync(string? configuredPath)
+    /// <summary>
+    /// Returns the resolved Claude CLI command only if actually found on disk.
+    /// Returns null when not found — no fallback guess.
+    /// </summary>
+    public async Task<(string fileName, string argPrefix)?> DetectAsync(string? configuredPath)
+    {
+        return await FindClaudeCommandAsync(configuredPath);
+    }
+
+    private async Task<(string fileName, string argPrefix)?> FindClaudeCommandAsync(string? configuredPath)
     {
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
@@ -80,9 +96,7 @@ public class ClaudeCliResolver
             }
         }
 
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? ("claude.exe", "")
-            : ("claude", "");
+        return null;
     }
 
     public async Task<string?> RunSimpleCommandAsync(string fileName, string arguments)
