@@ -77,6 +77,10 @@ public class ClaudeServiceTests : IDisposable
 
         public Task<ShellInfo> GetShellAsync()
             => Task.FromResult(new ShellInfo("/bin/bash", "-c", ShellType.Bash));
+        public Task<ShellInfo> GetTerminalShellAsync()
+            => GetShellAsync();
+        public Task<List<ShellInfo>> GetAvailableShellsAsync()
+            => Task.FromResult(new List<ShellInfo> { new("/bin/bash", "-c", ShellType.Bash) });
 
         public Task<string?> WhichAsync(string executableName)
             => Task.FromResult(WhichResult);

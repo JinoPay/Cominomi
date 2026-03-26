@@ -20,6 +20,11 @@
                 <MudIcon Icon="@Icons.Material.Filled.Notifications" Size="Size.Small" />
                 알림
             </button>
+            <button class="settings-nav-item @ActiveClass("terminal")"
+                    @onclick="@(() => SetSection("terminal"))">
+                <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small" />
+                터미널
+            </button>
             <button class="settings-nav-item @ActiveClass("ai")"
                     @onclick="@(() => SetSection("ai"))">
                 <MudIcon Icon="@Icons.Material.Filled.Psychology" Size="Size.Small" />

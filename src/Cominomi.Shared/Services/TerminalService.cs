@@ -23,17 +23,17 @@ public class TerminalService : ITerminalService
     public bool IsRunning(string sessionKey)
         => _sessions.TryGetValue(sessionKey, out var s) && s.IsAlive;
 
-    public async Task StartAsync(string sessionKey, string workingDirectory)
+    public async Task StartAsync(string sessionKey, string workingDirectory, ShellInfo? shell = null)
     {
         // Stop existing session if any
         await StopAsync(sessionKey);
 
-        var shell = await _shellService.GetShellAsync();
+        shell ??= await _shellService.GetTerminalShellAsync();
         _logger.LogInformation("Starting PTY terminal for session {Key} with {Shell} in {Dir}",
             sessionKey, shell.Type, workingDirectory);
 
         var args = new List<string>();
-        if (shell.Type == ShellType.Bash)
+        if (shell.Type is ShellType.Bash or ShellType.Zsh)
         {
             args.Add("--login");
             args.Add("-i");

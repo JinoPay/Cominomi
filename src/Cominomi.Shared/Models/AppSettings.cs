@@ -37,6 +37,9 @@ public class AppSettings
     public int SummarizationTimeoutSeconds { get; set; } = 15;
     public int VersionCheckTimeoutSeconds { get; set; } = 5;
 
+    // Terminal
+    public string? TerminalShell { get; set; }  // null = auto-detect
+
     // Plugins
     public List<string> DisabledPlugins { get; set; } = [];
 }

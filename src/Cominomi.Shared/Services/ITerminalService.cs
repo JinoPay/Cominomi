@@ -5,8 +5,9 @@ public interface ITerminalService : IAsyncDisposable
     /// <summary>True when a shell process is alive for the given key.</summary>
     bool IsRunning(string sessionKey);
 
-    /// <summary>Start a new shell process. WorkingDirectory = session worktree.</summary>
-    Task StartAsync(string sessionKey, string workingDirectory);
+    /// <summary>Start a new shell process. WorkingDirectory = session worktree.
+    /// When <paramref name="shell"/> is null, uses the user's preferred terminal shell from settings.</summary>
+    Task StartAsync(string sessionKey, string workingDirectory, ShellInfo? shell = null);
 
     /// <summary>Write raw text from xterm.js to the shell's stdin.</summary>
     Task WriteAsync(string sessionKey, string data);
