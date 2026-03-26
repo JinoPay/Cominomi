@@ -14,6 +14,7 @@ public class ChatMessageOrchestrator : IChatMessageOrchestrator
     private readonly ISessionInitializer _sessionInitializer;
     private readonly IHooksEngine _hooksEngine;
     private readonly IActiveSessionRegistry _activeSessionRegistry;
+    private readonly IGitBranchWatcherService _branchWatcher;
     private readonly ILogger<ChatMessageOrchestrator> _logger;
 
     public ChatMessageOrchestrator(
@@ -26,6 +27,7 @@ public class ChatMessageOrchestrator : IChatMessageOrchestrator
         ISessionInitializer sessionInitializer,
         IHooksEngine hooksEngine,
         IActiveSessionRegistry activeSessionRegistry,
+        IGitBranchWatcherService branchWatcher,
         ILogger<ChatMessageOrchestrator> logger)
     {
         _chatState = chatState;
@@ -37,6 +39,7 @@ public class ChatMessageOrchestrator : IChatMessageOrchestrator
         _sessionInitializer = sessionInitializer;
         _hooksEngine = hooksEngine;
         _activeSessionRegistry = activeSessionRegistry;
+        _branchWatcher = branchWatcher;
         _logger = logger;
     }
 
@@ -239,6 +242,7 @@ public class ChatMessageOrchestrator : IChatMessageOrchestrator
             _chatState.NotifyStateChanged();
             await _sessionService.SaveSessionAsync(session);
             _activeSessionRegistry.Unregister(session.Id);
+            _ = _branchWatcher.RefreshBranchAsync(session);
         }
 
         return new StreamResult

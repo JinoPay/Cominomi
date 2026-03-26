@@ -84,6 +84,7 @@
                                      DiffAdditions="@(hasDiffStats ? stats.Additions : 0)"
                                      DiffDeletions="@(hasDiffStats ? stats.Deletions : 0)"
                                      ShortcutLabel="@(row.SessionIndex < 5 ? GetShortcutLabel(row.SessionIndex) : null)"
+                                     DeleteShortcutLabel="@(ChatState.CurrentSession?.Id == row.Session!.Id ? GetDeleteShortcutLabel() : null)"
                                      ShowShortcuts="@_ctrlHeld"
                                      AvailableIdes="_availableIdes"
                                      OnClick="@(() => SelectSession(row.Session!, row.Workspace))"
@@ -261,6 +262,13 @@
             : $"Ctrl+{index + 1}";
     }
 
+    private static string GetDeleteShortcutLabel()
+    {
+        return OperatingSystem.IsMacCatalyst() || OperatingSystem.IsMacOS()
+            ? "\u2318D"
+            : "Ctrl+D";
+    }
+
     private string GetStreamingStatusText(Session session)
     {
         if (session.PermissionMode == "plan")
@@ -357,6 +365,7 @@
     }
 
     private string? _lastSessionId;
+    private string? _lastBranchName;
     private bool _lastHasStreaming;
     private int _lastStreamingHash;
     private int _lastCompletedHash;
@@ -385,7 +394,9 @@
                     completedHash ^= row.Session.Id.GetHashCode();
             }
 
-            if (currentId == _lastSessionId && hasStreaming == _lastHasStreaming
+            var branchName = ChatState.CurrentSession?.Git.BranchName;
+            if (currentId == _lastSessionId && branchName == _lastBranchName
+                && hasStreaming == _lastHasStreaming
                 && streamingHash == _lastStreamingHash && completedHash == _lastCompletedHash)
                 return;
 
@@ -399,6 +410,7 @@
             }
 
             _lastSessionId = currentId;
+            _lastBranchName = branchName;
             _lastHasStreaming = hasStreaming;
             _lastStreamingHash = streamingHash;
             _lastCompletedHash = completedHash;

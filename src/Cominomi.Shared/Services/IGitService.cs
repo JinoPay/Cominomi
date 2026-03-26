@@ -10,6 +10,7 @@ public interface IGitService
         CancellationToken ct = default);
 
     Task<bool> IsGitRepoAsync(string path);
+    Task<string?> GetCurrentBranchAsync(string repoDir);
 
     Task<GitResult> AddWorktreeAsync(string repoDir, string worktreePath, string branchName, string baseBranch,
         CancellationToken ct = default);

@@ -37,7 +37,16 @@
         <div class="tree-session-meta">
             @if (Session.Git.IsLocalDir)
             {
-                <span class="tree-session-branch" style="opacity: 0.5;">로컬</span>
+                @if (!string.IsNullOrEmpty(Session.Git.BranchName))
+                {
+                    <span class="tree-session-branch">
+                        <span style="opacity: 0.5;">로컬</span> @Session.Git.BranchName
+                    </span>
+                }
+                else
+                {
+                    <span class="tree-session-branch" style="opacity: 0.5;">로컬</span>
+                }
             }
             else if (!string.IsNullOrEmpty(Session.Git.BranchName))
             {
@@ -65,9 +74,18 @@
         }
     </div>
 
-    @if (ShortcutLabel != null)
+    @if (DeleteShortcutLabel != null || ShortcutLabel != null)
     {
-        <span class="tree-session-shortcut @(ShowShortcuts ? "visible" : "")">@ShortcutLabel</span>
+        <div class="tree-session-shortcuts">
+            @if (DeleteShortcutLabel != null)
+            {
+                <span class="tree-session-shortcut delete @(ShowShortcuts ? "visible" : "")">× @DeleteShortcutLabel</span>
+            }
+            @if (ShortcutLabel != null)
+            {
+                <span class="tree-session-shortcut @(ShowShortcuts ? "visible" : "")">@ShortcutLabel</span>
+            }
+        </div>
     }
 </div>
 
@@ -106,6 +124,7 @@
     [Parameter] public int DiffAdditions { get; set; }
     [Parameter] public int DiffDeletions { get; set; }
     [Parameter] public string? ShortcutLabel { get; set; }
+    [Parameter] public string? DeleteShortcutLabel { get; set; }
     [Parameter] public bool ShowShortcuts { get; set; }
     [Parameter] public EventCallback OnClick { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
