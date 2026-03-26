@@ -108,6 +108,7 @@ public static class Program
         appBuilder.Services.AddSingleton<LightboxService>();
         appBuilder.Services.AddSingleton<FilePreviewService>();
         appBuilder.Services.AddSingleton<IGitService, GitService>();
+        appBuilder.Services.AddSingleton<IGitBranchWatcherService, GitBranchWatcherService>();
         appBuilder.Services.AddSingleton<IClaudeService, ClaudeService>();
         appBuilder.Services.AddSingleton<IContextService, ContextService>();
         appBuilder.Services.AddSingleton<IMemoryService, MemoryService>();
@@ -252,6 +253,7 @@ public static class Program
         try
         {
             services.GetService<IClaudeService>()?.Dispose();
+            services.GetService<IGitBranchWatcherService>()?.Dispose();
             (services.GetService<ChatState>() as IDisposable)?.Dispose();
             (services.GetService<SessionListDataService>() as IDisposable)?.Dispose();
 

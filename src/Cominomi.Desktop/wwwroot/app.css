@@ -514,21 +514,34 @@ html *::after {
 }
 
 /* Keyboard shortcut badge — visible only while Ctrl/⌘ held */
+.tree-session-shortcuts {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+    align-self: center;
+}
+
 .tree-session-shortcut {
     font-family: var(--font-mono);
     font-size: 0.6rem;
     opacity: 0;
     transform: translateX(4px);
     transition: opacity 200ms ease, transform 200ms ease;
-    flex-shrink: 0;
-    align-self: center;
     color: var(--text-secondary);
     pointer-events: none;
+    white-space: nowrap;
 }
 
 .tree-session-shortcut.visible {
     opacity: 0.25;
     transform: translateX(0);
+}
+
+.tree-session-shortcut.delete.visible {
+    opacity: 0.4;
+    color: var(--mud-palette-error);
 }
 
 /* Status badges */
