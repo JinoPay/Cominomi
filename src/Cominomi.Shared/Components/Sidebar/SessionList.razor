@@ -23,34 +23,44 @@
                 @switch (row.Kind)
                 {
                     case SidebarRowKind.ProjectHeader:
-                        <div @key="@($"ph-{row.ProjectName}")" class="project-header" @onclick="@(() => ToggleProject(row.ProjectName!))">
+                        var isExpanded = _expandedProjects.Contains(row.ProjectName!);
+                        <div @key="@($"ph-{row.ProjectName}")"
+                             class="project-header @(row.HasStreamingSession && !isExpanded ? "has-streaming" : "")"
+                             @onclick="@(() => ToggleProject(row.ProjectName!))">
+                            <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                     Size="Size.Small" Class="project-chevron" />
                             <span class="project-letter">@row.ProjectName![0]</span>
                             <span class="project-name">@row.ProjectName</span>
-                            @if (_expandedProjects.Contains(row.ProjectName!))
+                            @if (!isExpanded && row.SessionCount > 0)
                             {
-                                <div class="project-actions">
-                                    @{
-                                        var readyWs = row.WorkspacesInGroup!.FirstOrDefault(w => w.Status == WorkspaceStatus.Ready);
-                                    }
-                                    @if (readyWs != null)
-                                    {
-                                        <AddSessionMenu WorkspaceId="@readyWs.Id"
-                                                        OnNewChat="@(() => CreateNewChat(readyWs))"
-                                                        OnAddLocalDir="@(() => CreateLocalDirChat(readyWs))"
-                                                        Style="width: 20px; height: 20px; opacity: 0.5;" />
-                                    }
-                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small"
-                                             Dense="true"
-                                             AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
-                                             Style="width: 20px; height: 20px; opacity: 0.5;"
-                                             ActivationEvent="@MouseEvent.LeftClick">
-                                        <MudMenuItem OnClick="@(() => ChatState.OpenSettings("ws-general", row.WorkspacesInGroup!.First().Id))"
-                                                     Icon="@Icons.Material.Filled.Settings">
-                                            워크스페이스 설정
-                                        </MudMenuItem>
-                                    </MudMenu>
-                                </div>
+                                <span class="project-session-count">@row.SessionCount</span>
                             }
+                            @if (!isExpanded && row.HasStreamingSession)
+                            {
+                                <span class="project-streaming-dot"></span>
+                            }
+                            <div class="project-actions" @onclick:stopPropagation="true">
+                                @{
+                                    var readyWs = row.WorkspacesInGroup!.FirstOrDefault(w => w.Status == WorkspaceStatus.Ready);
+                                }
+                                @if (readyWs != null)
+                                {
+                                    <AddSessionMenu WorkspaceId="@readyWs.Id"
+                                                    OnNewChat="@(() => CreateNewChat(readyWs))"
+                                                    OnAddLocalDir="@(() => CreateLocalDirChat(readyWs))"
+                                                    Style="width: 20px; height: 20px; opacity: 0.5;" />
+                                }
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small"
+                                         Dense="true"
+                                         AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                                         Style="width: 20px; height: 20px; opacity: 0.5;"
+                                         ActivationEvent="@MouseEvent.LeftClick">
+                                    <MudMenuItem OnClick="@(() => ChatState.OpenSettings("ws-general", row.WorkspacesInGroup!.First().Id))"
+                                                 Icon="@Icons.Material.Filled.Settings">
+                                        워크스페이스 설정
+                                    </MudMenuItem>
+                                </MudMenu>
+                            </div>
                         </div>
                         break;
 
@@ -134,7 +144,9 @@
         List<Workspace>? WorkspacesInGroup = null,
         Workspace? Workspace = null,
         Session? Session = null,
-        int SessionIndex = 0);
+        int SessionIndex = 0,
+        int SessionCount = 0,
+        bool HasStreamingSession = false);
 
     private void RebuildFlatRows()
     {
@@ -147,8 +159,21 @@
             var projectName = group.Key;
             var workspacesInGroup = group.OrderByDescending(w => w.UpdatedAt).ToList();
 
+            var sessionCount = 0;
+            var hasStreaming = false;
+            foreach (var ws in workspacesInGroup)
+            {
+                if (DataService.SessionCache.TryGetValue(ws.Id, out var cachedSessions))
+                {
+                    sessionCount += cachedSessions.Count;
+                    if (!hasStreaming)
+                        hasStreaming = cachedSessions.Any(s => ChatState.IsSessionStreaming(s.Id));
+                }
+            }
+
             rows.Add(new SidebarRow(SidebarRowKind.ProjectHeader,
-                ProjectName: projectName, WorkspacesInGroup: workspacesInGroup));
+                ProjectName: projectName, WorkspacesInGroup: workspacesInGroup,
+                SessionCount: sessionCount, HasStreamingSession: hasStreaming));
 
             if (!_expandedProjects.Contains(projectName)) continue;
 
@@ -205,6 +230,9 @@
                 if (lastSession != null)
                     await SelectSession(lastSession, ws);
             }
+
+            // 접힌 프로젝트도 세션 수 배지를 표시할 수 있도록 백그라운드 사전 로딩
+            _ = DataService.LoadAllSessionCountsAsync();
 
             DataService.RebuildOrderedSessions();
             RebuildFlatRows();
@@ -409,6 +437,12 @@
                 && hasStreaming == _lastHasStreaming
                 && streamingHash == _lastStreamingHash && completedHash == _lastCompletedHash)
                 return;
+
+            // If streaming state changed, rebuild flat rows to update collapsed indicators
+            if (hasStreaming != _lastHasStreaming || streamingHash != _lastStreamingHash)
+            {
+                RebuildFlatRows();
+            }
 
             // If a session stopped streaming, refresh its diff stats
             if (_lastHasStreaming && !hasStreaming)

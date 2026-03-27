@@ -106,6 +106,27 @@ public class SessionListDataService : IDisposable
         }
     }
 
+    public async Task LoadAllSessionCountsAsync()
+    {
+        foreach (var ws in Workspaces)
+        {
+            if (!SessionCache.ContainsKey(ws.Id))
+            {
+                try
+                {
+                    var sessions = await _sessionService.GetSessionsByWorkspaceAsync(ws.Id);
+                    SessionCache[ws.Id] = sessions;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to pre-load sessions for workspace {WorkspaceId}", ws.Id);
+                }
+            }
+        }
+        RebuildOrderedSessions();
+        OnDataChanged?.Invoke();
+    }
+
     public void RebuildOrderedSessions()
     {
         OrderedSessions.Clear();
