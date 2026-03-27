@@ -7,46 +7,32 @@
     }
     else if (_releases.Count > 0)
     {
-        <MudTimeline TimelinePosition="TimelinePosition.Start">
-            @foreach (var release in _releases)
-            {
-                var isCurrent = release.Version == _currentVersion;
+        @foreach (var release in _releases)
+        {
+            var isCurrent = release.Version == _currentVersion;
 
-                <MudTimelineItem Color="@(isCurrent ? Color.Primary : Color.Default)"
-                                 Size="@(isCurrent ? Size.Medium : Size.Small)"
-                                 Variant="@(isCurrent ? Variant.Filled : Variant.Outlined)">
-                    <ItemOpposite>
-                        <span class="typo-caption text-secondary">@release.Date</span>
-                    </ItemOpposite>
-                    <ItemContent>
-                        <div class="release-note-item">
-                            <div class="stack-row items-center gap-2" style="margin-bottom: 4px;">
-                                <span class="typo-subtitle2">v@(release.Version)</span>
-                                @if (isCurrent)
-                                {
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary"
-                                             Variant="Variant.Outlined">현재 버전</MudChip>
-                                }
-                            </div>
-                            <div class="release-note-changes">
-                                @foreach (var change in release.Changes)
-                                {
-                                    <div class="release-note-change">
-                                        <MudChip T="string" Size="Size.Small"
-                                                 Color="@(change.Type == "feat" ? Color.Success : Color.Warning)"
-                                                 Variant="Variant.Text"
-                                                 Style="min-width: 40px; justify-content: center;">
-                                            @(change.Type == "feat" ? "기능" : "수정")
-                                        </MudChip>
-                                        <span class="typo-body2">@change.Description</span>
-                                    </div>
-                                }
-                            </div>
+            <div class="rn-card @(isCurrent ? "rn-card--current" : "")">
+                <div class="rn-header">
+                    <div class="rn-version-row">
+                        <span class="rn-version">v@(release.Version)</span>
+                        @if (isCurrent)
+                        {
+                            <span class="rn-badge rn-badge--current">현재 버전</span>
+                        }
+                    </div>
+                    <span class="rn-date">@FormatDate(release.Date)</span>
+                </div>
+                <div class="rn-changes">
+                    @foreach (var change in release.Changes)
+                    {
+                        <div class="rn-change">
+                            <span class="rn-tag rn-tag--@change.Type">@GetTypeLabel(change.Type)</span>
+                            <span class="rn-desc">@change.Description</span>
                         </div>
-                    </ItemContent>
-                </MudTimelineItem>
-            }
-        </MudTimeline>
+                    }
+                </div>
+            </div>
+        }
     }
     else
     {
@@ -65,5 +51,34 @@
             ?.GetName().Version?.ToString(3) ?? "";
         _releases = await ReleaseNotesService.GetReleaseNotesAsync();
         _loading = false;
+    }
+
+    private static string GetTypeLabel(string type) => type switch
+    {
+        "feat" => "기능",
+        "fix" => "수정",
+        "refactor" => "개선",
+        _ => type
+    };
+
+    private string FormatDate(string dateStr)
+    {
+        if (!DateOnly.TryParse(dateStr, out var date))
+            return dateStr;
+
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var diff = today.DayNumber - date.DayNumber;
+
+        var relative = diff switch
+        {
+            0 => "오늘",
+            1 => "어제",
+            2 => "그저께",
+            _ when diff > 0 && diff <= 7 => $"{diff}일 전",
+            _ => null
+        };
+
+        var formatted = $"{date.Year}년 {date.Month}월 {date.Day}일";
+        return relative is not null ? $"{formatted} ({relative})" : formatted;
     }
 }
