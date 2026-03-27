@@ -17,13 +17,13 @@
             <MudIconButton Icon="@Icons.Material.Filled.Timeline" Color="Color.Inherit"
                            Size="Size.Small" OnClick="@OnOpenActivity"
                            Style="width: 28px; height: 28px; opacity: 0.5;"
-                           Title="Activity" />
+                           title="Activity" />
             <MudBadge Content="@_unreadCount" Visible="@(_unreadCount > 0)" Color="Color.Error"
                       Overlap="true" Dot="@(_unreadCount <= 0)" Class="notification-badge">
                 <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit"
                                Size="Size.Small" OnClick="@OnOpenNotifications"
                                Style="width: 28px; height: 28px; opacity: 0.5;"
-                               Title="알림 히스토리" />
+                               title="알림 히스토리" />
             </MudBadge>
             <button class="sidebar-collapse-btn" @onclick="@OnToggleSidebar" title="사이드바 접기">
                 <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small"
