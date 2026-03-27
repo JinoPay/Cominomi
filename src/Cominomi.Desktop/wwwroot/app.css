@@ -4709,16 +4709,98 @@ select:focus-visible {
 /* Release Notes */
 .release-notes-panel {
     margin-top: var(--space-2);
-}
-
-.release-note-changes {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-2);
 }
 
-.release-note-change {
+.rn-card {
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    transition: border-color 0.15s;
+}
+
+.rn-card--current {
+    border-color: var(--mud-palette-primary);
+    background: color-mix(in srgb, var(--mud-palette-primary) 4%, transparent);
+}
+
+.rn-header {
     display: flex;
     align-items: center;
-    gap: var(--space-1);
+    justify-content: space-between;
+    margin-bottom: var(--space-2);
+}
+
+.rn-version-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.rn-version {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--mud-palette-text-primary);
+}
+
+.rn-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: 10px;
+    line-height: 1.6;
+}
+
+.rn-badge--current {
+    color: var(--mud-palette-primary);
+    background: color-mix(in srgb, var(--mud-palette-primary) 12%, transparent);
+}
+
+.rn-date {
+    font-size: 0.75rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.rn-changes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.rn-change {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+}
+
+.rn-tag {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: var(--radius-sm);
+    line-height: 1.6;
+}
+
+.rn-tag--feat {
+    color: var(--mud-palette-success);
+    background: color-mix(in srgb, var(--mud-palette-success) 12%, transparent);
+}
+
+.rn-tag--fix {
+    color: var(--mud-palette-warning);
+    background: color-mix(in srgb, var(--mud-palette-warning) 12%, transparent);
+}
+
+.rn-tag--refactor {
+    color: var(--mud-palette-info);
+    background: color-mix(in srgb, var(--mud-palette-info) 12%, transparent);
+}
+
+.rn-desc {
+    font-size: 0.82rem;
+    color: var(--mud-palette-text-primary);
+    line-height: 1.5;
 }
