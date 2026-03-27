@@ -298,6 +298,49 @@ html *::after {
     opacity: 1;
 }
 
+/* Expand/collapse chevron */
+.project-chevron {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.35;
+    transition: opacity var(--transition);
+}
+
+.project-header:hover .project-chevron {
+    opacity: 0.7;
+}
+
+/* Session count badge (collapsed state) */
+.project-session-count {
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-active);
+    padding: 0 5px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+    line-height: 1.5;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* Streaming activity dot (collapsed state) */
+.project-streaming-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-success);
+    flex-shrink: 0;
+    animation: pulse-status 1.5s ease-in-out infinite;
+}
+
+/* Streaming accent on collapsed project header */
+.project-header.has-streaming {
+    border-left: 2px solid var(--color-success);
+    padding-left: calc(var(--space-3) - 2px);
+}
+
 /* ===== Add Session Popover ===== */
 .add-session-anchor {
     position: relative;
