@@ -14,7 +14,7 @@
                  AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
                  Class="terminal-btn"
                  ActivationEvent="@MouseEvent.LeftClick"
-                 Title="새 터미널">
+                 title="새 터미널">
             @foreach (var shell in _availableShells)
             {
                 <MudMenuItem OnClick="@(() => StartWithShell(shell))"
@@ -26,14 +26,14 @@
         @if (_isRunning)
         {
             <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
-                           OnClick="RestartTerminal" Title="Restart" Class="terminal-btn" />
+                           OnClick="RestartTerminal" title="Restart" Class="terminal-btn" />
             <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                           OnClick="StopTerminal" Title="Kill" Class="terminal-btn" />
+                           OnClick="StopTerminal" title="Kill" Class="terminal-btn" />
         }
         else
         {
             <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small"
-                           OnClick="StartTerminal" Title="Start" Class="terminal-btn" />
+                           OnClick="StartTerminal" title="Start" Class="terminal-btn" />
         }
     </div>
     <div id="@_elementId" class="terminal-container"></div>

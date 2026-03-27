@@ -86,13 +86,13 @@
                                         @if (plugin.IsEnabled && plugin.Status == PluginStatus.Valid)
                                         {
                                             <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small"
-                                                           Color="Color.Primary" Title="로드"
+                                                           Color="Color.Primary" title="로드"
                                                            OnClick="@(() => LoadPlugin(plugin))" />
                                         }
                                         @if (plugin.Status == PluginStatus.Loaded)
                                         {
                                             <MudIconButton Icon="@Icons.Material.Filled.Stop" Size="Size.Small"
-                                                           Color="Color.Warning" Title="언로드"
+                                                           Color="Color.Warning" title="언로드"
                                                            OnClick="@(() => UnloadPlugin(plugin))" />
                                         }
                                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"

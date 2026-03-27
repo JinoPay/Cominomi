@@ -76,7 +76,7 @@
                                   HelperText="저장소가 클론되는 위치입니다. 비워두면 기본값을 사용합니다."
                                   Style="flex: 1;" />
                     <MudIconButton Icon="@Icons.Material.Filled.FolderOpen" Color="Color.Primary"
-                                   OnClick="BrowseCloneDirectory" Title="찾아보기..." />
+                                   OnClick="BrowseCloneDirectory" title="찾아보기..." />
                 </div>
             </div>
         }
@@ -231,7 +231,7 @@
                         <span class="status-text">감지되지 않음</span>
                     }
                     <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
-                                   OnClick="CheckClaudeCli" Title="다시 확인" />
+                                   OnClick="CheckClaudeCli" title="다시 확인" />
                 </div>
 
                 @if (_claudeCliFound && !string.IsNullOrEmpty(_claudeCliVersion))
@@ -307,7 +307,7 @@
                         <span class="status-text">감지되지 않음</span>
                     }
                     <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
-                                   OnClick="CheckGit" Title="다시 확인" />
+                                   OnClick="CheckGit" title="다시 확인" />
                 </div>
 
                 @if (_gitFound && !string.IsNullOrEmpty(_gitVersion))
@@ -373,7 +373,7 @@
                         <span class="status-text">감지되지 않음</span>
                     }
                     <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
-                                   OnClick="CheckGh" Title="다시 확인" />
+                                   OnClick="CheckGh" title="다시 확인" />
                 </div>
 
                 @if (_ghFound && !string.IsNullOrEmpty(_ghVersion))
