@@ -10,10 +10,12 @@ Cominomi is a cross-platform desktop application that provides a graphical inter
 
 - **Multi-session chat** - Run multiple Claude sessions with streaming responses
 - **Workspace management** - Organize projects with workspace-level settings and system prompts
-- **Git integration** - Branch management, diff viewing, worktree support
+- **Git integration** - Branch management, diff viewing, worktree support, real-time branch tracking
+- **Built-in terminal** - PTY-based terminal panel with split view
 - **Plugin system** - Extend functionality with custom plugins
 - **Memory & context** - Persistent memory entries and context building for system prompts
 - **Hooks** - Custom actions triggered by events
+- **Release notes** - In-app changelog and release notes viewer
 - **Auto-update** - Automatic delta updates via Velopack
 - **Cross-platform** - Windows (x64) and macOS (Apple Silicon)
 
