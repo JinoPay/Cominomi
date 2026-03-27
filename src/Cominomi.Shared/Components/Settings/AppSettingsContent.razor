@@ -11,7 +11,7 @@
 
 <div class="settings-content-area">
     <div class="settings-content-header">
-        @if (Section != "usage" && Section != "shortcuts")
+        @if (Section != "shortcuts")
         {
             <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save"
                        Size="Size.Small" Style="text-transform: none;">
@@ -642,10 +642,6 @@
 
             <div class="settings-group-title" style="margin-top: 24px;">릴리스 노트</div>
             <ReleaseNotesPanel />
-        }
-        else if (Section == "usage")
-        {
-            <UsageDashboard />
         }
     </div>
 </div>

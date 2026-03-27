@@ -3130,6 +3130,32 @@ html *::after {
     padding: var(--space-6);
 }
 
+.settings-content-area.wide {
+    max-width: 960px;
+}
+
+.settings-nav-group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    width: 100%;
+    padding: var(--space-1) var(--space-4);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    text-align: left;
+    margin-top: var(--space-2);
+}
+
+.settings-nav-group-header:hover {
+    color: var(--text-secondary);
+}
+
 .settings-content-header {
     display: flex;
     align-items: center;
