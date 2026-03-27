@@ -36,10 +36,14 @@ tests/
 ## Key Services
 - `ClaudeService` - Manages Claude CLI process, streaming JSON events
 - `GitService` - Git operations (clone, diff, branches) with caching
+- `GitBranchWatcherService` - Real-time git branch tracking and change detection
 - `ChatState` - UI state management (messages, streaming, tabs)
 - `SessionService` - Session CRUD and persistence
 - `WorkspaceService` - Workspace (git repo) management
 - `StreamEventProcessor` - Handles Claude API streaming event pipeline
+- `ShellService` - Shell execution and macOS default shell auto-detection
+- `TerminalService` - PTY-based terminal panel management
+- `ReleaseNotesService` - In-app release notes from changelog.json
 
 ## Key Constants (`CominomiConstants.cs`)
 - Max 20 active sessions per workspace
