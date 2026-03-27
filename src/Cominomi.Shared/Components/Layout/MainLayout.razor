@@ -203,6 +203,7 @@
             {
                 _isDarkMode = ThemeService.IsDarkMode;
                 _ = JS.InvokeVoidAsync("setTheme", _isDarkMode ? "dark" : "light");
+                _ = JS.InvokeVoidAsync("updateAllTerminalThemes");
                 StateHasChanged();
             }
             catch (Exception ex)
