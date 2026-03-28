@@ -1,677 +1,707 @@
 @using Cominomi.Shared.Models
-@using Markdig
 @inject ISessionReplayService ReplayService
 @implements IDisposable
 
-<div class="srp-root">
-    @* ===== Left Sidebar ===== *@
-    <div class="srp-sidebar">
-        <div class="srp-sidebar-header">
-            <MudTextField T="string" @bind-Value="_searchText" Placeholder="Search sessions..."
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="false"
-                          OnKeyDown="OnSearchKeyDown" Class="srp-search-field" />
-        </div>
-
-        <div class="srp-sidebar-body">
-            @if (_searchMode)
-            {
-                <div class="srp-section-header">
-                    <span class="typo-caption" style="font-weight:600;">Search Results (@_searchResults.Count)</span>
-                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
-                               OnClick="ClearSearch" Style="text-transform:none; min-width:auto;">
-                        Clear
-                    </MudButton>
+<div class="replay-page">
+    <div class="replay-page-header">
+        <span class="typo-h6">세션 히스토리</span>
+        <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@_totalCount 세션</MudChip>
+    </div>
+    <div class="replay-layout">
+            @* === Left: Session list === *@
+            <div class="replay-sidebar">
+                <div class="replay-search-row">
+                    <MudTextField T="string" @bind-Value="_search" Placeholder="전체 세션 검색..."
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true"
+                                  OnKeyDown="HandleSearchKeyDown" Class="mb-2" />
                 </div>
-                @foreach (var r in _searchResults)
-                {
-                    <div class="srp-search-item" @onclick="() => SelectSearchResult(r)">
-                        <div class="typo-caption text-secondary">
-                            @r.Timestamp.ToString("MM/dd HH:mm") &middot; @GetProjectName(r.ProjectPath)
-                        </div>
-                        <div class="typo-body2 srp-snippet">@r.Snippet</div>
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                 Style="font-size:0.7rem;">@r.EventType</MudChip>
-                    </div>
-                }
-                @if (_searchResults.Count == 0)
-                {
-                    <div class="typo-caption text-secondary" style="text-align:center; padding:24px 0;">
-                        No results found
-                    </div>
-                }
-            }
-            else
-            {
+
                 @* Live sessions *@
-                @if (_liveSessions.Count > 0)
+                @if (_liveSessions.Count > 0 && !_searchMode)
                 {
-                    <div class="srp-section-header">
-                        <span class="typo-caption" style="font-weight:600;">
-                            <span class="srp-live-dot"></span> Live Sessions
-                        </span>
+                    <div class="replay-live-section">
+                        <div class="replay-live-header">
+                            <span class="replay-live-dot"></span>
+                            실시간 (@_liveSessions.Count)
+                        </div>
+                        @foreach (var live in _liveSessions)
+                        {
+                            <div class="replay-live-item">
+                                <span class="replay-live-dot-sm"></span>
+                                <span class="typo-caption text-truncate">@GetProjectDisplayName(live.ProjectPath)</span>
+                                <span class="typo-caption text-secondary ml-auto">@(live.ModifiedSecondsAgo)초 전</span>
+                            </div>
+                        }
                     </div>
-                    @foreach (var live in _liveSessions)
+                }
+
+                @* Search results *@
+                @if (_searchMode)
+                {
+                    <div class="replay-search-status">
+                        <span class="typo-caption text-secondary">
+                            @if (_searching) { <text>검색 중...</text> }
+                            else { <text>@_searchResults.Count 결과</text> }
+                        </span>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                                   OnClick="ClearSearch" Style="text-transform: none; min-width: auto;">
+                            초기화
+                        </MudButton>
+                    </div>
+
+                    @foreach (var result in _searchResults)
                     {
-                        <div class="srp-live-item">
-                            <MudIcon Icon="@Icons.Material.Filled.FiberManualRecord" Size="Size.Small"
-                                     Style="color: var(--mud-palette-success); font-size:10px;" />
-                            <div style="flex:1; min-width:0;">
-                                <div class="typo-body2" style="font-weight:500;">@GetProjectName(live.ProjectPath)</div>
-                                <div class="typo-caption text-secondary">@(live.ModifiedSecsAgo)s ago</div>
+                        <div class="replay-item" @onclick="@(() => SelectSearchResult(result))">
+                            <div class="d-flex align-center gap-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Small"
+                                         Style="width: 12px; height: 12px; color: var(--mud-palette-primary);" />
+                                <span class="typo-caption text-truncate">@GetProjectDisplayName(result.ProjectPath)</span>
+                            </div>
+                            <div class="typo-caption text-secondary" style="margin-left: 18px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                @result.Snippet
                             </div>
                         </div>
                     }
                 }
-
-                @* Session list *@
-                @if (_loading)
+                else if (_loading)
                 {
-                    <div style="display:flex; justify-content:center; padding:32px 0;">
+                    <div style="display: flex; justify-content: center; padding: 20px;">
                         <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    </div>
+                }
+                else if (_sessions.Count == 0)
+                {
+                    <div class="typo-caption text-secondary text-center pa-4">
+                        Claude CLI 세션 히스토리가 없습니다
                     </div>
                 }
                 else
                 {
-                    @foreach (var s in _sessions)
+                    @foreach (var s in FilteredSessions)
                     {
-                        <div class="@SessionItemClass(s)" @onclick="() => SelectSession(s)">
-                            <div class="srp-item-top">
-                                <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small"
-                                         Style="opacity:0.6;" />
-                                <span class="typo-body2" style="font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                    @GetProjectName(s.ProjectPath)
+                        var tags = GetSessionTags(s.Id);
+                        <div class="@($"replay-item {(_selected?.Id == s.Id ? "active" : "")}")"
+                             @onclick="@(() => SelectSession(s))">
+                            <div class="d-flex align-center gap-2 mb-1">
+                                @if (s.IsLive)
+                                {
+                                    <span class="replay-live-dot-sm"></span>
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Small"
+                                             Style="width: 14px; height: 14px; color: var(--mud-palette-primary);" />
+                                }
+                                <span class="typo-caption" style="font-weight: 500;">
+                                    @GetProjectDisplayName(s.ProjectPath)
                                 </span>
-                                <span class="typo-caption text-secondary" style="white-space:nowrap;">
-                                    @FormatTimestamp(s.FirstTimestamp)
+                                <span class="typo-caption text-secondary ml-auto" style="font-size: 10px;">
+                                    @FormatTime(s.FirstTimestamp)
                                 </span>
                             </div>
-                            <div class="typo-caption srp-first-msg">
-                                @(s.FirstMessage ?? "(empty session)")
-                            </div>
-                            @if (GetSessionTags(s.Id).Count > 0)
+                            @if (s.FirstMessage != null)
                             {
-                                <div class="srp-tags-row">
-                                    @foreach (var tag in GetSessionTags(s.Id))
+                                <div class="typo-body2 text-truncate" style="margin-left: 20px; font-size: 12px;">
+                                    "@s.FirstMessage"
+                                </div>
+                            }
+                            @if (tags.Count > 0)
+                            {
+                                <div class="d-flex gap-1 mt-1" style="margin-left: 20px;">
+                                    @foreach (var tag in tags)
                                     {
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                                 Color="Color.Primary" Style="font-size:0.65rem; height:20px;">
-                                            @tag
-                                        </MudChip>
+                                        <span class="replay-tag">@tag</span>
                                     }
                                 </div>
                             }
-                            <div class="srp-item-stats">
-                                <span>@s.MessageCount msgs</span>
-                                <span>@s.ToolCallCount tools</span>
-                                <span>@s.EntryCount events</span>
-                                @if (s.Duration.HasValue)
-                                {
-                                    <span>@FormatDuration(s.Duration.Value)</span>
-                                }
+                            <div class="d-flex gap-3 mt-1" style="margin-left: 20px; font-size: 10px; opacity: 0.5;">
+                                <span>@s.MessageCount 메시지</span>
+                                <span>@s.ToolCallCount 도구</span>
+                                <span>@s.EntryCount 이벤트</span>
+                                <span>@FormatDuration(s.FirstTimestamp, s.LastTimestamp)</span>
                             </div>
-                        </div>
-                    }
-
-                    @if (_sessions.Count == 0)
-                    {
-                        <div class="typo-caption text-secondary" style="text-align:center; padding:32px 0;">
-                            No session history found
                         </div>
                     }
 
                     @if (_hasMoreSessions)
                     {
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="LoadMoreSessions"
-                                   FullWidth="true" Style="text-transform:none; margin-top:4px;"
-                                   Disabled="_loadingMore">
-                            @if (_loadingMore)
-                            {
-                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
-                            }
-                            Load more (@_sessions.Count/@_totalSessions)
-                        </MudButton>
+                        <div style="padding: 8px;">
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" FullWidth="true"
+                                       OnClick="LoadMoreSessions" Disabled="_loadingMore"
+                                       Style="text-transform: none;">
+                                @if (_loadingMore)
+                                {
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1" />
+                                }
+                                더 보기 (@_sessions.Count/@_totalCount)
+                            </MudButton>
+                        </div>
                     }
                 }
-            }
-        </div>
-    </div>
-
-    @* ===== Right Area ===== *@
-    <div class="srp-main">
-        @if (_selected == null)
-        {
-            <div class="srp-placeholder">
-                <MudIcon Icon="@Icons.Material.Filled.History" Style="font-size:64px; opacity:0.3;" />
-                <div class="typo-body1 text-secondary" style="margin-top:12px;">Select a session to replay</div>
-            </div>
-        }
-        else
-        {
-            @* Session Header Bar *@
-            <div class="srp-header">
-                <div class="srp-header-left">
-                    <div class="typo-body1" style="font-weight:600;">
-                        @GetProjectName(_selected.ProjectPath)
-                        <span class="typo-caption text-secondary" style="margin-left:8px;">
-                            @FormatTimestamp(_selected.FirstTimestamp)
-                        </span>
-                    </div>
-                    <div class="typo-caption text-secondary srp-first-msg" style="margin-top:2px;">
-                        @(_selected.FirstMessage ?? "(empty session)")
-                    </div>
-                </div>
-                <div class="srp-header-right">
-                    <div class="srp-header-stats">
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text">
-                            <MudIcon Icon="@Icons.Material.Filled.Chat" Size="Size.Small" Class="mr-1" />
-                            @_selected.MessageCount
-                        </MudChip>
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text">
-                            <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Small" Class="mr-1" />
-                            @_selected.ToolCallCount
-                        </MudChip>
-                        @if (_selected.Duration.HasValue)
-                        {
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text">
-                                <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" Class="mr-1" />
-                                @FormatDuration(_selected.Duration.Value)
-                            </MudChip>
-                        }
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Text">
-                            @_selected.EntryCount events
-                        </MudChip>
-                    </div>
-                    <MudIconButton Icon="@Icons.Material.Filled.FileDownload" Size="Size.Small"
-                                   Title="Export Markdown" OnClick="ExportMarkdown" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Label" Size="Size.Small"
-                                   Title="Tags" Color="@(_showTagEditor ? Color.Primary : Color.Default)"
-                                   OnClick="() => _showTagEditor = !_showTagEditor" />
-                    @if (_replayActive)
-                    {
-                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error"
-                                   OnClick="StopReplay" Style="text-transform:none;">
-                            <MudIcon Icon="@Icons.Material.Filled.Stop" Size="Size.Small" Class="mr-1" />
-                            Stop (@_replayIndex/@_events.Count)
-                        </MudButton>
-                    }
-                    else
-                    {
-                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
-                                   OnClick="StartReplay" Style="text-transform:none;"
-                                   Disabled="@(_events.Count == 0)">
-                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" Class="mr-1" />
-                            Replay
-                        </MudButton>
-                    }
-                </div>
             </div>
 
-            @* Tag Editor Bar *@
-            @if (_showTagEditor)
-            {
-                <div class="srp-tag-editor">
-                    <div class="srp-tag-chips">
-                        @foreach (var tag in GetSessionTags(_selected.Id))
-                        {
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
-                                     OnClose="() => RemoveTag(tag)">
-                                @tag
-                            </MudChip>
-                        }
-                    </div>
-                    <div class="srp-tag-input-row">
-                        <MudTextField T="string" @bind-Value="_newTag" Placeholder="Add tag..."
-                                      Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      OnKeyDown="OnTagKeyDown" Style="max-width:200px;" />
-                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => AddPresetTag("bug-fix"))"
-                                   Style="text-transform:none;">bug-fix</MudButton>
-                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => AddPresetTag("feature"))"
-                                   Style="text-transform:none;">feature</MudButton>
-                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => AddPresetTag("refactor"))"
-                                   Style="text-transform:none;">refactor</MudButton>
-                    </div>
-                </div>
-            }
-
-            @* Event Stream *@
-            <div class="srp-events">
-                @if (_loadingEvents)
+            @* === Right: Event stream === *@
+            <div class="replay-timeline">
+                @if (_selected == null)
                 {
-                    <div style="display:flex; justify-content:center; padding:32px 0;">
+                    <div class="d-flex flex-column align-center justify-center" style="height: 300px; opacity: 0.5;">
+                        <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Large" />
+                        <div class="typo-body2 mt-2">왼쪽에서 세션을 선택하세요</div>
+                        <div class="typo-caption mt-1">Claude Code 세션을 단계별로 재생합니다</div>
+                    </div>
+                }
+                else if (_loadingEvents)
+                {
+                    <div class="d-flex align-center justify-center" style="height: 200px;">
                         <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                        <span class="typo-body2 ml-2">세션 로딩 중...</span>
                     </div>
                 }
                 else
                 {
-                    var visibleEvents = _replayActive ? _events.Take(_replayIndex).ToList() : _events;
-                    @foreach (var evt in visibleEvents)
-                    {
-                        @if (evt.Type is "user" or "human")
-                        {
-                            <div class="srp-event-row">
-                                <div class="srp-avatar srp-avatar-user">
-                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small"
-                                             Style="color:white;" />
-                                </div>
-                                <div class="srp-event-body" style="flex:1; min-width:0;">
-                                    <div class="srp-event-meta">
-                                        <span style="font-weight:600;">You</span>
-                                        @if (evt.Timestamp.HasValue)
-                                        {
-                                            <span class="text-secondary"> &middot; @evt.Timestamp.Value.ToString("HH:mm:ss")</span>
-                                        }
-                                    </div>
-                                    <div class="srp-card-user">
-                                        <div class="typo-body2" style="white-space:pre-wrap; word-break:break-word;">@evt.Content</div>
-                                    </div>
-                                </div>
+                    @* Session header *@
+                    <div class="replay-session-header">
+                        <div>
+                            <div class="d-flex align-center gap-2">
+                                <span class="typo-body1" style="font-weight: 600;">@GetProjectDisplayName(_selected.ProjectPath)</span>
+                                <span class="typo-caption text-secondary">@FormatTime(_selected.FirstTimestamp)</span>
                             </div>
-                        }
-                        else if (evt.Type == "assistant")
+                            @if (_selected.FirstMessage != null)
+                            {
+                                <div class="typo-caption text-secondary mt-1">"@_selected.FirstMessage"</div>
+                            }
+                        </div>
+                        <div class="d-flex align-center gap-2">
+                            <div class="d-flex align-center gap-3" style="font-size: 11px; opacity: 0.5;">
+                                <span>@_selected.MessageCount 메시지</span>
+                                <span>@_selected.ToolCallCount 도구</span>
+                                <span>@FormatDuration(_selected.FirstTimestamp, _selected.LastTimestamp)</span>
+                                <span>@_totalEvents 이벤트</span>
+                            </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           OnClick="ExportSession" title="마크다운 내보내기"
+                                           Style="width: 28px; height: 28px;" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Label" Size="Size.Small"
+                                           OnClick="@(() => _showTagEditor = !_showTagEditor)" title="태그"
+                                           Style="width: 28px; height: 28px;" />
+                            @if (!_playing)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.PlayArrow"
+                                           OnClick="StartReplay" Style="text-transform: none;">
+                                    재생
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Pause"
+                                           OnClick="StopReplay" Style="text-transform: none;">
+                                    중지 (@_visibleCount/@_displayEvents.Count)
+                                </MudButton>
+                            }
+                        </div>
+                    </div>
+
+                    @* Tag editor *@
+                    @if (_showTagEditor && _selected != null)
+                    {
+                        var currentTags = GetSessionTags(_selected.Id);
+                        <div class="replay-tag-editor">
+                            @foreach (var tag in currentTags)
+                            {
+                                <span class="replay-tag">
+                                    @tag
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                   OnClick="@(() => RemoveTag(tag))"
+                                                   Style="width: 14px; height: 14px; margin-left: 2px;" />
+                                </span>
+                            }
+                            <MudTextField T="string" @bind-Value="_tagInput" Placeholder="태그 추가..."
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          OnKeyDown="HandleTagKeyDown"
+                                          Style="max-width: 100px; font-size: 11px;" />
+                            @foreach (var preset in _tagPresets)
+                            {
+                                if (!currentTags.Contains(preset))
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => AddTag(preset))"
+                                               Style="text-transform: none; min-width: auto; font-size: 10px; padding: 2px 6px;">
+                                        @preset
+                                    </MudButton>
+                                }
+                            }
+                        </div>
+                    }
+
+                    @* Event stream *@
+                    <div class="replay-events-container">
+                        @foreach (var (evt, idx) in VisibleEvents.Select((e, i) => (e, i)))
                         {
-                            <div class="srp-event-row">
-                                <div class="srp-avatar srp-avatar-assistant">
-                                    <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Small"
-                                             Style="color:white;" />
-                                </div>
-                                <div class="srp-event-body" style="flex:1; min-width:0;">
-                                    <div class="srp-event-meta">
-                                        <span style="font-weight:600;">Claude</span>
-                                        @if (evt.Timestamp.HasValue)
-                                        {
-                                            <span class="text-secondary"> &middot; @evt.Timestamp.Value.ToString("HH:mm:ss")</span>
-                                        }
+                            @if (evt.Type is "human" or "user")
+                            {
+                                <div class="replay-evt replay-evt-user">
+                                    <div class="replay-evt-avatar replay-evt-avatar-user">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small"
+                                                 Style="width: 14px; height: 14px;" />
                                     </div>
-                                    @if (evt.ToolCalls?.Count > 0)
-                                    {
-                                        <div class="srp-tool-calls">
+                                    <div class="replay-evt-body">
+                                        <span class="replay-evt-label">사용자 · @FormatEventTime(evt.Timestamp)</span>
+                                        <div class="replay-evt-card replay-evt-card-user">
+                                            <div class="typo-body2" style="white-space: pre-wrap; word-break: break-word;">@evt.Content</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else if (evt.Type == "assistant")
+                            {
+                                <div class="replay-evt replay-evt-assistant">
+                                    <div class="replay-evt-avatar replay-evt-avatar-assistant">
+                                        <MudIcon Icon="@Icons.Material.Filled.SmartToy" Size="Size.Small"
+                                                 Style="width: 14px; height: 14px;" />
+                                    </div>
+                                    <div class="replay-evt-body">
+                                        <span class="replay-evt-label">Claude · @FormatEventTime(evt.Timestamp)</span>
+
+                                        @if (evt.ToolCalls?.Count > 0)
+                                        {
                                             @foreach (var tc in evt.ToolCalls)
                                             {
-                                                <div class="srp-tool-card">
-                                                    <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Small"
-                                                             Style="opacity:0.7;" />
-                                                    <div style="flex:1; min-width:0;">
-                                                        <div class="typo-body2" style="font-weight:500;">@tc.Name</div>
-                                                        <div class="typo-caption text-secondary srp-snippet">@tc.InputPreview</div>
-                                                    </div>
+                                                <div class="replay-tool-pill">
+                                                    <MudIcon Icon="@GetToolIcon(tc.Name)" Size="Size.Small"
+                                                             Style="width: 12px; height: 12px; color: var(--mud-palette-warning);" />
+                                                    <span class="replay-tool-name">@tc.Name</span>
+                                                    <span class="replay-tool-input">@tc.InputPreview</span>
                                                 </div>
                                             }
-                                        </div>
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(evt.Content))
-                                    {
-                                        @if (evt.Content.Length > 300 && !IsExpanded(evt))
-                                        {
-                                            <div class="srp-card-assistant">
-                                                <div class="srp-md-content">@RenderMarkdown(evt.Content[..300] + "...")</div>
-                                                <MudButton Size="Size.Small" Variant="Variant.Text"
-                                                           OnClick="() => ToggleExpand(evt)"
-                                                           Style="text-transform:none; padding:0; margin-top:4px;">
-                                                    Show more
-                                                </MudButton>
-                                            </div>
                                         }
-                                        else if (evt.Content.Length > 300)
-                                        {
-                                            <div class="srp-card-assistant">
-                                                <div class="srp-md-content">@RenderMarkdown(evt.Content)</div>
-                                                <MudButton Size="Size.Small" Variant="Variant.Text"
-                                                           OnClick="() => ToggleExpand(evt)"
-                                                           Style="text-transform:none; padding:0; margin-top:4px;">
-                                                    Show less
-                                                </MudButton>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="srp-card-assistant">
-                                                <div class="srp-md-content">@RenderMarkdown(evt.Content)</div>
-                                            </div>
-                                        }
-                                    }
-                                </div>
-                            </div>
-                        }
-                        else if (evt.Type == "tool_use")
-                        {
-                            <div class="srp-event-row">
-                                <div class="srp-avatar srp-avatar-tool">
-                                    <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Small"
-                                             Style="color:white;" />
-                                </div>
-                                <div class="srp-event-body" style="flex:1; min-width:0;">
-                                    <div class="srp-event-meta">
-                                        <span style="font-weight:600;">@(evt.ToolName ?? "Tool")</span>
-                                        @if (evt.Timestamp.HasValue)
-                                        {
-                                            <span class="text-secondary"> &middot; @evt.Timestamp.Value.ToString("HH:mm:ss")</span>
-                                        }
-                                    </div>
-                                    <div class="srp-tool-card" style="margin-top:4px;">
-                                        <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Small"
-                                                 Style="opacity:0.7;" />
-                                        <div style="flex:1; min-width:0;">
-                                            <div class="typo-body2" style="font-weight:500;">@(evt.ToolName ?? "Tool")</div>
-                                            @if (!string.IsNullOrWhiteSpace(evt.Content))
-                                            {
-                                                <div class="typo-caption text-secondary srp-snippet">@evt.Content</div>
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                        else if (evt.Type == "tool_result")
-                        {
-                            <div class="srp-event-row">
-                                <div class="srp-avatar srp-avatar-result">
-                                    <MudIcon Icon="@Icons.Material.Filled.Output" Size="Size.Small"
-                                             Style="color:white;" />
-                                </div>
-                                <div class="srp-event-body" style="flex:1; min-width:0;">
-                                    <div class="srp-result-header" @onclick="() => ToggleResult(evt)">
-                                        <MudIcon Icon="@(IsResultExpanded(evt) ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                                 Size="Size.Small" />
-                                        <span class="typo-body2">Tool output (@(evt.Content?.Length ?? 0) chars)</span>
-                                        @if (evt.Timestamp.HasValue)
-                                        {
-                                            <span class="typo-caption text-secondary" style="margin-left:auto;">
-                                                @evt.Timestamp.Value.ToString("HH:mm:ss")
-                                            </span>
-                                        }
-                                    </div>
-                                    @if (IsResultExpanded(evt))
-                                    {
-                                        <pre class="srp-result-content">@evt.Content</pre>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    }
 
-                    @if (_hasMoreEvents && !_replayActive)
-                    {
-                        <div style="display:flex; justify-content:center; padding:12px 0;">
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="LoadMoreEvents"
-                                       Style="text-transform:none;" Disabled="_loadingMoreEvents">
-                                @if (_loadingMoreEvents)
-                                {
-                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
-                                }
-                                Load more events (@_events.Count/@_selected.EntryCount)
-                            </MudButton>
-                        </div>
-                    }
+                                        @if (!string.IsNullOrEmpty(evt.Content))
+                                        {
+                                            <div class="replay-evt-card replay-evt-card-assistant">
+                                                @if (evt.Content.Length > 300 && !_expandedEvents.Contains(idx))
+                                                {
+                                                    <div class="typo-body2" style="white-space: pre-wrap; word-break: break-word;">@(evt.Content[..300])...</div>
+                                                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                                                               OnClick="@(() => ToggleExpand(idx))"
+                                                               Style="text-transform: none; padding: 0; min-width: auto; font-size: 11px;">
+                                                        더 보기
+                                                    </MudButton>
+                                                }
+                                                else
+                                                {
+                                                    <div class="typo-body2" style="white-space: pre-wrap; word-break: break-word;">@evt.Content</div>
+                                                    @if (evt.Content.Length > 300)
+                                                    {
+                                                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                                                                   OnClick="@(() => ToggleExpand(idx))"
+                                                                   Style="text-transform: none; padding: 0; min-width: auto; font-size: 11px;">
+                                                            접기
+                                                        </MudButton>
+                                                    }
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            else if (evt.Type == "tool_result" && !string.IsNullOrEmpty(evt.Content))
+                            {
+                                <div class="replay-evt-tool-result">
+                                    <button class="replay-tool-result-toggle" @onclick="@(() => ToggleExpand(idx))">
+                                        <MudIcon Icon="@(_expandedEvents.Contains(idx)
+                                            ? Icons.Material.Filled.ExpandMore
+                                            : Icons.Material.Filled.ChevronRight)"
+                                                 Size="Size.Small" Style="width: 12px; height: 12px;" />
+                                        도구 출력 (@(evt.Content.Length)자)
+                                        @if (evt.IsError)
+                                        {
+                                            <span style="color: var(--mud-palette-error);">오류</span>
+                                        }
+                                    </button>
+                                    @if (_expandedEvents.Contains(idx))
+                                    {
+                                        <pre class="replay-tool-result-content">@evt.Content</pre>
+                                    }
+                                </div>
+                            }
+                        }
 
-                    @if (_events.Count == 0 && !_loadingEvents)
-                    {
-                        <div class="typo-caption text-secondary" style="text-align:center; padding:32px 0;">
-                            No events in this session
-                        </div>
-                    }
+                        @if (_playing && _visibleCount < _displayEvents.Count)
+                        {
+                            <div class="d-flex justify-center pa-4">
+                                <span class="replay-live-dot"></span>
+                            </div>
+                        }
+
+                        @if (_hasMoreEvents && !_playing)
+                        {
+                            <div style="padding: 12px 0;">
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" FullWidth="true"
+                                           OnClick="LoadMoreEvents" Disabled="_loadingMoreEvents"
+                                           Style="text-transform: none;">
+                                    @if (_loadingMoreEvents)
+                                    {
+                                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-1" />
+                                    }
+                                    이벤트 더 보기 (@_events.Count/@_totalEvents)
+                                </MudButton>
+                            </div>
+                        }
+                    </div>
                 }
-            </div>
-        }
-    </div>
-</div>
+            </div> @* replay-timeline *@
+        </div> @* replay-layout *@
+</div> @* replay-page *@
 
 @code {
-    // === State: sessions ===
+    // Session list state
     private List<SessionReplaySummary> _sessions = [];
-    private int _totalSessions;
+    private int _totalCount;
     private bool _hasMoreSessions;
     private bool _loading = true;
     private bool _loadingMore;
-    private const int SessionPageSize = 10;
-
-    // === State: selected session & events ===
     private SessionReplaySummary? _selected;
-    private List<SessionReplayEvent> _events = [];
-    private bool _loadingEvents;
-    private bool _hasMoreEvents;
-    private bool _loadingMoreEvents;
-    private int _eventPage;
-    private const int EventPageSize = 100;
 
-    // === State: search ===
-    private string _searchText = "";
+    // Event state
+    private List<SessionReplayEvent> _events = [];
+    private List<SessionReplayEvent> _displayEvents = [];
+    private int _totalEvents;
+    private bool _hasMoreEvents;
+    private bool _loadingEvents;
+    private bool _loadingMoreEvents;
+
+    // Search
+    private string _search = "";
     private bool _searchMode;
+    private bool _searching;
     private List<SessionSearchResult> _searchResults = [];
 
-    // === State: live sessions ===
-    private List<LiveSessionInfo> _liveSessions = [];
-    private System.Threading.Timer? _liveTimer;
-
-    // === State: tags ===
-    private SessionTagStore _tagStore = new();
+    // Tags
+    private SessionTagsData _tagsData = new();
     private bool _showTagEditor;
-    private string _newTag = "";
+    private string _tagInput = "";
+    private static readonly string[] _tagPresets = ["버그수정", "기능", "리팩터"];
 
-    // === State: replay ===
-    private bool _replayActive;
-    private int _replayIndex;
-    private System.Threading.Timer? _replayTimer;
+    // Live sessions
+    private List<LiveSessionInfo> _liveSessions = [];
+    private Timer? _liveTimer;
 
-    // === State: expand/collapse tracking ===
-    private readonly HashSet<SessionReplayEvent> _expandedEvents = [];
-    private readonly HashSet<SessionReplayEvent> _expandedResults = [];
+    // Replay
+    private bool _playing;
+    private int _visibleCount;
+    private Timer? _replayTimer;
+
+    // UI state
+    private HashSet<int> _expandedEvents = [];
+    private bool _exportCopied;
+
+    private List<SessionReplaySummary> FilteredSessions => string.IsNullOrWhiteSpace(_search) || _searchMode
+        ? _sessions
+        : _sessions.Where(s =>
+            (s.FirstMessage?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            s.ProjectPath.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+            s.Id.Contains(_search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private List<SessionReplayEvent> VisibleEvents => _playing
+        ? _displayEvents.Take(_visibleCount).ToList()
+        : _displayEvents;
 
     protected override async Task OnInitializedAsync()
     {
-        var result = await ReplayService.ListSessionsPagedAsync(SessionPageSize, 0);
+        var listTask = ReplayService.ListSessionsAsync(10, 0);
+        var tagsTask = ReplayService.GetTagsAsync();
+        var liveTask = ReplayService.DetectLiveSessionsAsync();
+
+        await Task.WhenAll(listTask, tagsTask, liveTask);
+
+        var result = listTask.Result;
         _sessions = result.Sessions;
-        _totalSessions = result.Total;
+        _totalCount = result.Total;
         _hasMoreSessions = result.HasMore;
+        _tagsData = tagsTask.Result;
+        _liveSessions = liveTask.Result;
 
-        _tagStore = await ReplayService.GetTagsAsync();
-
-        _liveSessions = await ReplayService.DetectLiveSessionsAsync();
+        // Mark live sessions in the list
+        MarkLiveSessions();
 
         _loading = false;
 
-        _liveTimer = new System.Threading.Timer(async _ =>
+        // Poll for live sessions every 30s
+        _liveTimer = new Timer(async _ =>
         {
             try
             {
-                var live = await ReplayService.DetectLiveSessionsAsync();
-                await InvokeAsync(() =>
-                {
-                    _liveSessions = live;
-                    StateHasChanged();
-                });
+                _liveSessions = await ReplayService.DetectLiveSessionsAsync();
+                MarkLiveSessions();
+                await InvokeAsync(StateHasChanged);
             }
-            catch { /* ignore timer errors */ }
+            catch { /* silent */ }
         }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
-    // === Session list ===
+    private void MarkLiveSessions()
+    {
+        var livePaths = _liveSessions.Select(l => l.FilePath).ToHashSet();
+        foreach (var s in _sessions)
+            s.IsLive = livePaths.Contains(s.FilePath);
+    }
+
     private async Task LoadMoreSessions()
     {
         _loadingMore = true;
-        var result = await ReplayService.ListSessionsPagedAsync(SessionPageSize, _sessions.Count);
-        _sessions.AddRange(result.Sessions);
-        _totalSessions = result.Total;
-        _hasMoreSessions = result.HasMore;
-        _loadingMore = false;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ReplayService.ListSessionsAsync(10, _sessions.Count);
+            _sessions.AddRange(result.Sessions);
+            _hasMoreSessions = result.HasMore;
+            _totalCount = result.Total;
+            MarkLiveSessions();
+        }
+        catch { /* silent */ }
+        finally
+        {
+            _loadingMore = false;
+            StateHasChanged();
+        }
     }
 
     private async Task SelectSession(SessionReplaySummary session)
     {
-        StopReplayInternal();
         _selected = session;
-        _loadingEvents = true;
-        _eventPage = 0;
         _events = [];
-        _expandedEvents.Clear();
-        _expandedResults.Clear();
+        _displayEvents = [];
+        _loadingEvents = true;
+        _playing = false;
+        _visibleCount = 0;
+        _expandedEvents = [];
+        StopReplayTimer();
         StateHasChanged();
 
-        _events = await ReplayService.LoadEventsAsync(session.FilePath, 0, EventPageSize);
-        _hasMoreEvents = _events.Count == EventPageSize;
-        _loadingEvents = false;
+        try
+        {
+            var result = await ReplayService.LoadSessionAsync(session.FilePath, 50, 0);
+            _events = result.Events;
+            _displayEvents = _events;
+            _hasMoreEvents = result.HasMore;
+            _totalEvents = result.Total;
+        }
+        catch
+        {
+            _events = [];
+            _displayEvents = [];
+        }
+        finally
+        {
+            _loadingEvents = false;
+            StateHasChanged();
+        }
     }
 
     private async Task LoadMoreEvents()
     {
-        if (_selected == null) return;
+        if (_selected == null || _loadingMoreEvents) return;
         _loadingMoreEvents = true;
-        _eventPage++;
-        var more = await ReplayService.LoadEventsAsync(_selected.FilePath, _eventPage * EventPageSize, EventPageSize);
-        _events.AddRange(more);
-        _hasMoreEvents = more.Count == EventPageSize;
-        _loadingMoreEvents = false;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ReplayService.LoadSessionAsync(_selected.FilePath, 50, _events.Count);
+            _events.AddRange(result.Events);
+            _displayEvents = _events;
+            _hasMoreEvents = result.HasMore;
+            _totalEvents = result.Total;
+        }
+        catch { /* silent */ }
+        finally
+        {
+            _loadingMoreEvents = false;
+            StateHasChanged();
+        }
     }
 
-    // === Search ===
-    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    // ===== Search =====
+
+    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_searchText))
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_search)) return;
+        _searching = true;
+        _searchMode = true;
+        StateHasChanged();
+
+        try
         {
-            _searchResults = await ReplayService.SearchSessionsAsync(_searchText);
-            _searchMode = true;
+            _searchResults = await ReplayService.SearchAsync(_search, 20);
+        }
+        catch { _searchResults = []; }
+        finally
+        {
+            _searching = false;
+            StateHasChanged();
         }
     }
 
     private void ClearSearch()
     {
+        _search = "";
         _searchMode = false;
-        _searchText = "";
-        _searchResults.Clear();
+        _searchResults = [];
+        StateHasChanged();
     }
 
     private async Task SelectSearchResult(SessionSearchResult result)
     {
-        var match = _sessions.FirstOrDefault(s => s.Id == result.SessionId);
-        if (match != null)
+        // Find matching session or load it
+        var session = _sessions.FirstOrDefault(s => s.FilePath == result.FilePath);
+        if (session != null)
         {
-            await SelectSession(match);
+            await SelectSession(session);
         }
         else
         {
-            // Load the session via full list lookup
-            var all = await ReplayService.ListSessionsAsync();
-            var found = all.FirstOrDefault(s => s.Id == result.SessionId);
-            if (found != null) await SelectSession(found);
+            // Create a minimal summary for display
+            await SelectSession(new SessionReplaySummary
+            {
+                Id = result.SessionId,
+                FilePath = result.FilePath,
+                ProjectPath = result.ProjectPath
+            });
         }
     }
 
-    // === Tags ===
-    private List<string> GetSessionTags(string sessionId) =>
-        _tagStore.Tags.TryGetValue(sessionId, out var tags) ? tags : [];
+    // ===== Tags =====
 
-    private async Task RemoveTag(string tag)
+    private List<string> GetSessionTags(string sessionId)
+        => _tagsData.Tags.TryGetValue(sessionId, out var tags) ? tags : [];
+
+    private async Task HandleTagKeyDown(KeyboardEventArgs e)
     {
-        if (_selected == null) return;
-        var tags = GetSessionTags(_selected.Id).Where(t => t != tag).ToList();
-        await ReplayService.SetTagAsync(_selected.Id, tags);
-        _tagStore.Tags[_selected.Id] = tags;
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_tagInput)) return;
+        await AddTag(_tagInput.Trim());
+        _tagInput = "";
     }
 
     private async Task AddTag(string tag)
     {
         if (_selected == null || string.IsNullOrWhiteSpace(tag)) return;
-        var tags = GetSessionTags(_selected.Id).ToList();
-        if (!tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
-        {
-            tags.Add(tag);
-            await ReplayService.SetTagAsync(_selected.Id, tags);
-            _tagStore.Tags[_selected.Id] = tags;
-        }
+        var current = GetSessionTags(_selected.Id);
+        if (current.Contains(tag)) return;
+        var newTags = new List<string>(current) { tag };
+        await ReplayService.SetTagAsync(_selected.Id, newTags);
+        _tagsData = await ReplayService.GetTagsAsync();
+        StateHasChanged();
     }
 
-    private async Task AddPresetTag(string tag) => await AddTag(tag);
-
-    private async Task OnTagKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_newTag))
-        {
-            await AddTag(_newTag.Trim());
-            _newTag = "";
-        }
-    }
-
-    // === Export ===
-    private async Task ExportMarkdown()
+    private async Task RemoveTag(string tag)
     {
         if (_selected == null) return;
-        await ReplayService.ExportMarkdownAsync(_selected.FilePath);
+        var current = GetSessionTags(_selected.Id).Where(t => t != tag).ToList();
+        await ReplayService.SetTagAsync(_selected.Id, current);
+        _tagsData = await ReplayService.GetTagsAsync();
+        StateHasChanged();
     }
 
-    // === Replay ===
+    // ===== Export =====
+
+    private async Task ExportSession()
+    {
+        if (_selected == null) return;
+        try
+        {
+            var md = await ReplayService.ExportToMarkdownAsync(_selected.FilePath);
+            // Copy to clipboard via JS interop would be ideal, but for now just store it
+            _exportCopied = true;
+            StateHasChanged();
+            await Task.Delay(2000);
+            _exportCopied = false;
+            StateHasChanged();
+        }
+        catch { /* silent */ }
+    }
+
+    // ===== Replay =====
+
     private void StartReplay()
     {
-        if (_events.Count == 0) return;
-        _replayActive = true;
-        _replayIndex = 0;
-        _replayTimer = new System.Threading.Timer(async _ =>
+        _playing = true;
+        _visibleCount = 0;
+        _replayTimer = new Timer(_ =>
         {
-            await InvokeAsync(() =>
+            if (_visibleCount >= _displayEvents.Count)
             {
-                if (!_replayActive) return;
-                _replayIndex++;
-                if (_replayIndex >= _events.Count)
-                {
-                    StopReplayInternal();
-                }
-                StateHasChanged();
-            });
-        }, null, TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(300));
+                StopReplay();
+                return;
+            }
+            _visibleCount++;
+            _ = InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(300));
     }
 
     private void StopReplay()
     {
-        StopReplayInternal();
+        _playing = false;
+        StopReplayTimer();
+        _visibleCount = _displayEvents.Count;
+        _ = InvokeAsync(StateHasChanged);
     }
 
-    private void StopReplayInternal()
+    private void StopReplayTimer()
     {
-        _replayActive = false;
         _replayTimer?.Dispose();
         _replayTimer = null;
     }
 
-    // === Expand/collapse ===
-    private bool IsExpanded(SessionReplayEvent evt) => _expandedEvents.Contains(evt);
-    private void ToggleExpand(SessionReplayEvent evt)
+    // ===== UI Helpers =====
+
+    private void ToggleExpand(int idx)
     {
-        if (!_expandedEvents.Remove(evt)) _expandedEvents.Add(evt);
+        if (!_expandedEvents.Remove(idx))
+            _expandedEvents.Add(idx);
     }
 
-    private bool IsResultExpanded(SessionReplayEvent evt) => _expandedResults.Contains(evt);
-    private void ToggleResult(SessionReplayEvent evt)
+    private static string GetProjectDisplayName(string projectPath)
     {
-        if (!_expandedResults.Remove(evt)) _expandedResults.Add(evt);
+        if (string.IsNullOrEmpty(projectPath)) return "알 수 없음";
+        var parts = projectPath.Split('/', '\\');
+        return parts[^1];
     }
 
-    // === Markdown rendering ===
-    private static readonly MarkdownPipeline _mdPipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .Build();
-
-    private static MarkupString RenderMarkdown(string md) =>
-        new(Markdig.Markdown.ToHtml(md, _mdPipeline));
-
-    // === Helpers ===
-    private static string GetProjectName(string? path)
+    private static string FormatTime(DateTime? ts)
     {
-        if (string.IsNullOrEmpty(path)) return "Unknown Project";
-        var parts = path.Split('/', '\\');
-        return parts.Length > 0 ? parts[^1] : path;
+        if (ts == null) return "";
+        return ts.Value.ToLocalTime().ToString("M/d HH:mm");
     }
 
-    private static string FormatTimestamp(DateTime? dt) =>
-        dt?.ToString("MM/dd HH:mm") ?? "";
-
-    private static string FormatDuration(TimeSpan ts)
+    private static string FormatEventTime(DateTime? ts)
     {
-        if (ts.TotalHours >= 1) return $"{ts.Hours}h {ts.Minutes}m";
-        if (ts.TotalMinutes >= 1) return $"{ts.Minutes}m {ts.Seconds}s";
-        return $"{ts.Seconds}s";
+        if (ts == null) return "";
+        return ts.Value.ToLocalTime().ToString("HH:mm:ss");
     }
 
-    private string SessionItemClass(SessionReplaySummary s) =>
-        $"srp-session-item {(_selected?.Id == s.Id ? "active" : "")}";
+    private static string FormatDuration(DateTime? start, DateTime? end)
+    {
+        if (start == null || end == null) return "";
+        var diff = end.Value - start.Value;
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m";
+        return $"{(int)diff.TotalHours}h {diff.Minutes}m";
+    }
+
+    private static string GetToolIcon(string toolName) => toolName switch
+    {
+        "Bash" => Icons.Material.Filled.Terminal,
+        "Read" => Icons.Material.Filled.Visibility,
+        "Write" => Icons.Material.Filled.Edit,
+        "Edit" => Icons.Material.Filled.Edit,
+        "Glob" => Icons.Material.Filled.Folder,
+        "Grep" => Icons.Material.Filled.Search,
+        "Agent" => Icons.Material.Filled.SmartToy,
+        "WebFetch" or "WebSearch" => Icons.Material.Filled.Language,
+        "ToolSearch" => Icons.Material.Filled.Build,
+        _ => Icons.Material.Filled.Code
+    };
 
     public void Dispose()
     {
@@ -681,333 +711,269 @@
 }
 
 <style>
-    .srp-root {
+    .replay-page {
+        height: 100%;
         display: flex;
-        height: calc(100vh - 64px);
-        overflow: hidden;
+        flex-direction: column;
+        padding: 0 var(--space-4);
     }
 
-    /* === Sidebar === */
-    .srp-sidebar {
+    .replay-page-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-4) var(--space-2);
+        flex-shrink: 0;
+    }
+
+    .replay-layout {
+        display: flex;
+        gap: 0;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .replay-sidebar {
         width: 320px;
         min-width: 320px;
         border-right: 1px solid var(--mud-palette-lines-default);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-
-    .srp-sidebar-header {
         padding: 12px;
-        border-bottom: 1px solid var(--mud-palette-lines-default);
-    }
-
-    .srp-search-field {
-        width: 100%;
-    }
-
-    .srp-sidebar-body {
-        flex: 1;
         overflow-y: auto;
-        padding: 8px;
     }
 
-    .srp-section-header {
+    .replay-search-row { margin-bottom: 4px; }
+
+    .replay-live-section {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--mud-palette-lines-default);
+        margin-bottom: 4px;
+    }
+
+    .replay-live-header {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--mud-palette-success);
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        padding: 8px 8px 4px;
+        gap: 4px;
+        margin-bottom: 4px;
+        font-weight: 600;
     }
 
-    .srp-live-dot {
-        display: inline-block;
+    .replay-live-dot {
         width: 8px;
         height: 8px;
         border-radius: 50%;
         background: var(--mud-palette-success);
-        margin-right: 6px;
-        animation: srp-pulse 2s infinite;
+        animation: pulse 2s infinite;
     }
 
-    @@keyframes srp-pulse {
+    .replay-live-dot-sm {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--mud-palette-success);
+        animation: pulse 2s infinite;
+        flex-shrink: 0;
+    }
+
+    @@keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.4; }
     }
 
-    .srp-live-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 6px;
-        background: color-mix(in srgb, var(--mud-palette-success) 8%, transparent);
-        margin-bottom: 4px;
-    }
-
-    .srp-session-item {
-        padding: 10px 12px;
-        border-radius: 8px;
-        cursor: pointer;
-        margin-bottom: 2px;
-        transition: background 0.15s;
-    }
-
-    .srp-session-item:hover {
-        background: var(--mud-palette-action-default-hover);
-    }
-
-    .srp-session-item.active {
-        background: var(--mud-palette-primary-hover);
-        border-left: 3px solid var(--mud-palette-primary);
-    }
-
-    .srp-item-top {
+    .replay-live-item {
         display: flex;
         align-items: center;
         gap: 6px;
+        padding: 2px 0;
+        font-size: 12px;
     }
 
-    .srp-first-msg {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        opacity: 0.75;
-        margin-top: 2px;
-    }
-
-    .srp-tags-row {
+    .replay-search-status {
         display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        margin-top: 4px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--mud-palette-lines-default);
+        margin-bottom: 4px;
     }
 
-    .srp-item-stats {
-        display: flex;
-        gap: 8px;
-        margin-top: 4px;
-        font-size: 0.7rem;
-        opacity: 0.55;
-    }
-
-    .srp-search-item {
-        padding: 8px 12px;
+    .replay-item {
+        padding: 10px 12px;
         border-radius: 6px;
         cursor: pointer;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
     }
 
-    .srp-search-item:hover {
-        background: var(--mud-palette-action-default-hover);
+    .replay-item:hover { background: var(--mud-palette-action-default-hover); }
+    .replay-item.active {
+        background: var(--mud-palette-primary-hover);
+        border-left: 2px solid var(--mud-palette-primary);
     }
 
-    .srp-snippet {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    /* === Main area === */
-    .srp-main {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-
-    .srp-placeholder {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
+    .replay-tag {
+        font-size: 9px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
+        color: var(--mud-palette-primary);
+        display: inline-flex;
         align-items: center;
-        justify-content: center;
+        gap: 2px;
     }
 
-    /* === Header bar === */
-    .srp-header {
+    .replay-timeline {
+        flex: 1;
         display: flex;
-        align-items: flex-start;
+        flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .replay-session-header {
+        display: flex;
+        align-items: center;
         justify-content: space-between;
-        gap: 16px;
         padding: 12px 20px;
         border-bottom: 1px solid var(--mud-palette-lines-default);
         flex-shrink: 0;
     }
 
-    .srp-header-left {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .srp-header-right {
+    .replay-tag-editor {
         display: flex;
         align-items: center;
-        gap: 4px;
-        flex-shrink: 0;
-    }
-
-    .srp-header-stats {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-    }
-
-    /* === Tag editor === */
-    .srp-tag-editor {
+        gap: 6px;
         padding: 8px 20px;
         border-bottom: 1px solid var(--mud-palette-lines-default);
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
         flex-shrink: 0;
     }
 
-    .srp-tag-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-
-    .srp-tag-input-row {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-
-    /* === Events === */
-    .srp-events {
+    .replay-events-container {
         flex: 1;
         overflow-y: auto;
         padding: 16px 20px;
     }
 
-    .srp-event-row {
+    /* Event styles */
+    .replay-evt {
         display: flex;
         gap: 12px;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
     }
 
-    .srp-avatar {
-        width: 32px;
-        height: 32px;
-        min-width: 32px;
+    .replay-evt-avatar {
+        width: 28px;
+        height: 28px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
         margin-top: 2px;
     }
 
-    .srp-avatar-user {
-        background: var(--mud-palette-primary);
+    .replay-evt-avatar-user {
+        background: color-mix(in srgb, var(--mud-palette-info) 10%, transparent);
+        color: var(--mud-palette-info);
     }
 
-    .srp-avatar-assistant {
-        background: var(--mud-palette-secondary);
+    .replay-evt-avatar-assistant {
+        background: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
+        color: var(--mud-palette-primary);
     }
 
-    .srp-avatar-tool {
-        background: var(--mud-palette-warning);
-    }
-
-    .srp-avatar-result {
-        background: var(--mud-palette-success);
-    }
-
-    .srp-event-body {
+    .replay-evt-body {
+        flex: 1;
         min-width: 0;
-    }
-
-    .srp-event-meta {
-        font-size: 0.8rem;
-        margin-bottom: 4px;
-    }
-
-    .srp-card-user {
-        background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
-        border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
-        border-radius: 8px;
-        padding: 10px 14px;
-    }
-
-    .srp-card-assistant {
-        background: var(--mud-palette-surface);
-        border: 1px solid var(--mud-palette-lines-default);
-        border-radius: 8px;
-        padding: 10px 14px;
-        margin-top: 4px;
-    }
-
-    .srp-md-content {
-        font-size: 0.875rem;
-        line-height: 1.6;
-        word-break: break-word;
-    }
-
-    .srp-md-content p { margin: 0 0 8px; }
-    .srp-md-content p:last-child { margin-bottom: 0; }
-    .srp-md-content pre {
-        background: var(--mud-palette-background-gray);
-        border-radius: 6px;
-        padding: 10px;
-        overflow-x: auto;
-        font-size: 0.8rem;
-    }
-    .srp-md-content code {
-        background: var(--mud-palette-background-gray);
-        border-radius: 3px;
-        padding: 1px 4px;
-        font-size: 0.85em;
-    }
-    .srp-md-content pre code {
-        background: none;
-        padding: 0;
-    }
-
-    /* === Tool calls === */
-    .srp-tool-calls {
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        margin-top: 4px;
+        gap: 6px;
     }
 
-    .srp-tool-card {
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
+    .replay-evt-label {
+        font-size: 10px;
+        opacity: 0.5;
+    }
+
+    .replay-evt-card {
+        border-radius: 8px;
         padding: 8px 12px;
-        border-radius: 6px;
-        border: 1px solid var(--mud-palette-lines-default);
-        background: var(--mud-palette-surface);
+        font-size: 13px;
     }
 
-    /* === Tool results === */
-    .srp-result-header {
+    .replay-evt-card-user {
+        background: color-mix(in srgb, var(--mud-palette-info) 5%, transparent);
+        border: 1px solid color-mix(in srgb, var(--mud-palette-info) 20%, transparent);
+    }
+
+    .replay-evt-card-assistant {
+        background: var(--mud-palette-surface);
+        border: 1px solid var(--mud-palette-lines-default);
+    }
+
+    .replay-tool-pill {
         display: flex;
         align-items: center;
         gap: 6px;
+        padding: 4px 10px;
+        background: var(--mud-palette-background);
+        border-radius: 6px;
+        font-size: 12px;
+    }
+
+    .replay-tool-name {
+        font-weight: 600;
+        color: var(--mud-palette-warning);
+    }
+
+    .replay-tool-input {
+        font-size: 10px;
+        opacity: 0.4;
+        font-family: monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .replay-evt-tool-result {
+        margin-left: 40px;
+        margin-bottom: 8px;
+    }
+
+    .replay-tool-result-toggle {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        opacity: 0.5;
+        background: none;
+        border: none;
         cursor: pointer;
-        padding: 6px 10px;
-        border-radius: 6px;
-        border: 1px solid var(--mud-palette-lines-default);
+        padding: 2px 0;
+        color: inherit;
     }
 
-    .srp-result-header:hover {
-        background: var(--mud-palette-action-default-hover);
-    }
+    .replay-tool-result-toggle:hover { opacity: 0.8; }
 
-    .srp-result-content {
+    .replay-tool-result-content {
         margin-top: 4px;
-        padding: 10px;
+        padding: 8px 12px;
+        background: var(--mud-palette-background);
         border-radius: 6px;
-        background: var(--mud-palette-background-gray);
-        font-size: 0.78rem;
-        line-height: 1.5;
+        font-size: 11px;
+        font-family: monospace;
         overflow-x: auto;
-        max-height: 300px;
+        max-height: 200px;
         overflow-y: auto;
         white-space: pre-wrap;
         word-break: break-word;
+    }
+
+    .text-truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 </style>

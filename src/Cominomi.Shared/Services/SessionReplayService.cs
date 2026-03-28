@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Cominomi.Shared.Models;
@@ -14,6 +13,9 @@ public class SessionReplayService : ISessionReplayService
     private static readonly string TagsFilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", "cominomi-session-tags.json");
 
+    private static readonly HashSet<string> NoiseEventTypes =
+        ["file-history-snapshot", "progress", "last-prompt", "queue-operation"];
+
     private readonly ILogger<SessionReplayService> _logger;
 
     public SessionReplayService(ILogger<SessionReplayService> logger)
@@ -21,402 +23,441 @@ public class SessionReplayService : ISessionReplayService
         _logger = logger;
     }
 
-    public Task<List<SessionReplaySummary>> ListSessionsAsync()
-    {
-        var sessions = ScanAllSessions();
-        return Task.FromResult(sessions.OrderByDescending(s => s.LastTimestamp).ToList());
-    }
+    // ===== List Sessions (paginated, sorted by modification time) =====
 
-    public Task<(List<SessionReplaySummary> Sessions, int Total, bool HasMore)> ListSessionsPagedAsync(int limit, int offset)
+    public Task<SessionListResult> ListSessionsAsync(int limit = 10, int offset = 0)
     {
-        var all = ScanAllSessions().OrderByDescending(s => s.LastTimestamp).ToList();
-        var paged = all.Skip(offset).Take(limit).ToList();
-        return Task.FromResult((paged, all.Count, offset + paged.Count < all.Count));
-    }
-
-    public Task<List<SessionReplayEvent>> LoadEventsAsync(string filePath, int skip = 0, int take = 100)
-    {
-        var events = new List<SessionReplayEvent>();
-        if (!File.Exists(filePath))
-            return Task.FromResult(events);
-
-        try
+        return Task.Run(() =>
         {
-            var lines = File.ReadLines(filePath).Skip(skip).Take(take);
-            foreach (var line in lines)
-            {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                var evt = ParseEvent(line);
-                if (evt != null)
-                    events.Add(evt);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error loading session events: {Path}", filePath);
-        }
+            if (!Directory.Exists(ClaudeProjectsDir))
+                return new SessionListResult();
 
-        return Task.FromResult(events);
-    }
+            // Collect all .jsonl file paths (fast — just readdir + metadata)
+            var jsonlPaths = new List<(string Path, double ModifiedAt)>();
 
-    public Task<List<SessionSearchResult>> SearchSessionsAsync(string query, int maxResults = 20)
-    {
-        var results = new List<SessionSearchResult>();
-        if (!Directory.Exists(ClaudeProjectsDir) || string.IsNullOrWhiteSpace(query))
-            return Task.FromResult(results);
-
-        var queryLower = query.ToLowerInvariant();
-
-        foreach (var projectDir in Directory.GetDirectories(ClaudeProjectsDir))
-        {
-            foreach (var file in Directory.GetFiles(projectDir, "*.jsonl"))
+            foreach (var projectDir in Directory.GetDirectories(ClaudeProjectsDir))
             {
                 try
                 {
-                    var sessionId = Path.GetFileNameWithoutExtension(file);
-                    var projectPath = Path.GetFileName(projectDir);
-
-                    foreach (var line in File.ReadLines(file))
+                    foreach (var file in Directory.GetFiles(projectDir, "*.jsonl"))
                     {
-                        if (results.Count >= maxResults) break;
-                        if (string.IsNullOrWhiteSpace(line)) continue;
-                        if (!line.Contains(query, StringComparison.OrdinalIgnoreCase)) continue;
-
                         try
                         {
-                            var node = JsonNode.Parse(line);
+                            var fi = new FileInfo(file);
+                            if (fi.Length < 200) continue; // skip tiny files
+                            jsonlPaths.Add((file, fi.LastWriteTimeUtc
+                                .Subtract(DateTime.UnixEpoch).TotalSeconds));
+                        }
+                        catch { /* skip inaccessible files */ }
+                    }
+                }
+                catch { /* skip inaccessible directories */ }
+            }
+
+            // Sort by modified time (newest first)
+            jsonlPaths.Sort((a, b) => b.ModifiedAt.CompareTo(a.ModifiedAt));
+
+            var total = jsonlPaths.Count;
+
+            // Only scan the paginated subset
+            var sessions = jsonlPaths
+                .Skip(offset)
+                .Take(limit)
+                .Select(p => QuickScan(p.Path, p.ModifiedAt))
+                .Where(s => s != null)
+                .Select(s => s!)
+                .ToList();
+
+            return new SessionListResult
+            {
+                Sessions = sessions,
+                Total = total,
+                HasMore = offset + limit < total
+            };
+        });
+    }
+
+    // ===== Load Session Events (paginated, noise-filtered) =====
+
+    public Task<SessionLoadResult> LoadSessionAsync(string filePath, int limit = 50, int offset = 0)
+    {
+        return Task.Run(() =>
+        {
+            if (!File.Exists(filePath))
+                return new SessionLoadResult();
+
+            var events = new List<SessionReplayEvent>();
+            int total = 0;
+
+            try
+            {
+                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs);
+
+                string? line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    JsonNode? node;
+                    try { node = JsonNode.Parse(line); }
+                    catch { continue; }
+                    if (node == null) continue;
+
+                    var type = node["type"]?.GetValue<string>() ?? "unknown";
+                    if (NoiseEventTypes.Contains(type)) continue;
+
+                    // Skip user messages that are just tool_result wrappers
+                    if (type == "user" && IsToolResultOnlyUser(node)) continue;
+
+                    if (total >= offset && events.Count < limit)
+                    {
+                        events.Add(ParseEvent(node, type));
+                    }
+                    total++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error loading session events: {Path}", filePath);
+            }
+
+            return new SessionLoadResult
+            {
+                Events = events,
+                Total = total,
+                HasMore = offset + limit < total
+            };
+        });
+    }
+
+    // ===== Search =====
+
+    public Task<List<SessionSearchResult>> SearchAsync(string query, int maxResults = 20)
+    {
+        return Task.Run(() =>
+        {
+            var results = new List<SessionSearchResult>();
+            if (!Directory.Exists(ClaudeProjectsDir) || string.IsNullOrWhiteSpace(query))
+                return results;
+
+            var q = query.ToLowerInvariant();
+
+            foreach (var projectDir in Directory.GetDirectories(ClaudeProjectsDir))
+            {
+                if (results.Count >= maxResults) break;
+
+                var projectHash = Path.GetFileName(projectDir);
+                var projectPath = ProjectHashToPath(projectHash);
+
+                string[] files;
+                try { files = Directory.GetFiles(projectDir, "*.jsonl"); }
+                catch { continue; }
+
+                foreach (var file in files)
+                {
+                    if (results.Count >= maxResults) break;
+
+                    var sessionId = Path.GetFileNameWithoutExtension(file);
+
+                    try
+                    {
+                        using var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        using var reader = new StreamReader(fs);
+
+                        string? line;
+                        while ((line = reader.ReadLine()) != null)
+                        {
+                            if (string.IsNullOrWhiteSpace(line)) continue;
+                            if (!line.Contains(query, StringComparison.OrdinalIgnoreCase)) continue;
+
+                            JsonNode? node;
+                            try { node = JsonNode.Parse(line); }
+                            catch { continue; }
                             if (node == null) continue;
 
                             var type = node["type"]?.GetValue<string>() ?? "";
-                            var ts = node["timestamp"]?.GetValue<string>();
-                            DateTime timestamp = default;
-                            if (ts != null) DateTime.TryParse(ts, out timestamp);
+                            if (NoiseEventTypes.Contains(type)) continue;
 
-                            // Extract snippet
-                            var snippet = ExtractSnippet(node, type, queryLower);
-                            if (snippet == null) continue;
+                            var snippet = ExtractTextSnippet(node, q);
+                            if (string.IsNullOrEmpty(snippet)) continue;
+
+                            DateTime? ts = null;
+                            var tsStr = node["timestamp"]?.GetValue<string>();
+                            if (tsStr != null && DateTime.TryParse(tsStr, out var dt)) ts = dt;
 
                             results.Add(new SessionSearchResult
                             {
                                 SessionId = sessionId,
                                 ProjectPath = projectPath,
+                                FilePath = file,
                                 Snippet = snippet,
-                                Timestamp = timestamp,
+                                Timestamp = ts,
                                 EventType = type
                             });
+
+                            if (results.Count >= maxResults) break;
                         }
-                        catch { /* skip malformed */ }
                     }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Error searching session: {Path}", file);
-                }
-
-                if (results.Count >= maxResults) break;
-            }
-            if (results.Count >= maxResults) break;
-        }
-
-        return Task.FromResult(results);
-    }
-
-    public async Task<SessionTagStore> GetTagsAsync()
-    {
-        if (!File.Exists(TagsFilePath))
-            return new SessionTagStore();
-
-        try
-        {
-            var json = await File.ReadAllTextAsync(TagsFilePath);
-            return JsonSerializer.Deserialize<SessionTagStore>(json) ?? new SessionTagStore();
-        }
-        catch
-        {
-            return new SessionTagStore();
-        }
-    }
-
-    public async Task SetTagAsync(string sessionId, List<string> tags)
-    {
-        var store = await GetTagsAsync();
-        if (tags.Count == 0)
-            store.Tags.Remove(sessionId);
-        else
-            store.Tags[sessionId] = tags;
-
-        var json = JsonSerializer.Serialize(store, new JsonSerializerOptions { WriteIndented = true });
-        var dir = Path.GetDirectoryName(TagsFilePath)!;
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-        await File.WriteAllTextAsync(TagsFilePath, json);
-    }
-
-    public Task<string> ExportMarkdownAsync(string filePath)
-    {
-        if (!File.Exists(filePath))
-            return Task.FromResult("# Session not found");
-
-        var sb = new StringBuilder();
-        sb.AppendLine($"# Session Export");
-        sb.AppendLine($"**File**: `{Path.GetFileName(filePath)}`");
-        sb.AppendLine($"**Exported**: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        sb.AppendLine();
-        sb.AppendLine("---");
-        sb.AppendLine();
-
-        foreach (var line in File.ReadLines(filePath))
-        {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            try
-            {
-                var node = JsonNode.Parse(line);
-                if (node == null) continue;
-
-                var type = node["type"]?.GetValue<string>() ?? "";
-                var ts = node["timestamp"]?.GetValue<string>();
-
-                switch (type)
-                {
-                    case "human" or "user":
-                    {
-                        var text = node["message"]?["content"]?.GetValue<string>()
-                                   ?? node["content"]?.ToString() ?? "";
-                        sb.AppendLine($"## User ({ts})");
-                        sb.AppendLine();
-                        sb.AppendLine(text);
-                        sb.AppendLine();
-                        break;
-                    }
-                    case "assistant":
-                    {
-                        sb.AppendLine($"## Assistant ({ts})");
-                        sb.AppendLine();
-                        if (node["message"]?["content"] is JsonArray arr)
-                        {
-                            foreach (var block in arr)
-                            {
-                                var blockType = block?["type"]?.GetValue<string>();
-                                if (blockType == "text")
-                                {
-                                    sb.AppendLine(block?["text"]?.GetValue<string>() ?? "");
-                                    sb.AppendLine();
-                                }
-                                else if (blockType == "tool_use")
-                                {
-                                    var name = block?["name"]?.GetValue<string>() ?? "tool";
-                                    var input = block?["input"]?.ToJsonString() ?? "{}";
-                                    sb.AppendLine($"**Tool: {name}**");
-                                    sb.AppendLine("```json");
-                                    sb.AppendLine(input.Length > 500 ? input[..500] + "..." : input);
-                                    sb.AppendLine("```");
-                                    sb.AppendLine();
-                                }
-                            }
-                        }
-                        else
-                        {
-                            sb.AppendLine(node["message"]?["content"]?.ToString()
-                                          ?? node["content"]?.ToString() ?? "");
-                            sb.AppendLine();
-                        }
-                        break;
-                    }
-                    case "tool_result":
-                    {
-                        var content = node["content"]?.ToString() ?? "";
-                        if (content.Length > 0)
-                        {
-                            sb.AppendLine("**Tool Result:**");
-                            sb.AppendLine("```");
-                            sb.AppendLine(content.Length > 500 ? content[..500] + "..." : content);
-                            sb.AppendLine("```");
-                            sb.AppendLine();
-                        }
-                        break;
-                    }
+                    catch { /* skip unreadable files */ }
                 }
             }
-            catch { /* skip */ }
-        }
 
-        return Task.FromResult(sb.ToString());
+            return results;
+        });
     }
+
+    // ===== Live Detection =====
 
     public Task<List<LiveSessionInfo>> DetectLiveSessionsAsync()
     {
-        var result = new List<LiveSessionInfo>();
-        if (!Directory.Exists(ClaudeProjectsDir))
-            return Task.FromResult(result);
-
-        var now = DateTime.UtcNow;
-        var threshold = TimeSpan.FromMinutes(5);
-
-        foreach (var projectDir in Directory.GetDirectories(ClaudeProjectsDir))
+        return Task.Run(() =>
         {
-            foreach (var file in Directory.GetFiles(projectDir, "*.jsonl"))
-            {
-                try
-                {
-                    var lastWrite = File.GetLastWriteTimeUtc(file);
-                    var age = now - lastWrite;
-                    if (age <= threshold)
-                    {
-                        result.Add(new LiveSessionInfo
-                        {
-                            Path = file,
-                            ProjectPath = Path.GetFileName(projectDir),
-                            ModifiedSecsAgo = (int)age.TotalSeconds
-                        });
-                    }
-                }
-                catch { /* skip */ }
-            }
-        }
+            var live = new List<LiveSessionInfo>();
+            if (!Directory.Exists(ClaudeProjectsDir))
+                return live;
 
-        return Task.FromResult(result.OrderBy(l => l.ModifiedSecsAgo).ToList());
+            var now = DateTimeOffset.UtcNow;
+
+            foreach (var projectDir in Directory.GetDirectories(ClaudeProjectsDir))
+            {
+                var projectHash = Path.GetFileName(projectDir);
+                var projectPath = ProjectHashToPath(projectHash);
+
+                string[] files;
+                try { files = Directory.GetFiles(projectDir, "*.jsonl"); }
+                catch { continue; }
+
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        var fi = new FileInfo(file);
+                        var ago = (long)(now - fi.LastWriteTimeUtc).TotalSeconds;
+                        if (ago < 300) // 5 minutes
+                        {
+                            live.Add(new LiveSessionInfo
+                            {
+                                FilePath = file,
+                                ProjectPath = projectPath,
+                                ModifiedSecondsAgo = ago
+                            });
+                        }
+                    }
+                    catch { /* skip */ }
+                }
+            }
+
+            live.Sort((a, b) => a.ModifiedSecondsAgo.CompareTo(b.ModifiedSecondsAgo));
+            return live;
+        });
     }
 
-    private static readonly SemaphoreSlim _scanSemaphore = new(8);
+    // ===== Tags =====
 
-    private List<SessionReplaySummary> ScanAllSessions()
+    public Task<SessionTagsData> GetTagsAsync()
     {
-        if (!Directory.Exists(ClaudeProjectsDir))
-            return [];
-
-        var files = new List<(string File, string ProjectDir)>();
-        foreach (var projectDir in Directory.GetDirectories(ClaudeProjectsDir))
+        return Task.Run(() =>
         {
-            foreach (var file in Directory.GetFiles(projectDir, "*.jsonl"))
-                files.Add((file, projectDir));
-        }
+            if (!File.Exists(TagsFilePath))
+                return new SessionTagsData();
 
-        var results = new SessionReplaySummary?[files.Count];
-        Parallel.For(0, files.Count, new ParallelOptions { MaxDegreeOfParallelism = 8 }, i =>
-        {
             try
             {
-                results[i] = ScanSessionFile(files[i].File, files[i].ProjectDir);
+                var json = File.ReadAllText(TagsFilePath);
+                return JsonSerializer.Deserialize<SessionTagsData>(json) ?? new SessionTagsData();
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.LogDebug(ex, "Error scanning session: {Path}", files[i].File);
+                return new SessionTagsData();
             }
         });
-
-        return results.Where(s => s != null).ToList()!;
     }
 
-    private static SessionReplaySummary? ScanSessionFile(string filePath, string projectDir)
+    public async Task SetTagAsync(string sessionId, List<string> tags, string? note = null)
     {
-        int messages = 0, tools = 0, entryCount = 0;
-        string? firstMessage = null;
-        DateTime? first = null, last = null;
+        var data = await GetTagsAsync();
 
-        foreach (var line in File.ReadLines(filePath))
+        if (tags.Count > 0)
+            data.Tags[sessionId] = tags;
+        else
+            data.Tags.Remove(sessionId);
+
+        if (note != null)
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            entryCount++;
+            if (!string.IsNullOrEmpty(note))
+                data.Notes[sessionId] = note;
+            else
+                data.Notes.Remove(sessionId);
+        }
+
+        var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(TagsFilePath, json);
+    }
+
+    // ===== Export to Markdown =====
+
+    public Task<string> ExportToMarkdownAsync(string filePath)
+    {
+        return Task.Run(() =>
+        {
+            var md = "# Session Replay\n\n";
+            int userCount = 0, toolCount = 0;
 
             try
             {
-                var node = JsonNode.Parse(line);
-                if (node == null) continue;
+                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs);
 
-                var type = node["type"]?.GetValue<string>();
-                var ts = node["timestamp"]?.GetValue<string>();
-                if (ts != null && DateTime.TryParse(ts, out var dt))
+                string? line;
+                while ((line = reader.ReadLine()) != null)
                 {
-                    first ??= dt;
-                    last = dt;
-                }
+                    if (string.IsNullOrWhiteSpace(line)) continue;
 
-                if (type is "human" or "user")
-                {
-                    messages++;
-                    firstMessage ??= node["message"]?["content"]?.GetValue<string>()
-                                     ?? node["content"]?.ToString();
-                }
-                else if (type is "assistant")
-                {
-                    messages++;
-                    if (node["message"]?["content"] is JsonArray contentArr)
+                    JsonNode? node;
+                    try { node = JsonNode.Parse(line); }
+                    catch { continue; }
+                    if (node == null) continue;
+
+                    var type = node["type"]?.GetValue<string>() ?? "";
+                    if (NoiseEventTypes.Contains(type)) continue;
+
+                    var msg = node["message"] ?? node;
+                    var content = msg["content"];
+
+                    if (type == "user")
                     {
-                        foreach (var block in contentArr)
+                        var text = ExtractTextContent(content);
+                        if (string.IsNullOrEmpty(text)) continue;
+                        userCount++;
+                        md += $"## User\n\n{text}\n\n";
+                    }
+                    else if (type == "assistant")
+                    {
+                        if (content is JsonArray arr)
                         {
-                            if (block?["type"]?.GetValue<string>() == "tool_use")
-                                tools++;
+                            foreach (var item in arr)
+                            {
+                                var itemType = item?["type"]?.GetValue<string>() ?? "";
+                                if (itemType == "text")
+                                {
+                                    var text = item?["text"]?.GetValue<string>() ?? "";
+                                    if (!string.IsNullOrEmpty(text))
+                                        md += $"## Claude\n\n{text}\n\n";
+                                }
+                                else if (itemType == "tool_use")
+                                {
+                                    var name = item?["name"]?.GetValue<string>() ?? "tool";
+                                    toolCount++;
+                                    md += $"**Tool: {name}**\n\n";
+                                }
+                            }
                         }
                     }
                 }
-                else if (type is "tool_use") tools++;
             }
-            catch { /* skip malformed lines */ }
-        }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error exporting session: {Path}", filePath);
+            }
 
-        if (entryCount == 0) return null;
-
-        return new SessionReplaySummary
-        {
-            Id = Path.GetFileNameWithoutExtension(filePath),
-            FilePath = filePath,
-            ProjectPath = Path.GetFileName(projectDir),
-            EntryCount = entryCount,
-            MessageCount = messages,
-            ToolCallCount = tools,
-            FirstTimestamp = first,
-            LastTimestamp = last,
-            FirstMessage = firstMessage?.Length > 100 ? firstMessage[..100] + "..." : firstMessage
-        };
+            md += $"\n---\n*{userCount} messages, {toolCount} tool calls*\n";
+            return md;
+        });
     }
 
-    private static SessionReplayEvent? ParseEvent(string line)
+    // ===== Quick Scan (first 30 lines + file size estimation) =====
+
+    private static SessionReplaySummary? QuickScan(string filePath, double modifiedAt)
     {
         try
         {
-            var node = JsonNode.Parse(line);
-            if (node == null) return null;
+            var fi = new FileInfo(filePath);
+            if (fi.Length < 200) return null;
 
-            var type = node["type"]?.GetValue<string>() ?? "unknown";
+            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(fs);
 
-            // Skip noise events
-            if (type is "file-history-snapshot" or "last-prompt" or "progress")
-                return null;
+            string? firstTimestamp = null;
+            string? lastTimestamp = null;
+            string? firstMessage = null;
+            int userCount = 0, toolCount = 0, lineCount = 0;
 
-            DateTime? ts = null;
-            var tsStr = node["timestamp"]?.GetValue<string>();
-            if (tsStr != null && DateTime.TryParse(tsStr, out var dt)) ts = dt;
-
-            // Check if user message is just a tool_result wrapper
-            if (type is "human" or "user")
+            for (int i = 0; i < 30; i++)
             {
-                var msgContent = node["message"]?["content"];
-                if (msgContent is JsonArray userArr)
+                var line = reader.ReadLine();
+                if (line == null) break;
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                lineCount++;
+
+                JsonNode? node;
+                try { node = JsonNode.Parse(line); }
+                catch { continue; }
+                if (node == null) continue;
+
+                var type = node["type"]?.GetValue<string>() ?? "";
+
+                var ts = node["timestamp"]?.GetValue<string>();
+                if (ts != null)
                 {
-                    var hasText = userArr.Any(item => item?["type"]?.GetValue<string>() == "text");
-                    if (!hasText)
-                        return null; // tool_result-only wrapper, skip
+                    firstTimestamp ??= ts;
+                    lastTimestamp = ts;
+                }
+
+                if (type == "user")
+                {
+                    userCount++;
+                    if (firstMessage == null)
+                    {
+                        var msg = node["message"];
+                        var content = msg?["content"];
+                        var text = ExtractTextContent(content);
+                        if (!string.IsNullOrEmpty(text))
+                            firstMessage = text.Length > 100 ? text[..100] : text;
+                    }
+                }
+                else if (type == "assistant")
+                {
+                    var msg = node["message"];
+                    var content = msg?["content"];
+                    if (content is JsonArray arr)
+                    {
+                        foreach (var item in arr)
+                        {
+                            if (item?["type"]?.GetValue<string>() == "tool_use")
+                                toolCount++;
+                        }
+                    }
                 }
             }
 
-            // Extract tool calls from assistant messages
-            List<ToolCallInfo>? toolCalls = null;
-            var content = type switch
-            {
-                "human" or "user" => ExtractUserText(node),
-                "assistant" => ExtractAssistantText(node, out toolCalls),
-                "tool_use" => node["name"]?.GetValue<string>() ?? "tool",
-                "tool_result" => node["content"]?.ToString() ?? "",
-                _ => node.ToJsonString(new JsonSerializerOptions { WriteIndented = false })
-            };
+            if (lineCount < 3) return null;
 
-            return new SessionReplayEvent
+            // Estimate total entries from file size
+            var avgLineBytes = fi.Length / Math.Max(lineCount, 1);
+            var estimatedEntries = (int)(fi.Length / Math.Max(avgLineBytes, 1));
+            var scale = (float)estimatedEntries / lineCount;
+
+            var projectDir = Path.GetDirectoryName(filePath) ?? "";
+            var projectHash = Path.GetFileName(projectDir);
+
+            DateTime? firstTs = null, lastTs = null;
+            if (firstTimestamp != null && DateTime.TryParse(firstTimestamp, out var dt1)) firstTs = dt1;
+            if (lastTimestamp != null && DateTime.TryParse(lastTimestamp, out var dt2)) lastTs = dt2;
+
+            return new SessionReplaySummary
             {
-                Type = type,
-                Timestamp = ts,
-                Content = content,
-                ToolName = type == "tool_use" ? node["name"]?.GetValue<string>() : null,
-                ToolCalls = toolCalls
+                Id = Path.GetFileNameWithoutExtension(filePath),
+                FilePath = filePath,
+                ProjectHash = projectHash,
+                ProjectPath = ProjectHashToPath(projectHash),
+                EntryCount = estimatedEntries,
+                MessageCount = (int)(userCount * scale),
+                ToolCallCount = (int)(toolCount * scale),
+                FirstTimestamp = firstTs,
+                LastTimestamp = lastTs,
+                FirstMessage = firstMessage,
+                ModifiedAtUnix = modifiedAt
             };
         }
         catch
@@ -425,99 +466,174 @@ public class SessionReplayService : ISessionReplayService
         }
     }
 
-    private static string ExtractUserText(JsonNode node)
+    // ===== Event Parsing =====
+
+    private static SessionReplayEvent ParseEvent(JsonNode node, string type)
     {
-        var msgContent = node["message"]?["content"];
-        if (msgContent is JsonValue)
-            return msgContent.GetValue<string>();
+        DateTime? ts = null;
+        var tsStr = node["timestamp"]?.GetValue<string>();
+        if (tsStr != null && DateTime.TryParse(tsStr, out var dt)) ts = dt;
 
-        if (msgContent is JsonArray arr)
+        var msg = node["message"] ?? node;
+        var content = msg["content"];
+
+        string displayContent;
+        List<ToolCallInfo>? toolCalls = null;
+        string? toolName = null;
+        bool isError = false;
+
+        switch (type)
         {
-            foreach (var item in arr)
-            {
-                if (item?["type"]?.GetValue<string>() == "text")
-                    return item["text"]?.GetValue<string>() ?? "";
-            }
-        }
+            case "human" or "user":
+                displayContent = ExtractTextContent(content) ?? "";
+                break;
 
-        return node["content"]?.ToString() ?? "";
-    }
+            case "assistant":
+                var textParts = new List<string>();
+                toolCalls = [];
 
-    private static string ExtractAssistantText(JsonNode node, out List<ToolCallInfo>? toolCalls)
-    {
-        toolCalls = null;
-        var msgContent = node["message"]?["content"];
-
-        if (msgContent is not JsonArray arr)
-            return node["message"]?["content"]?.ToString() ?? node["content"]?.ToString() ?? "";
-
-        var textParts = new List<string>();
-        var calls = new List<ToolCallInfo>();
-
-        foreach (var item in arr)
-        {
-            var itemType = item?["type"]?.GetValue<string>();
-            if (itemType == "text")
-            {
-                textParts.Add(item!["text"]?.GetValue<string>() ?? "");
-            }
-            else if (itemType == "tool_use")
-            {
-                var name = item!["name"]?.GetValue<string>() ?? "tool";
-                var input = item["input"]?.ToJsonString() ?? "{}";
-                calls.Add(new ToolCallInfo
+                if (content is JsonArray arr)
                 {
-                    Name = name,
-                    InputPreview = input.Length > 200 ? input[..200] + "..." : input
-                });
-            }
-        }
-
-        if (calls.Count > 0)
-            toolCalls = calls;
-
-        return string.Join("\n\n", textParts);
-    }
-
-    private static string? ExtractSnippet(JsonNode node, string type, string queryLower)
-    {
-        string? text = null;
-
-        if (type is "human" or "user")
-        {
-            text = node["message"]?["content"]?.GetValue<string>()
-                   ?? node["content"]?.ToString();
-        }
-        else if (type is "assistant")
-        {
-            if (node["message"]?["content"] is JsonArray arr)
-            {
-                foreach (var item in arr)
-                {
-                    if (item?["type"]?.GetValue<string>() == "text")
+                    foreach (var item in arr)
                     {
-                        var t = item["text"]?.GetValue<string>();
-                        if (t?.Contains(queryLower, StringComparison.OrdinalIgnoreCase) == true)
+                        var itemType = item?["type"]?.GetValue<string>() ?? "";
+                        if (itemType == "text")
                         {
-                            text = t;
-                            break;
+                            var text = item?["text"]?.GetValue<string>() ?? "";
+                            if (!string.IsNullOrEmpty(text))
+                                textParts.Add(text);
+                        }
+                        else if (itemType == "tool_use")
+                        {
+                            var name = item?["name"]?.GetValue<string>() ?? "tool";
+                            var input = item?["input"]?.ToJsonString() ?? "{}";
+                            toolCalls.Add(new ToolCallInfo
+                            {
+                                Name = name,
+                                InputPreview = input.Length > 200 ? input[..200] : input
+                            });
                         }
                     }
                 }
-            }
-            text ??= node["message"]?["content"]?.ToString();
+
+                displayContent = string.Join("\n\n", textParts);
+                if (toolCalls.Count == 0) toolCalls = null;
+                break;
+
+            case "tool_result":
+                displayContent = ExtractTextContent(content) ?? "";
+                if (displayContent.Length > 500)
+                    displayContent = displayContent[..500] + "...";
+                isError = node["is_error"]?.GetValue<bool>() == true ||
+                          msg["is_error"]?.GetValue<bool>() == true;
+                break;
+
+            default:
+                displayContent = "";
+                break;
         }
 
-        if (text == null || !text.Contains(queryLower, StringComparison.OrdinalIgnoreCase))
-            return null;
+        return new SessionReplayEvent
+        {
+            Type = type,
+            Timestamp = ts,
+            Content = displayContent,
+            ToolName = toolName,
+            ToolCalls = toolCalls,
+            IsError = isError
+        };
+    }
 
-        var idx = text.IndexOf(queryLower, StringComparison.OrdinalIgnoreCase);
-        var start = Math.Max(0, idx - 40);
-        var end = Math.Min(text.Length, idx + queryLower.Length + 40);
-        var snippet = text[start..end];
-        if (start > 0) snippet = "..." + snippet;
-        if (end < text.Length) snippet += "...";
+    // ===== Helpers =====
 
-        return snippet;
+    private static bool IsToolResultOnlyUser(JsonNode node)
+    {
+        var msg = node["message"];
+        var content = msg?["content"];
+        if (content is not JsonArray arr) return false;
+        return !arr.Any(item => item?["type"]?.GetValue<string>() == "text");
+    }
+
+    private static string? ExtractTextContent(JsonNode? content)
+    {
+        if (content == null) return null;
+
+        // String content
+        if (content.GetValueKind() == JsonValueKind.String)
+            return content.GetValue<string>();
+
+        // Array content — extract text items
+        if (content is JsonArray arr)
+        {
+            var texts = arr
+                .Where(item => item?["type"]?.GetValue<string>() == "text")
+                .Select(item => item?["text"]?.GetValue<string>())
+                .Where(t => t != null)
+                .ToList();
+            return texts.Count > 0 ? string.Join("\n", texts) : null;
+        }
+
+        return content.ToString();
+    }
+
+    private static string ExtractTextSnippet(JsonNode node, string query)
+    {
+        var msg = node["message"] ?? node;
+        var content = msg["content"];
+        var text = ExtractTextContent(content);
+
+        if (string.IsNullOrEmpty(text)) return "";
+
+        var lower = text.ToLowerInvariant();
+        var pos = lower.IndexOf(query, StringComparison.Ordinal);
+        if (pos >= 0)
+        {
+            var start = Math.Max(0, pos - 40);
+            var end = Math.Min(text.Length, pos + query.Length + 40);
+            var snippet = text[start..end];
+            if (start > 0) snippet = "..." + snippet;
+            if (end < text.Length) snippet += "...";
+            return snippet;
+        }
+
+        return text.Length > 80 ? text[..80] : text;
+    }
+
+    // ===== Project Hash → Path Decoding =====
+
+    internal static string ProjectHashToPath(string hash)
+    {
+        // Naive: replace all '-' with '/'
+        var naive = hash.Replace('-', '/');
+        if (Directory.Exists(naive))
+            return naive;
+
+        // Smart: try to find a real path by grouping segments
+        var segments = hash.Split('-', StringSplitOptions.RemoveEmptyEntries);
+        var resolved = ResolveSegments(segments, 0, "/");
+        return resolved ?? naive;
+    }
+
+    private static string? ResolveSegments(string[] segments, int idx, string current)
+    {
+        if (idx >= segments.Length)
+            return Directory.Exists(current) ? current : null;
+
+        // Try joining segments with '-' (longer matches first to prefer real dir names)
+        for (int end = segments.Length; end > idx; end--)
+        {
+            var joined = string.Join("-", segments[idx..end]);
+            var candidate = current == "/"
+                ? $"/{joined}"
+                : $"{current}/{joined}";
+
+            if (Directory.Exists(candidate))
+            {
+                var result = ResolveSegments(segments, end, candidate);
+                if (result != null) return result;
+            }
+        }
+
+        return null;
     }
 }

@@ -327,11 +327,20 @@
     protected override async Task OnInitializedAsync()
     {
         // Load replay session counts (same source as dashboard) in parallel with usage stats
-        var replayTask = ReplayService.ListSessionsAsync();
+        // Gather all replay sessions via paginated API
+        var allSessions = new List<SessionReplaySummary>();
+        int replayOffset = 0;
+        SessionListResult batch;
+        do
+        {
+            batch = await ReplayService.ListSessionsAsync(limit: 50, offset: replayOffset);
+            allSessions.AddRange(batch.Sessions);
+            replayOffset += 50;
+        } while (batch.HasMore);
+
         await LoadStats();
-        var replaySessions = await replayTask;
-        _replayTotalSessions = replaySessions.Count;
-        _replayTotalMessages = replaySessions.Sum(s => s.MessageCount);
+        _replayTotalSessions = allSessions.Count;
+        _replayTotalMessages = allSessions.Sum(s => s.MessageCount);
     }
 
     private async Task OnRangeChanged(string range)
