@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.5.3",
+    "date": "2026-03-30",
+    "changes": [
+      { "type": "feat", "description": "로컬 디렉터리 세션에서 브랜치 rename 대신 작업 타이틀 설정" },
+      { "type": "fix", "description": "사용량 대시보드 활동 요약에 기간 필터 적용" },
+      { "type": "fix", "description": "브라우저 새로고침 단축키(F5, Ctrl+R, Cmd+R) 차단" },
+      { "type": "fix", "description": "macOS에서 mise/nvm/volta 등 버전 매니저 경유 Claude CLI 감지 및 실행 수정" }
+    ]
+  },
+  {
     "version": "1.5.2",
     "date": "2026-03-30",
     "changes": [
