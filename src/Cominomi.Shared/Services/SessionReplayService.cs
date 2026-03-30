@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Cominomi.Shared.Models;
@@ -15,6 +16,8 @@ public class SessionReplayService : ISessionReplayService
 
     private static readonly HashSet<string> NoiseEventTypes =
         ["file-history-snapshot", "progress", "last-prompt", "queue-operation"];
+
+    private readonly ConcurrentDictionary<string, string> _jsonlPathCache = new();
 
     private readonly ILogger<SessionReplayService> _logger;
 
@@ -364,6 +367,265 @@ public class SessionReplayService : ISessionReplayService
             md += $"\n---\n*{userCount} messages, {toolCount} tool calls*\n";
             return md;
         });
+    }
+
+    // ===== Load Chat Messages (JSONL → ChatMessage conversion) =====
+
+    public Task<List<ChatMessage>> LoadChatMessagesAsync(string conversationId)
+    {
+        return Task.Run(() =>
+        {
+            var filePath = ResolveJsonlPath(conversationId);
+            if (filePath == null)
+                return [];
+
+            var messages = new List<ChatMessage>();
+            // Map tool_use_id → ToolCall for matching tool_result events
+            var pendingToolCalls = new Dictionary<string, ToolCall>();
+            // Track seen message IDs to avoid duplicates (JSONL may have multiple events with same message.id)
+            var seenIds = new HashSet<string>();
+
+            try
+            {
+                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs);
+
+                string? line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    JsonNode? node;
+                    try { node = JsonNode.Parse(line); }
+                    catch { continue; }
+                    if (node == null) continue;
+
+                    var type = node["type"]?.GetValue<string>() ?? "unknown";
+                    if (NoiseEventTypes.Contains(type)) continue;
+
+                    switch (type)
+                    {
+                        case "human" or "user":
+                            if (IsToolResultOnlyUser(node))
+                            {
+                                // tool_result wrapper — match outputs to pending tool calls
+                                MatchToolResults(node, pendingToolCalls);
+                                break;
+                            }
+                            messages.Add(BuildUserMessage(node, seenIds));
+                            break;
+
+                        case "assistant":
+                            var (msg, tools) = BuildAssistantMessage(node, seenIds);
+                            messages.Add(msg);
+                            foreach (var tc in tools)
+                                pendingToolCalls[tc.Id] = tc;
+                            break;
+
+                        case "tool_result":
+                            MatchSingleToolResult(node, pendingToolCalls);
+                            break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error loading chat messages from JSONL: {ConversationId}", conversationId);
+            }
+
+            // Mark all remaining tool calls as complete
+            foreach (var tc in pendingToolCalls.Values)
+                tc.IsComplete = true;
+
+            return messages;
+        });
+    }
+
+    private string? ResolveJsonlPath(string conversationId)
+    {
+        if (_jsonlPathCache.TryGetValue(conversationId, out var cached) && File.Exists(cached))
+            return cached;
+
+        if (!Directory.Exists(ClaudeProjectsDir))
+            return null;
+
+        var fileName = $"{conversationId}.jsonl";
+        foreach (var projectDir in Directory.GetDirectories(ClaudeProjectsDir))
+        {
+            try
+            {
+                var candidate = Path.Combine(projectDir, fileName);
+                if (File.Exists(candidate))
+                {
+                    _jsonlPathCache[conversationId] = candidate;
+                    return candidate;
+                }
+            }
+            catch { /* skip inaccessible */ }
+        }
+
+        return null;
+    }
+
+    private static ChatMessage BuildUserMessage(JsonNode node, HashSet<string> seenIds)
+    {
+        DateTime? ts = null;
+        var tsStr = node["timestamp"]?.GetValue<string>();
+        if (tsStr != null && DateTime.TryParse(tsStr, out var dt)) ts = dt;
+
+        var msg = node["message"] ?? node;
+        var text = ExtractTextContent(msg["content"]) ?? "";
+        var id = DeduplicateId(msg["id"]?.GetValue<string>(), seenIds);
+
+        return new ChatMessage
+        {
+            Id = id,
+            Role = MessageRole.User,
+            Text = text,
+            Timestamp = ts ?? DateTime.UtcNow,
+            Parts = [new ContentPart { Type = ContentPartType.Text, Text = text }]
+        };
+    }
+
+    private static (ChatMessage Message, List<ToolCall> ToolCalls) BuildAssistantMessage(JsonNode node, HashSet<string> seenIds)
+    {
+        DateTime? ts = null;
+        var tsStr = node["timestamp"]?.GetValue<string>();
+        if (tsStr != null && DateTime.TryParse(tsStr, out var dt)) ts = dt;
+
+        var parentToolUseId = node["parent_tool_use_id"]?.GetValue<string>();
+        var msg = node["message"] ?? node;
+        var content = msg["content"];
+
+        var parts = new List<ContentPart>();
+        var toolCalls = new List<ToolCall>();
+        var textParts = new List<string>();
+
+        if (content is JsonArray arr)
+        {
+            foreach (var item in arr)
+            {
+                var itemType = item?["type"]?.GetValue<string>() ?? "";
+
+                switch (itemType)
+                {
+                    case "text":
+                    {
+                        var text = item?["text"]?.GetValue<string>() ?? "";
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            textParts.Add(text);
+                            parts.Add(new ContentPart { Type = ContentPartType.Text, Text = text });
+                        }
+                        break;
+                    }
+                    case "thinking" or "redacted_thinking":
+                    {
+                        var thinking = item?["thinking"]?.GetValue<string>() ?? "";
+                        if (!string.IsNullOrEmpty(thinking))
+                            parts.Add(new ContentPart { Type = ContentPartType.Thinking, Text = thinking });
+                        break;
+                    }
+                    case "tool_use" or "server_tool_use":
+                    {
+                        var tc = new ToolCall
+                        {
+                            Id = item?["id"]?.GetValue<string>() ?? "",
+                            Name = item?["name"]?.GetValue<string>() ?? "",
+                            Input = item?["input"]?.ToJsonString() ?? "{}",
+                            ParentToolUseId = parentToolUseId
+                        };
+                        toolCalls.Add(tc);
+                        parts.Add(new ContentPart { Type = ContentPartType.ToolCall, ToolCall = tc });
+                        break;
+                    }
+                }
+            }
+        }
+
+        var id = DeduplicateId(msg["id"]?.GetValue<string>(), seenIds);
+
+        var message = new ChatMessage
+        {
+            Id = id,
+            Role = MessageRole.Assistant,
+            Text = string.Join("\n\n", textParts),
+            Timestamp = ts ?? DateTime.UtcNow,
+            Parts = parts,
+            ToolCalls = toolCalls
+        };
+
+        return (message, toolCalls);
+    }
+
+    private static void MatchToolResults(JsonNode node, Dictionary<string, ToolCall> pendingToolCalls)
+    {
+        var msg = node["message"] ?? node;
+        var content = msg["content"];
+        if (content is not JsonArray arr) return;
+
+        foreach (var item in arr)
+        {
+            var itemType = item?["type"]?.GetValue<string>() ?? "";
+            if (itemType != "tool_result") continue;
+
+            var toolUseId = item?["tool_use_id"]?.GetValue<string>();
+            if (toolUseId == null || !pendingToolCalls.TryGetValue(toolUseId, out var tc)) continue;
+
+            tc.Output = ExtractToolResultContent(item) ?? "";
+            tc.IsError = item?["is_error"]?.GetValue<bool>() == true;
+            tc.IsComplete = true;
+            pendingToolCalls.Remove(toolUseId);
+        }
+    }
+
+    private static void MatchSingleToolResult(JsonNode node, Dictionary<string, ToolCall> pendingToolCalls)
+    {
+        var msg = node["message"] ?? node;
+        var toolUseId = msg["tool_use_id"]?.GetValue<string>()
+                        ?? node["tool_use_id"]?.GetValue<string>();
+        if (toolUseId == null || !pendingToolCalls.TryGetValue(toolUseId, out var tc)) return;
+
+        tc.Output = ExtractToolResultContent(msg) ?? ExtractTextContent(msg["content"]) ?? "";
+        tc.IsError = node["is_error"]?.GetValue<bool>() == true || msg["is_error"]?.GetValue<bool>() == true;
+        tc.IsComplete = true;
+        pendingToolCalls.Remove(toolUseId);
+    }
+
+    private static string DeduplicateId(string? rawId, HashSet<string> seenIds)
+    {
+        var id = rawId ?? Guid.NewGuid().ToString();
+        if (!seenIds.Add(id))
+            id = $"{id}_{Guid.NewGuid():N}";
+        seenIds.Add(id);
+        return id;
+    }
+
+    private static string? ExtractToolResultContent(JsonNode? node)
+    {
+        if (node == null) return null;
+        var content = node["content"];
+        if (content == null) return null;
+
+        if (content.GetValueKind() == JsonValueKind.String)
+            return content.GetValue<string>();
+
+        if (content is JsonArray arr)
+        {
+            var texts = new List<string>();
+            foreach (var item in arr)
+            {
+                var type = item?["type"]?.GetValue<string>() ?? "";
+                if (type == "text")
+                {
+                    var text = item?["text"]?.GetValue<string>();
+                    if (text != null) texts.Add(text);
+                }
+            }
+            return texts.Count > 0 ? string.Join("\n", texts) : null;
+        }
+
+        return content.ToString();
     }
 
     // ===== Quick Scan (first 30 lines + file size estimation) =====

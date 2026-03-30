@@ -11,4 +11,5 @@ public interface ISessionReplayService
     Task<SessionTagsData> GetTagsAsync();
     Task SetTagAsync(string sessionId, List<string> tags, string? note = null);
     Task<string> ExportToMarkdownAsync(string filePath);
+    Task<List<ChatMessage>> LoadChatMessagesAsync(string conversationId);
 }

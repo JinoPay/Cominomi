@@ -15,6 +15,7 @@ public class SessionServiceTests : IDisposable
     private readonly FakeOptionsMonitor _optionsMonitor = new();
     private readonly FakeContextService _contextService = new();
     private readonly FakeHooksEngine _hooksEngine = new();
+    private readonly FakeSessionReplayService _replayService = new();
     private readonly SessionService _sut;
 
     public SessionServiceTests()
@@ -31,6 +32,7 @@ public class SessionServiceTests : IDisposable
             _contextService,
             _hooksEngine,
             new ActiveSessionRegistry(),
+            _replayService,
             NullLogger<SessionService>.Instance);
 
         // Override internal _sessionsDir via reflection
@@ -96,7 +98,7 @@ public class SessionServiceTests : IDisposable
     // --- SaveSessionAsync + LoadSessionAsync roundtrip ---
 
     [Fact]
-    public async Task SaveAndLoad_RoundTrips()
+    public async Task SaveAndLoad_RoundTrips_MetadataOnly()
     {
         var session = new Session
         {
@@ -104,7 +106,8 @@ public class SessionServiceTests : IDisposable
             Title = "Test Session",
             Model = "sonnet",
             WorkspaceId = "ws-1",
-            CityName = "Seoul"
+            CityName = "Seoul",
+            ConversationId = "conv-123"
         };
         session.SetInitialStatus(SessionStatus.Ready);
         session.Messages.Add(new ChatMessage
@@ -113,11 +116,17 @@ public class SessionServiceTests : IDisposable
             Text = "Hello!"
         });
 
+        // Configure replay service to return messages for this conversation
+        _replayService.MessagesToReturn["conv-123"] =
+        [
+            new ChatMessage { Role = MessageRole.User, Text = "Hello!" }
+        ];
+
         await _sut.SaveSessionAsync(session);
 
-        // Verify files exist
+        // Verify only metadata file exists (no .messages.json)
         Assert.True(File.Exists(Path.Combine(_tempDir, "test-roundtrip.json")));
-        Assert.True(File.Exists(Path.Combine(_tempDir, "test-roundtrip.messages.json")));
+        Assert.False(File.Exists(Path.Combine(_tempDir, "test-roundtrip.messages.json")));
 
         var loaded = await _sut.LoadSessionAsync("test-roundtrip");
 
@@ -126,6 +135,40 @@ public class SessionServiceTests : IDisposable
         Assert.Equal("Test Session", loaded.Title);
         Assert.Single(loaded.Messages);
         Assert.Equal("Hello!", loaded.Messages[0].Text);
+    }
+
+    [Fact]
+    public async Task LoadSessionAsync_FallbackToLegacyMessagesJson()
+    {
+        // Write metadata file directly (bypass cache)
+        var session = new Session
+        {
+            Id = "legacy-test",
+            Title = "Legacy",
+            Model = "sonnet",
+            WorkspaceId = "ws-1",
+            ConversationId = "conv-missing"
+        };
+        session.SetInitialStatus(SessionStatus.Ready);
+        var metadataJson = JsonSerializer.Serialize(session, JsonDefaults.Options);
+        await File.WriteAllTextAsync(Path.Combine(_tempDir, "legacy-test.json"), metadataJson);
+
+        // Write a legacy .messages.json file
+        var legacyMessages = new List<ChatMessage>
+        {
+            new() { Role = MessageRole.User, Text = "Legacy message" }
+        };
+        var messagesJson = JsonSerializer.Serialize(legacyMessages, JsonDefaults.Options);
+        await File.WriteAllTextAsync(Path.Combine(_tempDir, "legacy-test.messages.json"), messagesJson);
+
+        // Replay service returns empty (JSONL not found)
+        _replayService.MessagesToReturn["conv-missing"] = [];
+
+        var loaded = await _sut.LoadSessionAsync("legacy-test");
+
+        Assert.NotNull(loaded);
+        Assert.Single(loaded.Messages);
+        Assert.Equal("Legacy message", loaded.Messages[0].Text);
     }
 
     [Fact]
@@ -178,46 +221,18 @@ public class SessionServiceTests : IDisposable
         Assert.EndsWith("...", session.Title);
     }
 
-    // --- Tool output truncation ---
-
-    [Fact]
-    public async Task SaveSessionAsync_TruncatesLongToolOutput()
-    {
-        var session = new Session { Id = "trunc-test", CityName = "A", Title = "A" };
-        session.SetInitialStatus(SessionStatus.Ready);
-        var longOutput = new string('z', 3000);
-        session.Messages.Add(new ChatMessage
-        {
-            Role = MessageRole.Assistant,
-            ToolCalls = [new ToolCall { Id = "tc-1", Name = "Read", Output = longOutput }]
-        });
-
-        await _sut.SaveSessionAsync(session);
-
-        // Read messages file directly
-        var messagesJson = await File.ReadAllTextAsync(Path.Combine(_tempDir, "trunc-test.messages.json"));
-        var messages = JsonSerializer.Deserialize<List<ChatMessage>>(messagesJson, JsonDefaults.Options)!;
-        var savedOutput = messages[0].ToolCalls[0].Output;
-
-        Assert.True(savedOutput.Length < longOutput.Length);
-        Assert.Contains("[...truncated", savedOutput);
-    }
-
     // --- DeleteSessionAsync ---
 
     [Fact]
-    public async Task DeleteSessionAsync_RemovesFiles()
+    public async Task DeleteSessionAsync_RemovesMetadataFile()
     {
-        // Create a session first
         var session = new Session { Id = "del-test" };
         session.SetInitialStatus(SessionStatus.Ready);
-        session.Messages.Add(new ChatMessage { Role = MessageRole.User, Text = "test" });
         await _sut.SaveSessionAsync(session);
 
         await _sut.DeleteSessionAsync("del-test");
 
         Assert.False(File.Exists(Path.Combine(_tempDir, "del-test.json")));
-        Assert.False(File.Exists(Path.Combine(_tempDir, "del-test.messages.json")));
     }
 
     // --- GetSessionsAsync / GetSessionsByWorkspaceAsync ---
@@ -354,6 +369,28 @@ public class SessionServiceTests : IDisposable
         public Task EnsureContextDirectoryAsync(string worktreePath) => Task.CompletedTask;
         public Task ArchiveContextAsync(string worktreePath, string archivePath) => Task.CompletedTask;
         public string BuildContextPrompt(ContextInfo context) => "";
+    }
+
+    private class FakeSessionReplayService : ISessionReplayService
+    {
+        public Dictionary<string, List<ChatMessage>> MessagesToReturn { get; } = new();
+
+        public Task<SessionListResult> ListSessionsAsync(int limit = 10, int offset = 0)
+            => Task.FromResult(new SessionListResult());
+        public Task<SessionLoadResult> LoadSessionAsync(string filePath, int limit = 50, int offset = 0)
+            => Task.FromResult(new SessionLoadResult());
+        public Task<List<SessionSearchResult>> SearchAsync(string query, int maxResults = 20)
+            => Task.FromResult<List<SessionSearchResult>>([]);
+        public Task<List<LiveSessionInfo>> DetectLiveSessionsAsync()
+            => Task.FromResult<List<LiveSessionInfo>>([]);
+        public Task<SessionTagsData> GetTagsAsync()
+            => Task.FromResult(new SessionTagsData());
+        public Task SetTagAsync(string sessionId, List<string> tags, string? note = null)
+            => Task.CompletedTask;
+        public Task<string> ExportToMarkdownAsync(string filePath)
+            => Task.FromResult("");
+        public Task<List<ChatMessage>> LoadChatMessagesAsync(string conversationId)
+            => Task.FromResult(MessagesToReturn.GetValueOrDefault(conversationId) ?? []);
     }
 
     private class FakeHooksEngine : IHooksEngine

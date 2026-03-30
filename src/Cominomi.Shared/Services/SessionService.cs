@@ -18,6 +18,7 @@ public partial class SessionService : ISessionService
     private readonly IContextService _contextService;
     private readonly IHooksEngine _hooksEngine;
     private readonly IActiveSessionRegistry _activeSessionRegistry;
+    private readonly ISessionReplayService _replayService;
     private readonly ILogger<SessionService> _logger;
     private readonly string _sessionsDir = AppPaths.Sessions;
     private readonly string _archiveDir = AppPaths.ArchivedContexts;
@@ -37,7 +38,7 @@ public partial class SessionService : ISessionService
 
     public SessionService(IGitService gitService, IWorkspaceService workspaceService,
         IOptionsMonitor<AppSettings> appSettings, IContextService contextService, IHooksEngine hooksEngine,
-        IActiveSessionRegistry activeSessionRegistry,
+        IActiveSessionRegistry activeSessionRegistry, ISessionReplayService replayService,
         ILogger<SessionService> logger)
     {
         _gitService = gitService;
@@ -46,6 +47,7 @@ public partial class SessionService : ISessionService
         _contextService = contextService;
         _hooksEngine = hooksEngine;
         _activeSessionRegistry = activeSessionRegistry;
+        _replayService = replayService;
         _logger = logger;
     }
 
@@ -352,16 +354,33 @@ public partial class SessionService : ISessionService
             await AtomicFileWriter.WriteAsync(path, upgraded);
         }
 
-        // Load messages from separate file (new format)
-        var messagesPath = Path.Combine(_sessionsDir, $"{sessionId}.messages.json");
-        if (File.Exists(messagesPath))
+        // Load messages from Claude CLI's native JSONL storage
+        if (!string.IsNullOrEmpty(session.ConversationId))
         {
-            var messagesJson = await File.ReadAllTextAsync(messagesPath);
-            var messages = JsonSerializer.Deserialize<List<ChatMessage>>(messagesJson, JsonDefaults.Options);
-            if (messages != null)
-                session.Messages = messages;
+            try
+            {
+                var jsonlMessages = await _replayService.LoadChatMessagesAsync(session.ConversationId);
+                if (jsonlMessages.Count > 0)
+                    session.Messages = jsonlMessages;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load messages from JSONL for {SessionId}, trying fallback", sessionId);
+            }
         }
-        // else: old format — messages are already inline from the main JSON
+
+        // Fallback: legacy .messages.json (migration period)
+        if (session.Messages.Count == 0)
+        {
+            var messagesPath = Path.Combine(_sessionsDir, $"{sessionId}.messages.json");
+            if (File.Exists(messagesPath))
+            {
+                var messagesJson = await File.ReadAllTextAsync(messagesPath);
+                var messages = JsonSerializer.Deserialize<List<ChatMessage>>(messagesJson, JsonDefaults.Options);
+                if (messages != null)
+                    session.Messages = messages;
+            }
+        }
 
         foreach (var msg in session.Messages)
             msg.MigrateToParts();
@@ -409,8 +428,6 @@ public partial class SessionService : ISessionService
         _logger.LogDebug("Session cache capacity enforced: evicted {Count}, limit {Max}", toEvict.Count, MaxSessionCacheEntries);
     }
 
-    private const int MaxToolOutputLength = 2000;
-
     public async Task SaveSessionAsync(Session session)
     {
         var semaphore = _sessionLocks.GetOrAdd(session.Id, _ => new SemaphoreSlim(1, 1));
@@ -431,7 +448,7 @@ public partial class SessionService : ISessionService
                 }
             }
 
-            // Save metadata (without messages)
+            // Save metadata only (messages are stored by Claude CLI in JSONL)
             var messages = session.Messages;
             session.Messages = [];
             var metadataJson = JsonSerializer.Serialize(session, JsonDefaults.Options);
@@ -450,62 +467,11 @@ public partial class SessionService : ISessionService
                 cached.Model = ModelDefinitions.NormalizeModelId(cached.Model);
                 _metadataCache[session.Id] = cached;
             }
-
-            // Save messages separately (with tool output truncation)
-            if (messages.Count > 0)
-            {
-                var truncated = TruncateToolOutputs(messages);
-                var messagesJson = JsonSerializer.Serialize(truncated, JsonDefaults.Options);
-                var messagesPath = Path.Combine(_sessionsDir, $"{session.Id}.messages.json");
-                await AtomicFileWriter.WriteAsync(messagesPath, messagesJson);
-            }
         }
         finally
         {
             semaphore.Release();
         }
-    }
-
-    private static List<ChatMessage> TruncateToolOutputs(List<ChatMessage> messages)
-    {
-        return messages.Select(msg =>
-        {
-            bool needsTruncation = msg.ToolCalls.Any(tc => tc.Output.Length > MaxToolOutputLength)
-                || msg.Parts.Any(p => p.ToolCall != null && p.ToolCall.Output.Length > MaxToolOutputLength);
-
-            if (!needsTruncation)
-                return msg;
-
-            return new ChatMessage
-            {
-                Id = msg.Id,
-                Role = msg.Role,
-                Text = msg.Text,
-                Timestamp = msg.Timestamp,
-                IsStreaming = msg.IsStreaming,
-                StreamingStartedAt = msg.StreamingStartedAt,
-                StreamingFinishedAt = msg.StreamingFinishedAt,
-                Attachments = msg.Attachments,
-                ToolCalls = msg.ToolCalls.Select(TruncateToolCall).ToList(),
-                Parts = msg.Parts.Select(p => p.ToolCall != null
-                    ? new ContentPart { Type = p.Type, Text = p.Text, ToolCall = TruncateToolCall(p.ToolCall) }
-                    : p).ToList()
-            };
-        }).ToList();
-    }
-
-    private static ToolCall TruncateToolCall(ToolCall tc)
-    {
-        if (tc.Output.Length <= MaxToolOutputLength) return tc;
-        return new ToolCall
-        {
-            Id = tc.Id,
-            Name = tc.Name,
-            Input = tc.Input,
-            Output = tc.Output[..MaxToolOutputLength] + $"\n[...truncated, {tc.Output.Length} chars total]",
-            IsError = tc.IsError,
-            IsComplete = tc.IsComplete
-        };
     }
 
     public async Task RenameBranchAsync(string sessionId, string newBranchName)
@@ -602,6 +568,7 @@ public partial class SessionService : ISessionService
             if (File.Exists(path))
                 File.Delete(path);
 
+            // Clean up legacy .messages.json if it exists
             var messagesPath = Path.Combine(_sessionsDir, $"{sessionId}.messages.json");
             if (File.Exists(messagesPath))
                 File.Delete(messagesPath);
