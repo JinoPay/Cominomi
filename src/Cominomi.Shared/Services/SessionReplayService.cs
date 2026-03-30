@@ -417,7 +417,16 @@ public class SessionReplayService : ISessionReplayService
 
                         case "assistant":
                             var (msg, tools) = BuildAssistantMessage(node, seenIds);
-                            messages.Add(msg);
+                            // Merge consecutive assistant messages into one (same turn)
+                            var lastMsg = messages.Count > 0 ? messages[^1] : null;
+                            if (lastMsg?.Role == MessageRole.Assistant)
+                            {
+                                MergeAssistantMessage(lastMsg, msg);
+                            }
+                            else
+                            {
+                                messages.Add(msg);
+                            }
                             foreach (var tc in tools)
                                 pendingToolCalls[tc.Id] = tc;
                             break;
@@ -556,6 +565,18 @@ public class SessionReplayService : ISessionReplayService
         };
 
         return (message, toolCalls);
+    }
+
+    private static void MergeAssistantMessage(ChatMessage target, ChatMessage source)
+    {
+        target.Parts.AddRange(source.Parts);
+        target.ToolCalls.AddRange(source.ToolCalls);
+        if (!string.IsNullOrEmpty(source.Text))
+        {
+            target.Text = string.IsNullOrEmpty(target.Text)
+                ? source.Text
+                : target.Text + "\n\n" + source.Text;
+        }
     }
 
     private static void MatchToolResults(JsonNode node, Dictionary<string, ToolCall> pendingToolCalls)
