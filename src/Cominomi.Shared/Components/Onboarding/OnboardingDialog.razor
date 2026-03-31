@@ -1,0 +1,228 @@
+<MudDialog Visible="IsOpen" VisibleChanged="OnVisibleChanged" Options="_dialogOptions">
+    <TitleContent>
+        <div class="stack-row items-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small" />
+            <span class="typo-h6">Cominomi 시작하기</span>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="onboarding-dialog">
+            @* Step indicator *@
+            <div class="onboarding-steps">
+                @for (int i = 0; i < TotalSteps; i++)
+                {
+                    var step = i;
+                    @if (i > 0)
+                    {
+                        <div class="onboarding-step-line @(step <= _currentStep ? "completed" : "")"></div>
+                    }
+                    <button class="onboarding-step @(step == _currentStep ? "active" : "") @(step < _currentStep ? "completed" : "")"
+                            @onclick="@(() => _currentStep = step)">
+                        @if (step < _currentStep)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                        }
+                        else
+                        {
+                            @(step + 1)
+                        }
+                    </button>
+                }
+            </div>
+
+            @* Step content *@
+            <div class="onboarding-content">
+                @switch (_currentStep)
+                {
+                    case 0:
+                        <div class="onboarding-icon-wrap">
+                            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Style="font-size: 32px; color: var(--mud-palette-primary);" />
+                        </div>
+                        <div class="typo-h6" style="margin-top: 16px;">Cominomi에 오신 것을 환영합니다</div>
+                        <p class="typo-body2 text-secondary" style="margin-top: 8px; line-height: 1.6;">
+                            Cominomi는 Claude AI를 활용한 데스크톱 코딩 어시스턴트입니다.
+                            Git 저장소와 연동하여 AI와 함께 코드를 작성하고, 리뷰하고, 관리할 수 있습니다.
+                        </p>
+                        <div class="onboarding-highlights">
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">AI 기반 코드 작성 및 수정</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">Git 브랜치 기반 안전한 작업</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">내장 터미널 및 파일 관리</span>
+                            </div>
+                        </div>
+                        break;
+
+                    case 1:
+                        <div class="onboarding-icon-wrap">
+                            <MudIcon Icon="@Icons.Material.Filled.CreateNewFolder" Style="font-size: 32px; color: var(--mud-palette-primary);" />
+                        </div>
+                        <div class="typo-h6" style="margin-top: 16px;">워크스페이스로 시작하기</div>
+                        <p class="typo-body2 text-secondary" style="margin-top: 8px; line-height: 1.6;">
+                            워크스페이스는 하나의 Git 저장소와 연결됩니다.
+                            GitHub URL에서 클론하거나 로컬 저장소를 연결할 수 있습니다.
+                        </p>
+                        <div class="onboarding-highlights">
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">사이드바 하단의 <strong>+</strong> 버튼으로 새 워크스페이스 생성</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">GitHub URL을 입력하면 자동으로 클론</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">이미 있는 로컬 저장소도 바로 연결 가능</span>
+                            </div>
+                        </div>
+                        break;
+
+                    case 2:
+                        <div class="onboarding-icon-wrap">
+                            <MudIcon Icon="@Icons.Material.Filled.Chat" Style="font-size: 32px; color: var(--mud-palette-primary);" />
+                        </div>
+                        <div class="typo-h6" style="margin-top: 16px;">AI 코딩 세션</div>
+                        <p class="typo-body2 text-secondary" style="margin-top: 8px; line-height: 1.6;">
+                            각 세션은 독립된 Git 브랜치에서 작동합니다.
+                            AI가 코드를 읽고, 수정하고, 터미널 명령을 실행할 수 있습니다.
+                        </p>
+                        <div class="onboarding-highlights">
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.CallSplit" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">세션마다 별도 브랜치 — 메인 코드에 영향 없음</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.PlaylistAdd" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">하나의 워크스페이스에서 여러 세션 동시 진행</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.Difference" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2">AI가 변경한 코드를 diff로 실시간 확인</span>
+                            </div>
+                        </div>
+                        break;
+
+                    case 3:
+                        <div class="onboarding-icon-wrap">
+                            <MudIcon Icon="@Icons.Material.Filled.Dashboard" Style="font-size: 32px; color: var(--mud-palette-primary);" />
+                        </div>
+                        <div class="typo-h6" style="margin-top: 16px;">화면 구성 알아보기</div>
+                        <p class="typo-body2 text-secondary" style="margin-top: 8px; line-height: 1.6;">
+                            심플하고 직관적인 레이아웃으로 구성되어 있습니다.
+                        </p>
+                        <div class="onboarding-highlights">
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.ViewSidebar" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2"><strong>좌측 사이드바</strong> — 워크스페이스와 세션 목록</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.ChatBubble" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2"><strong>중앙 채팅</strong> — AI와 대화하며 코드 작업</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.Difference" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2"><strong>우측 패널</strong> — 파일 변경사항 실시간 확인</span>
+                            </div>
+                            <div class="onboarding-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" Color="Color.Primary" />
+                                <span class="typo-body2"><strong>설정</strong> — 테마, AI 모델, 단축키 등 커스터마이징</span>
+                            </div>
+                        </div>
+                        break;
+                }
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+            <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Skip"
+                       Style="text-transform: none;">
+                건너뛰기
+            </MudButton>
+            <div class="stack-row gap-2">
+                @if (_currentStep > 0)
+                {
+                    <MudButton Color="Color.Default" Variant="Variant.Outlined" OnClick="PreviousStep"
+                               Style="text-transform: none;">
+                        이전
+                    </MudButton>
+                }
+                @if (_currentStep < TotalSteps - 1)
+                {
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="NextStep"
+                               Style="text-transform: none;">
+                        다음
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Complete"
+                               Style="text-transform: none;">
+                        시작하기
+                    </MudButton>
+                }
+            </div>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public EventCallback OnCompleted { get; set; }
+
+    private int _currentStep;
+    private const int TotalSteps = 4;
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        BackdropClick = false,
+        CloseOnEscapeKey = false
+    };
+
+    private async Task OnVisibleChanged(bool visible)
+    {
+        if (IsOpen != visible)
+        {
+            IsOpen = visible;
+            await IsOpenChanged.InvokeAsync(visible);
+        }
+    }
+
+    private void NextStep()
+    {
+        if (_currentStep < TotalSteps - 1)
+            _currentStep++;
+    }
+
+    private void PreviousStep()
+    {
+        if (_currentStep > 0)
+            _currentStep--;
+    }
+
+    private async Task Complete()
+    {
+        _currentStep = 0;
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+        await OnCompleted.InvokeAsync();
+    }
+
+    private async Task Skip()
+    {
+        _currentStep = 0;
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+        await OnCompleted.InvokeAsync();
+    }
+}

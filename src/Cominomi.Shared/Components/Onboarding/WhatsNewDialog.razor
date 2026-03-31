@@ -1,0 +1,163 @@
+@inject IReleaseNotesService ReleaseNotesService
+
+<MudDialog Visible="IsOpen" VisibleChanged="OnVisibleChanged" Options="_dialogOptions">
+    <TitleContent>
+        <div class="stack-row items-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.NewReleases" Size="Size.Small" />
+            <span class="typo-h6">새로운 기능</span>
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                v@(_currentVersion)
+            </MudChip>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="whatsnew-dialog">
+            @if (_loading)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            }
+            else if (_filteredReleases.Count > 0)
+            {
+                @foreach (var release in _filteredReleases)
+                {
+                    var isCurrent = release.Version == _currentVersion;
+
+                    <div class="rn-card @(isCurrent ? "rn-card--current" : "")">
+                        <div class="rn-header">
+                            <div class="rn-version-row">
+                                <span class="rn-version">v@(release.Version)</span>
+                                @if (isCurrent)
+                                {
+                                    <span class="rn-badge rn-badge--current">현재 버전</span>
+                                }
+                            </div>
+                            <span class="rn-date">@FormatDate(release.Date)</span>
+                        </div>
+                        <div class="rn-changes">
+                            @foreach (var change in release.Changes)
+                            {
+                                <div class="rn-change">
+                                    <span class="rn-tag rn-tag--@change.Type">@GetTypeLabel(change.Type)</span>
+                                    <span class="rn-desc">@change.Description</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="typo-body2 text-secondary">표시할 변경사항이 없습니다.</p>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Close"
+                   Style="text-transform: none;">
+            확인
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public string LastSeenVersion { get; set; } = "";
+
+    private IReadOnlyList<ReleaseNote> _filteredReleases = [];
+    private bool _loading;
+    private string _currentVersion = "";
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseOnEscapeKey = true,
+        BackdropClick = true
+    };
+
+    protected override void OnInitialized()
+    {
+        _currentVersion = System.Reflection.Assembly.GetEntryAssembly()
+            ?.GetName().Version?.ToString(3) ?? "";
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && _filteredReleases.Count == 0)
+        {
+            _loading = true;
+            StateHasChanged();
+
+            var allReleases = await ReleaseNotesService.GetReleaseNotesAsync();
+
+            if (string.IsNullOrEmpty(LastSeenVersion))
+            {
+                // First-time user — show only current version
+                _filteredReleases = allReleases
+                    .Where(r => r.Version == _currentVersion)
+                    .ToList();
+
+                // If no exact match (dev build), show the latest entry
+                if (_filteredReleases.Count == 0 && allReleases.Count > 0)
+                    _filteredReleases = [allReleases[0]];
+            }
+            else
+            {
+                // Returning user — show versions newer than last seen
+                _filteredReleases = allReleases
+                    .Where(r => VersionComparer.IsOutdated(LastSeenVersion, r.Version))
+                    .ToList();
+            }
+
+            _loading = false;
+        }
+    }
+
+    private async Task OnVisibleChanged(bool visible)
+    {
+        if (IsOpen != visible)
+        {
+            IsOpen = visible;
+            if (!visible)
+                _filteredReleases = [];
+            await IsOpenChanged.InvokeAsync(visible);
+        }
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        _filteredReleases = [];
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private static string GetTypeLabel(string type) => type switch
+    {
+        "feat" => "기능",
+        "fix" => "수정",
+        "refactor" => "개선",
+        _ => type
+    };
+
+    private static string FormatDate(string dateStr)
+    {
+        if (!DateOnly.TryParse(dateStr, out var date))
+            return dateStr;
+
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var diff = today.DayNumber - date.DayNumber;
+
+        var relative = diff switch
+        {
+            0 => "오늘",
+            1 => "어제",
+            2 => "그저께",
+            _ when diff > 0 && diff <= 7 => $"{diff}일 전",
+            _ => null
+        };
+
+        var formatted = $"{date.Year}년 {date.Month}월 {date.Day}일";
+        return relative is not null ? $"{formatted} ({relative})" : formatted;
+    }
+}

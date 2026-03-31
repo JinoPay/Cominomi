@@ -83,4 +83,9 @@ public interface IChatState : IDisposable
     // Events
     event Action? OnChange;
     event Action? OnRequestCreateWorkspace;
+    event Action? OnRequestShowOnboarding;
+    event Action? OnRequestShowWhatsNew;
+
+    void RequestShowOnboarding();
+    void RequestShowWhatsNew();
 }

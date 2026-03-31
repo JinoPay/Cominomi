@@ -11,6 +11,7 @@
 @inject IUpdateService UpdateService
 @inject ILogger<MainLayout> Logger
 @inject IChatEventBus EventBus
+@inject IReleaseNotesService ReleaseNotesService
 @implements IAsyncDisposable
 
 <MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="ThemeService.Theme" />
@@ -114,12 +115,17 @@
 
     </div>
 
-<SetupDialog @bind-IsOpen="_setupOpen" />
+<SetupDialog IsOpen="_setupOpen" IsOpenChanged="OnSetupVisibleChanged" />
+<Cominomi.Shared.Components.Onboarding.OnboardingDialog IsOpen="_onboardingOpen" IsOpenChanged="OnOnboardingVisibleChanged" OnCompleted="OnOnboardingCompleted" />
+<Cominomi.Shared.Components.Onboarding.WhatsNewDialog IsOpen="_whatsNewOpen" IsOpenChanged="OnWhatsNewVisibleChanged" LastSeenVersion="@_lastSeenVersion" />
 
 @code {
     private bool _sidebarOpen = true;
     private bool _isDarkMode = true;
     private bool _setupOpen;
+    private bool _onboardingOpen;
+    private bool _whatsNewOpen;
+    private string _lastSeenVersion = "";
     private int _sidebarWidth = 260;
     private int _rightPanelWidth = 400;
     private DotNetObjectReference<MainLayout>? _panelShortcutRef;
@@ -129,6 +135,8 @@
         ChatState.OnChange += HandleStateChanged;
         ThemeService.OnThemeChanged += HandleThemeChanged;
         SettingsService.OnSettingsChanged += HandleUiScaleChanged;
+        ChatState.OnRequestShowOnboarding += HandleShowOnboarding;
+        ChatState.OnRequestShowWhatsNew += HandleShowWhatsNew;
 
         try
         {
@@ -142,12 +150,7 @@
             }
             else
             {
-                _ = CheckClaudeVersionAsync();
-                var settings = await SettingsService.LoadAsync();
-                if (settings.AutoUpdateEnabled)
-                {
-                    _ = CheckAppUpdateAsync();
-                }
+                await PostSetupSequenceAsync();
             }
         }
         catch (Exception ex)
@@ -317,6 +320,127 @@
 
     private void OpenNotifications() => ChatState.OpenNotifications();
 
+    // --- Onboarding / What's New sequencing ---
+
+    private async Task OnSetupVisibleChanged(bool visible)
+    {
+        _setupOpen = visible;
+        if (!visible)
+        {
+            await PostSetupSequenceAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task PostSetupSequenceAsync()
+    {
+        _ = CheckClaudeVersionAsync();
+        var settings = await SettingsService.LoadAsync();
+        _lastSeenVersion = settings.LastSeenVersion;
+
+        if (settings.AutoUpdateEnabled)
+        {
+            _ = CheckAppUpdateAsync();
+        }
+
+        if (!settings.OnboardingCompleted)
+        {
+            _onboardingOpen = true;
+        }
+        else
+        {
+            await TryShowWhatsNewAsync(settings);
+        }
+    }
+
+    private async Task OnOnboardingCompleted()
+    {
+        _onboardingOpen = false;
+        var settings = await SettingsService.LoadAsync();
+        settings.OnboardingCompleted = true;
+        await SettingsService.SaveAsync(settings);
+        await TryShowWhatsNewAsync(settings);
+        StateHasChanged();
+    }
+
+    private async Task OnOnboardingVisibleChanged(bool visible)
+    {
+        _onboardingOpen = visible;
+    }
+
+    private async Task TryShowWhatsNewAsync(AppSettings settings)
+    {
+        var currentVersion = System.Reflection.Assembly.GetEntryAssembly()
+            ?.GetName().Version?.ToString(3) ?? "";
+
+        if (string.IsNullOrEmpty(currentVersion))
+            return;
+
+        bool shouldShow = string.IsNullOrEmpty(settings.LastSeenVersion)
+            || VersionComparer.IsOutdated(settings.LastSeenVersion, currentVersion);
+
+        if (shouldShow)
+        {
+            var releases = await ReleaseNotesService.GetReleaseNotesAsync();
+            bool hasNew;
+            if (string.IsNullOrEmpty(settings.LastSeenVersion))
+            {
+                hasNew = releases.Any(r => r.Version == currentVersion) || releases.Count > 0;
+            }
+            else
+            {
+                hasNew = releases.Any(r => VersionComparer.IsOutdated(settings.LastSeenVersion, r.Version));
+            }
+
+            if (hasNew)
+            {
+                _whatsNewOpen = true;
+            }
+            else
+            {
+                await UpdateLastSeenVersionAsync(currentVersion);
+            }
+        }
+    }
+
+    private async Task OnWhatsNewVisibleChanged(bool visible)
+    {
+        _whatsNewOpen = visible;
+        if (!visible)
+        {
+            var currentVersion = System.Reflection.Assembly.GetEntryAssembly()
+                ?.GetName().Version?.ToString(3) ?? "";
+            await UpdateLastSeenVersionAsync(currentVersion);
+        }
+    }
+
+    private async Task UpdateLastSeenVersionAsync(string version)
+    {
+        if (string.IsNullOrEmpty(version)) return;
+        var settings = await SettingsService.LoadAsync();
+        settings.LastSeenVersion = version;
+        await SettingsService.SaveAsync(settings);
+    }
+
+    private void HandleShowOnboarding()
+    {
+        _ = InvokeAsync(() =>
+        {
+            _onboardingOpen = true;
+            StateHasChanged();
+        });
+    }
+
+    private void HandleShowWhatsNew()
+    {
+        _ = InvokeAsync(() =>
+        {
+            _lastSeenVersion = "";
+            _whatsNewOpen = true;
+            StateHasChanged();
+        });
+    }
+
     private HashSet<string> _reloadingTabs = new();
 
     private async Task ReloadEvictedContent(MainTab tab)
@@ -347,6 +471,8 @@
         ChatState.OnChange -= HandleStateChanged;
         ThemeService.OnThemeChanged -= HandleThemeChanged;
         SettingsService.OnSettingsChanged -= HandleUiScaleChanged;
+        ChatState.OnRequestShowOnboarding -= HandleShowOnboarding;
+        ChatState.OnRequestShowWhatsNew -= HandleShowWhatsNew;
         try
         {
             await JS.InvokeVoidAsync("unregisterPanelShortcuts");

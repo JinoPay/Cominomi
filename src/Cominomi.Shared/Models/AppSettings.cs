@@ -35,6 +35,10 @@ public class AppSettings
     // Terminal
     public string? TerminalShell { get; set; }  // null = auto-detect
 
+    // Onboarding
+    public bool OnboardingCompleted { get; set; }
+    public string LastSeenVersion { get; set; } = "";
+
     // Plugins
     public List<string> DisabledPlugins { get; set; } = [];
 }
