@@ -61,26 +61,39 @@ public class NotificationService : INotificationService
 
     private void SendWindowsNotification(string title, string body, bool playSound)
     {
-        var escapedTitle = title.Replace("'", "''").Replace("\"", "`\"");
-        var escapedBody = body.Replace("'", "''").Replace("\"", "`\"");
+        var escapedTitle = System.Security.SecurityElement.Escape(title);
+        var escapedBody = System.Security.SecurityElement.Escape(body);
 
-        var audioSnippet = playSound
-            ? ""
-            : "$audio = $xml.CreateElement('audio'); $audio.SetAttribute('silent','true'); " +
-              "$xml.DocumentElement.AppendChild($audio) | Out-Null; ";
+        var audioElement = playSound ? "" : "<audio silent=\"true\"/>";
+
+        var toastXml =
+            "<toast>" +
+              "<visual>" +
+                "<binding template=\"ToastGeneric\">" +
+                  $"<text>{escapedTitle}</text>" +
+                  $"<text>{escapedBody}</text>" +
+                "</binding>" +
+              "</visual>" +
+              audioElement +
+            "</toast>";
+
+        var psXmlLiteral = toastXml.Replace("'", "''");
+
+        var script =
+            "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
+            "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null; " +
+            "$xml = [Windows.Data.Xml.Dom.XmlDocument]::new(); " +
+            $"$xml.LoadXml('{psXmlLiteral}'); " +
+            "$toast = [Windows.UI.Notifications.ToastNotification]::new($xml); " +
+            "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Cominomi').Show($toast)";
+
+        var scriptBytes = System.Text.Encoding.Unicode.GetBytes(script);
+        var encodedCommand = Convert.ToBase64String(scriptBytes);
 
         var psi = new ProcessStartInfo
         {
             FileName = "powershell",
-            Arguments = $"-NoProfile -Command \"" +
-                $"[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; " +
-                $"$xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); " +
-                $"$text = $xml.GetElementsByTagName('text'); " +
-                $"$text[0].AppendChild($xml.CreateTextNode('{escapedTitle}')) | Out-Null; " +
-                $"$text[1].AppendChild($xml.CreateTextNode('{escapedBody}')) | Out-Null; " +
-                $"{audioSnippet}" +
-                $"$toast = [Windows.UI.Notifications.ToastNotification]::new($xml); " +
-                $"[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Cominomi').Show($toast)\"",
+            Arguments = $"-NoProfile -EncodedCommand {encodedCommand}",
             UseShellExecute = false,
             CreateNoWindow = true
         };
