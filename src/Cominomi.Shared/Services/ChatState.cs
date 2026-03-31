@@ -39,6 +39,8 @@ public class ChatState : IChatState
 
     public event Action? OnChange;
     public event Action? OnRequestCreateWorkspace;
+    public event Action? OnRequestShowOnboarding;
+    public event Action? OnRequestShowWhatsNew;
 
     public ChatState(IActiveSessionRegistry activeSessionRegistry, IChatEventBus eventBus)
     {
@@ -202,6 +204,16 @@ public class ChatState : IChatState
     public void RequestCreateWorkspace()
     {
         OnRequestCreateWorkspace?.Invoke();
+    }
+
+    public void RequestShowOnboarding()
+    {
+        OnRequestShowOnboarding?.Invoke();
+    }
+
+    public void RequestShowWhatsNew()
+    {
+        OnRequestShowWhatsNew?.Invoke();
     }
 
     public void SetPendingMessage(string? message)
