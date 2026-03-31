@@ -344,21 +344,23 @@
     }
 
     [JSInvokable]
-    public void OnSlashArrowDown()
+    public async Task OnSlashArrowDown()
     {
         if (_filteredCommands.Count == 0) return;
         _slashSelectedIndex = (_slashSelectedIndex + 1) % _filteredCommands.Count;
         _forceRender = true;
         StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("scrollSlashPopupActiveIntoView");
     }
 
     [JSInvokable]
-    public void OnSlashArrowUp()
+    public async Task OnSlashArrowUp()
     {
         if (_filteredCommands.Count == 0) return;
         _slashSelectedIndex = (_slashSelectedIndex - 1 + _filteredCommands.Count) % _filteredCommands.Count;
         _forceRender = true;
         StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("scrollSlashPopupActiveIntoView");
     }
 
     [JSInvokable]
