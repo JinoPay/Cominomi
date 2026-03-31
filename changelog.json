@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.5.6",
+    "date": "2026-03-31",
+    "changes": [
+      { "type": "feat", "description": "RulesPage 개선 — 프리뷰 기능 및 UX 향상" },
+      { "type": "feat", "description": "Claude CLI 설정뷰 전면 개선 — 기능 추가 및 UX 개선" },
+      { "type": "feat", "description": "플랜 모드·Effort 레벨 키보드 단축키 토글 추가" },
+      { "type": "fix", "description": "RulesPage 데이터 손실 버그 수정" },
+      { "type": "fix", "description": "사용량 통계·세션 히스토리·대시보드 정확도 대폭 개선" },
+      { "type": "fix", "description": "웰컴 화면 플로팅 오브 애니메이션 작은 화면에서 잘림 수정" },
+      { "type": "refactor", "description": "세션 통계 집계 로직 최적화 및 정확도 향상" }
+    ]
+  },
+  {
     "version": "1.5.5",
     "date": "2026-03-31",
     "changes": [
