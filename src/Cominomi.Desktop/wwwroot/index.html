@@ -404,6 +404,11 @@
             if (inputEl) inputEl._slashPopupOpen = !!isOpen;
         };
 
+        window.scrollSlashPopupActiveIntoView = function() {
+            var el = document.querySelector('.slash-popup-item-active');
+            if (el) el.scrollIntoView({ block: 'nearest' });
+        };
+
         window.replaceSlashCommand = function(elementId, newText) {
             var container = document.getElementById(elementId);
             if (!container) return;
