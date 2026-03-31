@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.5.9",
+    "date": "2026-03-31",
+    "changes": [
+      { "type": "fix", "description": "AskUserQuestionBar 다중 질문에서 커스텀 답변이 소실되는 버그 수정" }
+    ]
+  },
+  {
     "version": "1.5.8",
     "date": "2026-03-31",
     "changes": [
