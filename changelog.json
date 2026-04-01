@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.6.2",
+    "date": "2026-04-01",
+    "changes": [
+      { "type": "feat", "description": "동기화 토글 키보드 단축키 추가 (Ctrl+Shift+S)" },
+      { "type": "fix", "description": "세션 전환 시 채팅 스크롤을 맨 아래로 이동" }
+    ]
+  },
+  {
     "version": "1.6.1",
     "date": "2026-04-01",
     "changes": [
