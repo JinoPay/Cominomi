@@ -21,6 +21,7 @@ public sealed record SettingsChangedEvent : ChatEvent;
 
 public sealed record TogglePlanModeEvent : ChatEvent;
 public sealed record ToggleEffortLevelEvent : ChatEvent;
+public sealed record ToggleSyncEvent : ChatEvent;
 
 public sealed record WorktreeSyncStartedEvent(string SessionId, string WorkspaceId) : ChatEvent;
 public sealed record WorktreeSyncStoppedEvent(string SessionId, string WorkspaceId) : ChatEvent;

@@ -100,15 +100,16 @@
     private bool _syncBusy;
     private IDisposable? _syncStartSub;
     private IDisposable? _syncStopSub;
+    private IDisposable? _syncToggleSub;
 
     private bool IsSynced => SyncService.IsSessionSynced(ChatState.CurrentSession?.Id ?? "");
     private bool IsSyncBlockedByOther => SyncService.IsSyncActive && !IsSynced;
 
     private string SyncTooltip => IsSynced
-        ? "로컬 동기화 해제"
+        ? "로컬 동기화 해제 (Ctrl+Shift+S)"
         : IsSyncBlockedByOther
             ? "다른 세션이 동기화 중입니다"
-            : "로컬 디렉터리에 동기화";
+            : "로컬 디렉터리에 동기화 (Ctrl+Shift+S)";
 
     private bool ShowSyncButton
     {
@@ -126,6 +127,11 @@
         ChatState.OnChange += HandleStateChanged;
         _syncStartSub = EventBus.Subscribe<WorktreeSyncStartedEvent>(_ => InvokeAsync(StateHasChanged));
         _syncStopSub = EventBus.Subscribe<WorktreeSyncStoppedEvent>(_ => InvokeAsync(StateHasChanged));
+        _syncToggleSub = EventBus.Subscribe<ToggleSyncEvent>(_ => InvokeAsync(async () =>
+        {
+            if (ShowSyncButton && !_syncBusy && !IsSyncBlockedByOther)
+                await ToggleSync();
+        }));
         _availableIdes = await Launcher.GetAvailableIdesAsync();
     }
 
@@ -198,6 +204,7 @@
         ChatState.OnChange -= HandleStateChanged;
         _syncStartSub?.Dispose();
         _syncStopSub?.Dispose();
+        _syncToggleSub?.Dispose();
     }
 }
 
