@@ -12,6 +12,7 @@ public class NotificationService : INotificationService
     private readonly ILogger<NotificationService> _logger;
     private readonly IOptionsMonitor<AppSettings> _appSettings;
     private bool _initialized;
+    private bool _nativeNotificationsAvailable;
 
     public NotificationService(ILogger<NotificationService> logger, IOptionsMonitor<AppSettings> appSettings)
     {
@@ -22,6 +23,25 @@ public class NotificationService : INotificationService
     public Task InitializeAsync()
     {
         if (_initialized) return Task.CompletedTask;
+
+        if (OperatingSystem.IsMacOS())
+        {
+            try { EnsureBundleIdentifier(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to set macOS bundle identifier"); }
+
+            _nativeNotificationsAvailable = HasAppBundle();
+
+            if (_nativeNotificationsAvailable)
+            {
+                try { RequestNotificationAuthorization(); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to request notification authorization"); }
+            }
+            else
+            {
+                _logger.LogInformation("Not running in .app bundle — skipping UNUserNotificationCenter, will use AppleScript fallback");
+            }
+        }
+
         _initialized = true;
         _logger.LogInformation("Notifications initialized");
         return Task.CompletedTask;
@@ -104,40 +124,161 @@ public class NotificationService : INotificationService
 
     private void SendMacNotification(string title, string body, bool playSound, string soundName)
     {
+        // Try UNUserNotificationCenter first (proper native API, attributed to Cominomi)
+        // Only available when running inside a .app bundle — otherwise the ObjC runtime
+        // throws NSInternalInconsistencyException (bundleProxyForCurrentProcess is nil)
+        if (_nativeNotificationsAvailable)
+        {
+            try
+            {
+                SendMacNotificationNative(title, body, playSound, soundName);
+                _logger.LogDebug("macOS notification sent via UNUserNotificationCenter: {Title} - {Body} (sound: {Sound})",
+                    title, body, playSound ? soundName : "off");
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "UNUserNotificationCenter failed, falling back to AppleScript");
+            }
+        }
+
         var escapedTitle = title.Replace("\\", "\\\\").Replace("\"", "\\\"");
         var escapedBody = body.Replace("\\", "\\\\").Replace("\"", "\\\"");
-
         var script = $"display notification \"{escapedBody}\" with title \"{escapedTitle}\"";
         if (playSound)
             script += $" sound name \"{soundName}\"";
 
-        // Try in-process NSAppleScript first (notifications attributed to Cominomi app bundle)
-        try
+        // In-process NSAppleScript: only try inside .app bundle — without one,
+        // macOS silently drops the notification (no app to attribute it to)
+        if (_nativeNotificationsAvailable)
         {
-            ExecuteAppleScriptInProcess(script);
-            _logger.LogDebug("macOS notification sent via NSAppleScript: {Title} - {Body} (sound: {Sound})",
-                title, body, playSound ? soundName : "off");
-            return;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "NSAppleScript failed, falling back to osascript");
+            try
+            {
+                ExecuteAppleScriptInProcess(script);
+                _logger.LogDebug("macOS notification sent via NSAppleScript: {Title} - {Body}", title, body);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "NSAppleScript failed, falling back to osascript");
+            }
         }
 
-        // Fallback: osascript subprocess (shows as "Script Editor")
+        // osascript subprocess — works without .app bundle (attributed to Script Editor)
         var psi = new ProcessStartInfo
         {
             FileName = "osascript",
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            RedirectStandardError = true
         };
         psi.ArgumentList.Add("-e");
         psi.ArgumentList.Add(script);
 
         using var process = Process.Start(psi);
-        _logger.LogDebug("macOS notification sent via osascript fallback: {Title} - {Body} (sound: {Sound})",
-            title, body, playSound ? soundName : "off");
+        if (process != null)
+        {
+            process.WaitForExit(5000);
+            if (process.ExitCode != 0)
+            {
+                var stderr = process.StandardError.ReadToEnd();
+                _logger.LogWarning("osascript exited with code {Code}: {Error}", process.ExitCode, stderr);
+            }
+            else
+            {
+                _logger.LogDebug("macOS notification sent via osascript fallback: {Title} - {Body}", title, body);
+            }
+        }
     }
+
+    #region macOS UNUserNotificationCenter
+
+    private void SendMacNotificationNative(string title, string body, bool playSound, string soundName)
+    {
+        var selAlloc = SelRegisterName("alloc");
+
+        // UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init]
+        var content = ObjcMsgSend(
+            ObjcMsgSend(ObjcGetClass("UNMutableNotificationContent"), selAlloc),
+            SelRegisterName("init"));
+
+        var nsTitle = CreateNSString(title);
+        var nsBody = CreateNSString(body);
+
+        try
+        {
+            // content.title = title; content.body = body
+            ObjcMsgSendIntPtr(content, SelRegisterName("setTitle:"), nsTitle);
+            ObjcMsgSendIntPtr(content, SelRegisterName("setBody:"), nsBody);
+
+            // content.sound = ...
+            if (playSound)
+            {
+                nint sound;
+                if (soundName == "default")
+                {
+                    sound = ObjcMsgSend(ObjcGetClass("UNNotificationSound"),
+                        SelRegisterName("defaultSound"));
+                }
+                else
+                {
+                    var nsSoundName = CreateNSString(soundName);
+                    sound = ObjcMsgSendIntPtr(ObjcGetClass("UNNotificationSound"),
+                        SelRegisterName("soundNamed:"), nsSoundName);
+                    ObjcMsgSend(nsSoundName, SelRegisterName("release"));
+                }
+                ObjcMsgSendIntPtr(content, SelRegisterName("setSound:"), sound);
+            }
+
+            // NSString *identifier = [[NSUUID UUID] UUIDString]
+            var uuid = ObjcMsgSend(ObjcGetClass("NSUUID"), SelRegisterName("UUID"));
+            var identifier = ObjcMsgSend(uuid, SelRegisterName("UUIDString"));
+
+            // UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:content:trigger:]
+            var request = ObjcMsgSendThreeIntPtr(ObjcGetClass("UNNotificationRequest"),
+                SelRegisterName("requestWithIdentifier:content:trigger:"),
+                identifier, content, 0);
+
+            // [[UNUserNotificationCenter currentNotificationCenter] addNotificationRequest:request withCompletionHandler:nil]
+            var center = ObjcMsgSend(ObjcGetClass("UNUserNotificationCenter"),
+                SelRegisterName("currentNotificationCenter"));
+            ObjcMsgSendVoidTwoIntPtr(center,
+                SelRegisterName("addNotificationRequest:withCompletionHandler:"),
+                request, 0);
+        }
+        finally
+        {
+            ObjcMsgSend(content, SelRegisterName("release"));
+            ObjcMsgSend(nsBody, SelRegisterName("release"));
+            ObjcMsgSend(nsTitle, SelRegisterName("release"));
+        }
+    }
+
+    private void RequestNotificationAuthorization()
+    {
+        // Load UserNotifications framework
+        DlOpen("/System/Library/Frameworks/UserNotifications.framework/UserNotifications", 1);
+
+        var center = ObjcMsgSend(ObjcGetClass("UNUserNotificationCenter"),
+            SelRegisterName("currentNotificationCenter"));
+        if (center == 0)
+        {
+            _logger.LogWarning("UNUserNotificationCenter.currentNotificationCenter returned nil");
+            return;
+        }
+
+        // Create ObjC block for the completion handler: void (^)(BOOL granted, NSError *error)
+        var block = CreateAuthorizationBlock();
+
+        // UNAuthorizationOptionAlert (1<<2) | UNAuthorizationOptionSound (1<<1) = 6
+        ObjcMsgSendVoidNUIntIntPtr(center,
+            SelRegisterName("requestAuthorizationWithOptions:completionHandler:"),
+            6, block);
+
+        _logger.LogInformation("Requested macOS notification authorization");
+    }
+
+    #endregion
 
     #region macOS ObjC Runtime Interop
 
@@ -157,31 +298,156 @@ public class NotificationService : INotificationService
     private static extern nint ObjcMsgSendStr(nint receiver, nint selector,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string arg1);
 
-    /// <summary>
-    /// Execute AppleScript in-process via NSAppleScript so that macOS attributes
-    /// the notification to the Cominomi app bundle instead of Script Editor.
-    /// </summary>
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern nint ObjcMsgSendThreeIntPtr(nint receiver, nint selector, nint arg1, nint arg2, nint arg3);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void ObjcMsgSendVoidTwoIntPtr(nint receiver, nint selector, nint arg1, nint arg2);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void ObjcMsgSendVoidNUIntIntPtr(nint receiver, nint selector, nuint arg1, nint arg2);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "class_getInstanceMethod")]
+    private static extern nint ClassGetInstanceMethod(nint cls, nint sel);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "method_setImplementation")]
+    private static extern nint MethodSetImplementation(nint method, nint imp);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "object_getClass")]
+    private static extern nint ObjectGetClass(nint obj);
+
+    [DllImport("libSystem.dylib", EntryPoint = "dlopen")]
+    private static extern nint DlOpen(string path, int mode);
+
+    [DllImport("libSystem.dylib", EntryPoint = "dlsym")]
+    private static extern nint DlSym(nint handle, string symbol);
+
+    private static nint CreateNSString(string str)
+    {
+        return ObjcMsgSendStr(
+            ObjcMsgSend(ObjcGetClass("NSString"), SelRegisterName("alloc")),
+            SelRegisterName("initWithUTF8String:"), str);
+    }
+
+    #endregion
+
+    #region macOS Bundle Identifier Swizzle
+
+    private bool HasAppBundle()
+    {
+        var mainBundle = ObjcMsgSend(ObjcGetClass("NSBundle"), SelRegisterName("mainBundle"));
+        var bundlePath = ObjcMsgSend(mainBundle, SelRegisterName("bundlePath"));
+        var utf8Ptr = ObjcMsgSend(bundlePath, SelRegisterName("UTF8String"));
+        var path = Marshal.PtrToStringUTF8(utf8Ptr);
+        return path?.EndsWith(".app") == true;
+    }
+
+    private delegate nint ObjcMethodImp(nint self, nint sel);
+
+    private static nint _bundleIdString;
+    private static ObjcMethodImp? _bundleIdImp;
+
+    private static nint BundleIdentifierOverride(nint self, nint sel) => _bundleIdString;
+
+    private void EnsureBundleIdentifier()
+    {
+        var mainBundle = ObjcMsgSend(ObjcGetClass("NSBundle"), SelRegisterName("mainBundle"));
+        var existingId = ObjcMsgSend(mainBundle, SelRegisterName("bundleIdentifier"));
+        if (existingId != 0)
+        {
+            _logger.LogDebug("macOS bundle identifier already set");
+            return;
+        }
+
+        _bundleIdString = CreateNSString("com.cominomi.app");
+
+        _bundleIdImp = BundleIdentifierOverride;
+        var bundleClass = ObjectGetClass(mainBundle);
+        var method = ClassGetInstanceMethod(bundleClass, SelRegisterName("bundleIdentifier"));
+        MethodSetImplementation(method, Marshal.GetFunctionPointerForDelegate(_bundleIdImp));
+
+        _logger.LogInformation("Swizzled macOS bundle identifier to com.cominomi.app");
+    }
+
+    #endregion
+
+    #region macOS ObjC Block Support
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BlockLiteral
+    {
+        public nint Isa;
+        public int Flags;
+        public int Reserved;
+        public nint Invoke;
+        public nint Descriptor;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct BlockDescriptor
+    {
+        public nuint Reserved;
+        public nuint Size;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void AuthCallbackDelegate(nint block, byte granted, nint error);
+
+    // prevent GC collection of the delegate and block memory
+    private static AuthCallbackDelegate? _authCallback;
+    private static nint _authBlockPtr;
+    private static nint _authDescriptorPtr;
+
+    private static nint CreateAuthorizationBlock()
+    {
+        if (_authBlockPtr != 0) return _authBlockPtr;
+
+        _authCallback = static (block, granted, error) => { };
+
+        var isa = DlSym(-2, "_NSConcreteGlobalBlock"); // RTLD_DEFAULT = -2
+
+        _authDescriptorPtr = Marshal.AllocHGlobal(Marshal.SizeOf<BlockDescriptor>());
+        Marshal.StructureToPtr(new BlockDescriptor
+        {
+            Reserved = 0,
+            Size = (nuint)Marshal.SizeOf<BlockLiteral>()
+        }, _authDescriptorPtr, false);
+
+        _authBlockPtr = Marshal.AllocHGlobal(Marshal.SizeOf<BlockLiteral>());
+        Marshal.StructureToPtr(new BlockLiteral
+        {
+            Isa = isa,
+            Flags = 1 << 28, // BLOCK_IS_GLOBAL
+            Reserved = 0,
+            Invoke = Marshal.GetFunctionPointerForDelegate(_authCallback),
+            Descriptor = _authDescriptorPtr
+        }, _authBlockPtr, false);
+
+        return _authBlockPtr;
+    }
+
+    #endregion
+
+    #region macOS AppleScript Fallback
+
     private static void ExecuteAppleScriptInProcess(string source)
     {
         var selAlloc = SelRegisterName("alloc");
         var selRelease = SelRegisterName("release");
 
-        // NSString *nsSource = [[NSString alloc] initWithUTF8String:source]
-        var nsStringClass = ObjcGetClass("NSString");
-        var nsStringAlloc = ObjcMsgSend(nsStringClass, selAlloc);
-        var nsSource = ObjcMsgSendStr(nsStringAlloc, SelRegisterName("initWithUTF8String:"), source);
+        var nsSource = CreateNSString(source);
 
         try
         {
-            // NSAppleScript *script = [[NSAppleScript alloc] initWithSource:nsSource]
             var nsAppleScriptClass = ObjcGetClass("NSAppleScript");
             var scriptAlloc = ObjcMsgSend(nsAppleScriptClass, selAlloc);
             var script = ObjcMsgSendIntPtr(scriptAlloc, SelRegisterName("initWithSource:"), nsSource);
 
             try
             {
-                // [script executeAndReturnError:nil]
-                ObjcMsgSendIntPtr(script, SelRegisterName("executeAndReturnError:"), 0);
+                var result = ObjcMsgSendIntPtr(script, SelRegisterName("executeAndReturnError:"), 0);
+                if (result == 0)
+                    throw new InvalidOperationException("NSAppleScript executeAndReturnError: returned nil");
             }
             finally
             {
