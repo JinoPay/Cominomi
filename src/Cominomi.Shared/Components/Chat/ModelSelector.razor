@@ -56,26 +56,35 @@
     private bool _modelMenuOpen;
     private bool _customModelInput;
     private string _customModelId = "";
-    private bool _isCustomModel => !string.IsNullOrEmpty(Model)
-        && !ModelDefinitions.All.Any(m => m.Id == Model)
-        && ModelDefinitions.NormalizeModelId(Model) == Model; // truly custom: normalization couldn't resolve it
+    // Local display state — synced from parent parameter AND updated optimistically on user selection.
+    // This avoids the Blazor anti-pattern of setting [Parameter] properties directly.
+    private string _effectiveModel = string.Empty;
+
+    private bool _isCustomModel => !string.IsNullOrEmpty(_effectiveModel)
+        && !ModelDefinitions.All.Any(m => m.Id == _effectiveModel)
+        && ModelDefinitions.NormalizeModelId(_effectiveModel) == _effectiveModel; // truly custom: normalization couldn't resolve it
+
+    protected override void OnParametersSet()
+    {
+        _effectiveModel = Model;
+    }
 
     private string GetModelDisplayName()
     {
-        if (string.IsNullOrEmpty(Model))
+        if (string.IsNullOrEmpty(_effectiveModel))
             return ModelDefinitions.Default.DisplayName;
 
-        var model = ModelDefinitions.All.FirstOrDefault(m => m.Id == Model);
+        var model = ModelDefinitions.All.FirstOrDefault(m => m.Id == _effectiveModel);
         if (model != null) return model.DisplayName;
 
         // Try keyword normalization for non-standard IDs (e.g. "claude-opus-4-6-...")
-        var normalized = ModelDefinitions.NormalizeModelId(Model);
+        var normalized = ModelDefinitions.NormalizeModelId(_effectiveModel);
         var normalizedModel = ModelDefinitions.All.FirstOrDefault(m => m.Id == normalized);
         if (normalizedModel != null) return normalizedModel.DisplayName;
 
         // Custom model IDs that look like API model IDs (e.g. "claude-...") — show as-is
-        if (Model.StartsWith("claude-", StringComparison.OrdinalIgnoreCase))
-            return Model;
+        if (_effectiveModel.StartsWith("claude-", StringComparison.OrdinalIgnoreCase))
+            return _effectiveModel;
 
         // Unknown short strings (e.g. "Model") — fall back to default display name
         return ModelDefinitions.Default.DisplayName;
@@ -84,16 +93,16 @@
     private string GetTooltip()
     {
         var displayName = GetModelDisplayName();
-        if (!string.IsNullOrEmpty(ResolvedModel) && ResolvedModel != Model)
+        if (!string.IsNullOrEmpty(ResolvedModel) && ResolvedModel != _effectiveModel)
             return $"{displayName} ({ResolvedModel})";
         return displayName;
     }
 
     private bool IsModelActive(string modelId)
     {
-        if (Model == modelId) return true;
+        if (_effectiveModel == modelId) return true;
         // Handle non-standard IDs — normalize and compare
-        if (!string.IsNullOrEmpty(Model) && ModelDefinitions.NormalizeModelId(Model) == modelId)
+        if (!string.IsNullOrEmpty(_effectiveModel) && ModelDefinitions.NormalizeModelId(_effectiveModel) == modelId)
             return true;
         return false;
     }
@@ -127,7 +136,7 @@
     private async Task SelectModel(string modelId)
     {
         _modelMenuOpen = false;
-        Model = modelId;
+        _effectiveModel = modelId;
         await OnModelChanged.InvokeAsync(modelId);
         await OnMenuClosed.InvokeAsync();
     }
