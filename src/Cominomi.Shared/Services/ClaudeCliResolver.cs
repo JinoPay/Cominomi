@@ -35,7 +35,7 @@ public class ClaudeCliResolver
 
             var result = await FindClaudeCommandAsync(configuredPath)
                          ?? (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                             ? ("claude.exe", "")
+                             ? ("cmd.exe", "/c claude ")
                              : ("claude", ""));
             _resolvedCommand = result;
             _resolvedCommandPath = configuredPath;
@@ -60,27 +60,34 @@ public class ClaudeCliResolver
     {
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                && configuredPath.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase))
-            {
-                return ("cmd.exe", $"/c \"{configuredPath}\" ");
-            }
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return ResolveWindowsCommand(configuredPath);
             return (configuredPath, "");
         }
 
         var resolved = await _shellService.WhichAsync("claude");
         if (resolved != null)
         {
-            // .cmd wrappers (npm-installed on Windows) need cmd.exe to execute reliably
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                && resolved.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase))
-            {
-                return ("cmd.exe", $"/c \"{resolved}\" ");
-            }
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return ResolveWindowsCommand(resolved);
             return (resolved, "");
         }
 
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string[] windowsCandidates =
+            [
+                Path.Combine(appData, "npm", "claude.cmd"),
+            ];
+
+            foreach (var candidate in windowsCandidates)
+            {
+                if (File.Exists(candidate))
+                    return ResolveWindowsCommand(candidate);
+            }
+        }
+        else
         {
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             string[] candidates =
@@ -101,6 +108,30 @@ public class ClaudeCliResolver
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Given a resolved path on Windows, return the correct (fileName, argPrefix) tuple.
+    /// Handles .exe (direct), .cmd/.bat (via cmd.exe /c), and bare scripts
+    /// (probe for .cmd sibling, else wrap with cmd.exe /c).
+    /// </summary>
+    private static (string fileName, string argPrefix) ResolveWindowsCommand(string resolvedPath)
+    {
+        var ext = Path.GetExtension(resolvedPath);
+
+        if (ext.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+            return (resolvedPath, "");
+
+        if (ext.Equals(".cmd", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".bat", StringComparison.OrdinalIgnoreCase))
+            return ("cmd.exe", $"/c \"{resolvedPath}\" ");
+
+        // Bare script (e.g., npm's extensionless 'claude' wrapper) — probe for .cmd sibling
+        var cmdSibling = resolvedPath + ".cmd";
+        if (File.Exists(cmdSibling))
+            return ("cmd.exe", $"/c \"{cmdSibling}\" ");
+
+        return ("cmd.exe", $"/c \"{resolvedPath}\" ");
     }
 
     public async Task<string?> RunSimpleCommandAsync(string fileName, string arguments)

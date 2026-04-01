@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Cominomi.Shared.Models;
 using Cominomi.Shared.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -48,7 +49,11 @@ public class ClaudeServiceTests : IDisposable
         _shellService.WhichResult = "/usr/local/bin/claude";
         var (found, path) = await _sut.DetectCliAsync();
         Assert.True(found);
-        Assert.Equal("/usr/local/bin/claude", path);
+        // On Windows, bare paths are wrapped with cmd.exe
+        var expected = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? "cmd.exe"
+            : "/usr/local/bin/claude";
+        Assert.Equal(expected, path);
     }
 
     [Fact]
@@ -57,7 +62,10 @@ public class ClaudeServiceTests : IDisposable
         _optionsMonitor.Settings.ClaudePath = "/custom/claude";
         var (found, path) = await _sut.DetectCliAsync();
         Assert.True(found);
-        Assert.Equal("/custom/claude", path);
+        var expected = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? "cmd.exe"
+            : "/custom/claude";
+        Assert.Equal(expected, path);
     }
 
     // --- Dispose ---
