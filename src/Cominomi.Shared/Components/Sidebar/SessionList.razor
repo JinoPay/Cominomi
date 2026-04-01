@@ -60,6 +60,12 @@
                                                  Icon="@Icons.Material.Filled.Settings">
                                         워크스페이스 설정
                                     </MudMenuItem>
+                                    <MudDivider />
+                                    <MudMenuItem OnClick="@(() => DeleteWorkspace(row.WorkspacesInGroup!.First()))"
+                                                 Icon="@Icons.Material.Filled.Delete"
+                                                 IconColor="Color.Error">
+                                        워크스페이스 삭제
+                                    </MudMenuItem>
                                 </MudMenu>
                             </div>
                         </div>
@@ -425,6 +431,13 @@
     private async Task DeleteSession(Session session)
     {
         if (await Facade.DeleteSessionAsync(session))
+            RebuildFlatRows();
+        StateHasChanged();
+    }
+
+    private async Task DeleteWorkspace(Workspace workspace)
+    {
+        if (await Facade.DeleteWorkspaceAsync(workspace))
             RebuildFlatRows();
         StateHasChanged();
     }

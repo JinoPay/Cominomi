@@ -14,6 +14,9 @@ public static class SnackbarExtensions
     public static void SessionDeleted(this ISnackbar snackbar)
         => snackbar.Add(Strings.Snackbar_SessionDeleted, Severity.Info);
 
+    public static void WorkspaceDeleted(this ISnackbar snackbar, string name)
+        => snackbar.Add(Strings.Snackbar_WorkspaceDeleted(name), Severity.Success);
+
     public static void StreamingError(this ISnackbar snackbar, string error)
         => snackbar.Add(Strings.Snackbar_StreamingError(error), Severity.Error);
 
