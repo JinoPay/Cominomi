@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.6.3",
+    "date": "2026-04-01",
+    "changes": [
+      { "type": "fix", "description": "macOS 디버그 빌드에서 알림 크래시 및 무응답 수정" },
+      { "type": "fix", "description": "macOS 릴리스 번들에 NSUserNotificationAlertStyle 추가" },
+      { "type": "fix", "description": "Messages 리스트 동시 접근 레이스 컨디션 수정" }
+    ]
+  },
+  {
     "version": "1.6.2",
     "date": "2026-04-01",
     "changes": [
