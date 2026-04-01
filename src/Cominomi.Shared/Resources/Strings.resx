@@ -41,6 +41,7 @@
   <data name="Snackbar_MergeSuccess" xml:space="preserve"><value>'{0}' PR이 병합되었습니다.</value></data>
   <data name="Snackbar_MergeError" xml:space="preserve"><value>병합 실패: {0}</value></data>
   <data name="Snackbar_WorkspaceCreated" xml:space="preserve"><value>'{0}' 워크스페이스가 생성되었습니다.</value></data>
+  <data name="Snackbar_WorkspaceDeleted" xml:space="preserve"><value>'{0}' 워크스페이스가 삭제되었습니다.</value></data>
   <data name="Snackbar_SettingsSaved" xml:space="preserve"><value>설정이 저장되었습니다.</value></data>
   <data name="Snackbar_SessionDeleted" xml:space="preserve"><value>세션이 삭제되었습니다.</value></data>
   <data name="Snackbar_ConflictDetected" xml:space="preserve"><value>'{0}' 브랜치에서 병합 충돌이 감지되었습니다.</value></data>

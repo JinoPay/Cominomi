@@ -32,4 +32,10 @@ public interface ISessionListFacade
     /// Returns true if the session was actually deleted.
     /// </summary>
     Task<bool> DeleteSessionAsync(Session session);
+
+    /// <summary>
+    /// Shows confirmation dialog, deletes all sessions and the workspace, cleans up caches, notifies user.
+    /// Returns true if the workspace was actually deleted.
+    /// </summary>
+    Task<bool> DeleteWorkspaceAsync(Workspace workspace);
 }

@@ -25,6 +25,7 @@ public static class Strings
     public static string Snackbar_MergeSuccess(string branchName) => Get(nameof(Snackbar_MergeSuccess), branchName);
     public static string Snackbar_MergeError(string error) => Get(nameof(Snackbar_MergeError), error);
     public static string Snackbar_WorkspaceCreated(string name) => Get(nameof(Snackbar_WorkspaceCreated), name);
+    public static string Snackbar_WorkspaceDeleted(string name) => Get(nameof(Snackbar_WorkspaceDeleted), name);
     public static string Snackbar_SettingsSaved => Get(nameof(Snackbar_SettingsSaved));
     public static string Snackbar_SessionDeleted => Get(nameof(Snackbar_SessionDeleted));
     public static string Snackbar_ConflictDetected(string branchName) => Get(nameof(Snackbar_ConflictDetected), branchName);

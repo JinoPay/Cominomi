@@ -17,6 +17,7 @@ public class SessionListFacade : ISessionListFacade
     private readonly ISkillRegistry _skillRegistry;
     private readonly IClaudeService _claudeService;
     private readonly INotificationHistoryService _notificationHistory;
+    private readonly IWorkspaceService _workspaceService;
 
     public SessionListFacade(
         IChatState chatState,
@@ -29,7 +30,8 @@ public class SessionListFacade : ISessionListFacade
         ISnackbar snackbar,
         ISkillRegistry skillRegistry,
         IClaudeService claudeService,
-        INotificationHistoryService notificationHistory)
+        INotificationHistoryService notificationHistory,
+        IWorkspaceService workspaceService)
     {
         _chatState = chatState;
         _sessionService = sessionService;
@@ -42,6 +44,7 @@ public class SessionListFacade : ISessionListFacade
         _skillRegistry = skillRegistry;
         _claudeService = claudeService;
         _notificationHistory = notificationHistory;
+        _workspaceService = workspaceService;
     }
 
     public Task<(Workspace? Workspace, Session? Session, string? ProjectName)> RestoreLastSelectionAsync(
@@ -143,6 +146,62 @@ public class SessionListFacade : ISessionListFacade
         _snackbar.SessionDeleted();
 
         return true;
+    }
+
+    public async Task<bool> DeleteWorkspaceAsync(Workspace workspace)
+    {
+        var result = await _dialogService.ShowMessageBoxAsync(
+            "워크스페이스 삭제",
+            $"'{workspace.Name}' 워크스페이스와 모든 세션이 삭제됩니다. 계속하시겠습니까?",
+            yesText: "삭제", cancelText: "취소");
+
+        if (result != true) return false;
+
+        try
+        {
+            // Stop streaming and clean up caches for all sessions
+            if (_dataService.SessionCache.TryGetValue(workspace.Id, out var cachedSessions))
+            {
+                foreach (var session in cachedSessions)
+                {
+                    _claudeService.Cancel(session.Id);
+                    _notificationHistory.MarkSessionAsRead(session.Id);
+                    _dataService.DiffStatsCache.Remove(session.Id);
+                }
+            }
+
+            // Delete all sessions
+            var sessions = await _sessionService.GetSessionsByWorkspaceAsync(workspace.Id);
+            foreach (var session in sessions)
+            {
+                await _sessionService.DeleteSessionAsync(session.Id);
+            }
+
+            // Delete the workspace
+            await _workspaceService.DeleteWorkspaceAsync(workspace.Id);
+
+            // Clear ChatState if this workspace is active
+            if (_chatState.CurrentWorkspace?.Id == workspace.Id)
+            {
+                _chatState.SetSession(null!);
+                _chatState.SetWorkspace(null!);
+            }
+
+            // Close settings panel if open for this workspace
+            if (_chatState.SettingsWorkspaceId == workspace.Id)
+                _chatState.CloseSettings();
+
+            // Refresh workspace list (fires OnDataChanged → sidebar rebuilds)
+            await _dataService.RefreshWorkspacesAsync();
+
+            _snackbar.WorkspaceDeleted(workspace.Name);
+            return true;
+        }
+        catch (Exception)
+        {
+            _snackbar.Add("삭제 중 오류가 발생했습니다.", Severity.Error);
+            return false;
+        }
     }
 
     private async Task SwitchWorkspaceAsync(Workspace ws)

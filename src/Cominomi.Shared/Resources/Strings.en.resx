@@ -41,6 +41,7 @@
   <data name="Snackbar_MergeSuccess" xml:space="preserve"><value>PR for '{0}' has been merged.</value></data>
   <data name="Snackbar_MergeError" xml:space="preserve"><value>Merge failed: {0}</value></data>
   <data name="Snackbar_WorkspaceCreated" xml:space="preserve"><value>Workspace '{0}' has been created.</value></data>
+  <data name="Snackbar_WorkspaceDeleted" xml:space="preserve"><value>Workspace '{0}' has been deleted.</value></data>
   <data name="Snackbar_SettingsSaved" xml:space="preserve"><value>Settings saved.</value></data>
   <data name="Snackbar_SessionDeleted" xml:space="preserve"><value>Session deleted.</value></data>
   <data name="Snackbar_ConflictDetected" xml:space="preserve"><value>Merge conflict detected on branch '{0}'.</value></data>
