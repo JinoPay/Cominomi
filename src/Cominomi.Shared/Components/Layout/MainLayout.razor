@@ -221,6 +221,18 @@
         EventBus.Publish(new ToggleEffortLevelEvent());
     }
 
+    [JSInvokable]
+    public void OnToggleSyncShortcut()
+    {
+        if (ChatState.CurrentSession == null
+            || ChatState.IsStreaming
+            || ChatState.CurrentSession.Status == SessionStatus.Archived
+            || ChatState.ShowSettings
+            || ChatState.ShowNotifications)
+            return;
+        EventBus.Publish(new ToggleSyncEvent());
+    }
+
     private void HandleThemeChanged()
     {
         _ = InvokeAsync(() =>
