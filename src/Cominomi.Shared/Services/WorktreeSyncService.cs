@@ -357,51 +357,37 @@ public class WorktreeSyncService : IWorktreeSyncService
 
         try
         {
-            // 1. Revert files copied from worktree
-            var trackedCopied = state.CopiedFromWorktree
-                .Where(p => !state.BackedUpFiles.Any(b => b.RelativePath == p))
-                .ToList();
+            var backedUpSet = state.BackedUpFiles.ToDictionary(b => b.RelativePath, StringComparer.OrdinalIgnoreCase);
 
-            // tracked files that were NOT in the original backup → checkout to HEAD
-            var toCheckout = new List<string>();
-            var toDelete = new List<string>();
-
-            foreach (var relativePath in trackedCopied)
+            // 1. Revert each file copied from worktree individually
+            foreach (var relativePath in state.CopiedFromWorktree)
             {
                 var fullPath = Path.Combine(state.RepoLocalPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
-                if (!File.Exists(fullPath))
-                    continue;
 
-                // Check if this was an untracked file added by the worktree
-                var srcPath = Path.Combine(state.WorktreePath, relativePath.Replace('/', Path.DirectorySeparatorChar));
-                // If the file doesn't exist at HEAD in the local dir, it was newly created → delete
-                // Otherwise → checkout to HEAD
-                toCheckout.Add(relativePath);
-            }
-
-            if (toCheckout.Count > 0)
-            {
-                var result = await _gitService.CheckoutFilesAsync(state.RepoLocalPath, toCheckout, ct);
-                if (!result.Success)
+                // If this file has a backup, it will be restored in step 2 — just need to
+                // revert the worktree version first so the backup can overwrite cleanly.
+                if (backedUpSet.ContainsKey(relativePath))
                 {
-                    // Some files might be untracked (new), delete those
-                    foreach (var path in toCheckout)
+                    // Revert tracked file to HEAD first; backup restore will overwrite it.
+                    if (!backedUpSet[relativePath].WasUntracked)
+                        await _gitService.CheckoutFilesAsync(state.RepoLocalPath, [relativePath], ct);
+                    continue;
+                }
+
+                // No backup — this file wasn't in the local dir before sync.
+                // Try git checkout (works for tracked files that exist in HEAD).
+                if (File.Exists(fullPath))
+                {
+                    var result = await _gitService.CheckoutFilesAsync(state.RepoLocalPath, [relativePath], ct);
+                    if (!result.Success)
                     {
-                        var fullPath = Path.Combine(state.RepoLocalPath, path.Replace('/', Path.DirectorySeparatorChar));
+                        // File doesn't exist in HEAD → it was a new file from the worktree. Delete it.
                         DeleteFileWithRetry(fullPath);
                     }
                 }
             }
 
-            // Also checkout files that were both backed up AND copied (they got overwritten by worktree content)
-            var overwrittenTracked = state.CopiedFromWorktree
-                .Where(p => state.BackedUpFiles.Any(b => b.RelativePath == p && !b.WasUntracked))
-                .ToList();
-
-            if (overwrittenTracked.Count > 0)
-                await _gitService.CheckoutFilesAsync(state.RepoLocalPath, overwrittenTracked, ct);
-
-            // 2. Restore backed-up files
+            // 2. Restore backed-up files (original local dir state)
             foreach (var entry in state.BackedUpFiles)
             {
                 var backupPath = Path.Combine(state.BackupDir, entry.RelativePath.Replace('/', Path.DirectorySeparatorChar));
