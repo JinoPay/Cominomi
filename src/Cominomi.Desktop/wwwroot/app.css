@@ -1821,6 +1821,18 @@ html *::after {
     opacity: 0.5;
 }
 
+/* Token usage ring */
+.token-usage-ring {
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: opacity var(--transition);
+    cursor: default;
+}
+
+.token-usage-ring:hover {
+    opacity: 1;
+}
+
 /* Model popover dropdown */
 .model-popover {
     background: var(--bg-elevated) !important;
