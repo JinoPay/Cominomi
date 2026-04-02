@@ -236,6 +236,16 @@ public class GitService : IGitService
         return result.Success && result.Output.Trim() == "true";
     }
 
+    public async Task<GitResult> InitAsync(string path, CancellationToken ct = default)
+    {
+        var result = await RunGitAsync(path, ct, "init");
+        if (result.Success)
+            _logger.LogInformation("Initialized git repository at {Path}", path);
+        else
+            _logger.LogWarning("Failed to initialize git repository at {Path}: {Error}", path, result.Error);
+        return result;
+    }
+
     public async Task<string?> GetCurrentBranchAsync(string repoDir)
     {
         var result = await RunGitAsync(repoDir, default, "rev-parse", "--abbrev-ref", "HEAD");

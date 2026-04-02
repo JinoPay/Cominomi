@@ -92,6 +92,19 @@
                                 <MudIcon Icon="@(_isLocalPathGitRepo ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Warning)"
                                          Style="font-size: 16px;" />
                                 <span>@_localPathValidation</span>
+                                @if (!_isLocalPathGitRepo)
+                                {
+                                    <button type="button" class="create-ws-init-btn"
+                                            @onclick="InitializeGitRepo"
+                                            disabled="@_isInitializingGit">
+                                        @if (_isInitializingGit)
+                                        {
+                                            <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                                                 Style="width: 14px; height: 14px;" />
+                                        }
+                                        Git 초기화
+                                    </button>
+                                }
                             </div>
                         }
                         <div class="create-ws-field-group">
@@ -160,6 +173,7 @@
     private string? _errorMessage;
     private string? _localPathValidation;
     private bool _isLocalPathGitRepo;
+    private bool _isInitializingGit;
     private bool _nameAutoFilled;
 
     private readonly DialogOptions _dialogOptions = new()
@@ -171,7 +185,8 @@
     private bool CanCreate => !_isCreating && _activeTab switch
     {
         0 => !string.IsNullOrWhiteSpace(_repoUrl) && !string.IsNullOrWhiteSpace(_editName),
-        1 => !string.IsNullOrWhiteSpace(_localPath) && !string.IsNullOrWhiteSpace(_editName),
+        1 => !string.IsNullOrWhiteSpace(_localPath) && !string.IsNullOrWhiteSpace(_editName)
+             && (_localPathValidation == null || _isLocalPathGitRepo),
         _ => false
     };
 
@@ -193,6 +208,7 @@
         _errorMessage = null;
         _localPathValidation = null;
         _isLocalPathGitRepo = false;
+        _isInitializingGit = false;
         _isCreating = false;
         _nameAutoFilled = false;
     }
@@ -303,6 +319,57 @@
         {
             _editName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? "";
             _nameAutoFilled = true;
+        }
+    }
+
+    private async Task InitializeGitRepo()
+    {
+        if (string.IsNullOrWhiteSpace(_localPath)) return;
+
+        _isInitializingGit = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var initResult = await GitService.InitAsync(_localPath);
+            if (!initResult.Success)
+            {
+                _errorMessage = $"Git 초기화 실패: {initResult.Error}";
+                return;
+            }
+
+            // 초기 커밋 시도 (빈 디렉터리면 실패해도 무시)
+            var stageResult = await GitService.StageAllAsync(_localPath);
+            if (stageResult.Success)
+                await GitService.CommitAsync(_localPath, "Initial commit");
+
+            // 재검증
+            if (await GitService.IsGitRepoAsync(_localPath))
+            {
+                _isLocalPathGitRepo = true;
+                _localPathValidation = "Git 저장소가 초기화되었습니다.";
+
+                if (string.IsNullOrEmpty(_editName) || _nameAutoFilled)
+                {
+                    _editName = Path.GetFileName(_localPath.TrimEnd(
+                        Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? "";
+                    _nameAutoFilled = true;
+                }
+            }
+            else
+            {
+                _errorMessage = "Git 초기화에 실패했습니다. 다시 시도해 주세요.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isInitializingGit = false;
+            StateHasChanged();
         }
     }
 

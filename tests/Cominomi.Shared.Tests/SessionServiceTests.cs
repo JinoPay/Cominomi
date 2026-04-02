@@ -257,6 +257,8 @@ public class SessionServiceTests : IDisposable
         public Task<string?> DetectDefaultBranchAsync(string repoDir)
             => Task.FromResult<string?>("origin/main");
         public Task<bool> IsGitRepoAsync(string path) => Task.FromResult(true);
+        public Task<GitResult> InitAsync(string path, CancellationToken ct = default)
+            => Task.FromResult(NextResult);
         public Task<string?> GetCurrentBranchAsync(string repoDir) => Task.FromResult<string?>("main");
         public Task<List<string>> ListBranchesAsync(string repoDir) => Task.FromResult<List<string>>(["main"]);
         public Task<bool> BranchExistsAsync(string repoDir, string branchName) => Task.FromResult(false);
