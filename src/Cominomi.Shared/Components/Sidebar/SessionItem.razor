@@ -4,13 +4,6 @@
      @oncontextmenu="OpenContextMenu"
      @oncontextmenu:preventDefault="true">
 
-    <div class="tree-session-actions">
-        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
-                       Style="width: 20px; height: 20px; opacity: 0.4;"
-                       OnClick="@OnDelete"
-                       ClickPropagation="false"/>
-    </div>
-
     @if (IsSynced)
     {
         <span class="status-badge synced" title="동기화">동기화</span>
@@ -69,6 +62,13 @@
                 <span class="tree-session-status">@StreamingStatusText</span>
             }
         </div>
+    </div>
+
+    <div class="tree-session-actions">
+        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                       Style="width: 20px; height: 20px; opacity: 0.4;"
+                       OnClick="@OnDelete"
+                       ClickPropagation="false"/>
     </div>
 
     @if (DeleteShortcutLabel != null || ShortcutLabel != null)
