@@ -204,6 +204,25 @@ public class GitServiceTests
         Assert.Equal(3, branches.Count);
     }
 
+    // --- InitAsync ---
+
+    [Fact]
+    public async Task InitAsync_Success_ReturnsSuccess()
+    {
+        _processRunner.NextResult = new ProcessResult(true, "Initialized empty Git repository\n", "", 0);
+        var result = await _sut.InitAsync("/repo");
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task InitAsync_Failure_ReturnsError()
+    {
+        _processRunner.NextResult = new ProcessResult(false, "", "fatal: cannot mkdir", 128);
+        var result = await _sut.InitAsync("/repo");
+        Assert.False(result.Success);
+        Assert.Contains("cannot mkdir", result.Error);
+    }
+
     // --- GetNameStatusAsync ---
 
     [Fact]

@@ -3532,6 +3532,35 @@ html *::after {
     border: 1px solid var(--color-warning-border);
 }
 
+.create-ws-init-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+    padding: 2px var(--space-2);
+    border: 1px solid var(--color-warning-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.create-ws-init-btn:hover:not(:disabled) {
+    background: var(--color-warning-border);
+    color: var(--text-primary);
+}
+
+.create-ws-init-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Error bar */
 .create-ws-error {
     display: flex;
@@ -3662,6 +3691,7 @@ html *::after {
 /* Focus visible for custom buttons */
 .create-ws-segment:focus-visible,
 .create-ws-browse-btn:focus-visible,
+.create-ws-init-btn:focus-visible,
 .create-ws-btn-cancel:focus-visible,
 .create-ws-btn-create:focus-visible {
     outline: none;
