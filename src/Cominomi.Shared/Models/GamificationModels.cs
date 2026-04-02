@@ -46,7 +46,9 @@ public enum AchievementCategory
     Mastery,
     Explorer,
     Efficiency,
-    Time
+    Time,
+    Economy,
+    Pattern
 }
 
 public enum AchievementRarity
@@ -113,6 +115,18 @@ public class DashboardStats
 
     // Hourly distribution (24-element array, from all sessions)
     public int[] HourCounts { get; set; } = new int[24];
+
+    // Economy stats (from UsageStats via StatsCacheService)
+    public long TotalTokens { get; set; }
+    public long TotalOutputTokens { get; set; }
+    public decimal TotalCostUsd { get; set; }
+    public int DistinctModelsUsed { get; set; }
+
+    // Pattern stats (derived from DailyActivity/HourCounts)
+    public int WeekendDaysActive { get; set; }
+    public int PeakDayMessages { get; set; }
+    public int ActiveHoursCount { get; set; }
+
     public List<Achievement> Achievements { get; set; } = [];
     public List<ConfigItem> ConfigItems { get; set; } = [];
     public List<DailyActivityEntry> DailyActivity { get; set; } = [];
