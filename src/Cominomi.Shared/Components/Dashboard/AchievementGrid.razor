@@ -64,7 +64,9 @@
         ["Mastery"] = "숙련",
         ["Explorer"] = "탐험",
         ["Efficiency"] = "효율",
-        ["Time"] = "시간"
+        ["Time"] = "시간",
+        ["Economy"] = "경제",
+        ["Pattern"] = "패턴"
     };
 
     private List<Achievement> FilteredAchievements => _selectedCategory == "all"
@@ -75,6 +77,7 @@
     {
         return icon switch
         {
+            // Config
             "tune" => Icons.Material.Filled.Tune,
             "bolt" => Icons.Material.Filled.Bolt,
             "hub" => Icons.Material.Filled.Hub,
@@ -83,16 +86,34 @@
             "security" => Icons.Material.Filled.Security,
             "terminal" => Icons.Material.Filled.Terminal,
             "verified" => Icons.Material.Filled.Verified,
+            "psychology" => Icons.Material.Filled.Psychology,
+            "memory" => Icons.Material.Filled.Memory,
+            "rule" => Icons.Material.Filled.Rule,
+            "precision_manufacturing" => Icons.Material.Filled.PrecisionManufacturing,
+            "webhook" => Icons.Material.Filled.Webhook,
+            "dns" => Icons.Material.Filled.Dns,
+            // Usage
             "waving_hand" => Icons.Material.Filled.WavingHand,
             "chat" => Icons.Material.Filled.Chat,
+            "mark_chat_read" => Icons.Material.Filled.MarkChatRead,
             "forum" => Icons.Material.Filled.Forum,
+            "question_answer" => Icons.Material.Filled.QuestionAnswer,
             "whatshot" => Icons.Material.Filled.Whatshot,
+            "sms" => Icons.Material.Filled.Sms,
             "rocket_launch" => Icons.Material.Filled.RocketLaunch,
+            "play_circle" => Icons.Material.Filled.PlayCircle,
             "collections" => Icons.Material.Filled.Collections,
             "layers" => Icons.Material.Filled.Layers,
+            "video_library" => Icons.Material.Filled.VideoLibrary,
             "workspace_premium" => Icons.Material.Filled.WorkspacePremium,
+            "all_inclusive" => Icons.Material.Filled.AllInclusive,
+            "construction" => Icons.Material.Filled.Construction,
             "handyman" => Icons.Material.Filled.Handyman,
+            "hardware" => Icons.Material.Filled.Hardware,
             "build" => Icons.Material.Filled.Build,
+            "engineering" => Icons.Material.Filled.Engineering,
+            "factory" => Icons.Material.Filled.Factory,
+            // Streak
             "local_fire_department" => Icons.Material.Filled.LocalFireDepartment,
             "military_tech" => Icons.Material.Filled.MilitaryTech,
             "shield" => Icons.Material.Filled.Shield,
@@ -100,21 +121,60 @@
             "diamond" => Icons.Material.Filled.Diamond,
             "crown" => Icons.Material.Filled.WorkspacePremium,
             "auto_awesome" => Icons.Material.Filled.AutoAwesome,
+            "fitness_center" => Icons.Material.Filled.FitnessCenter,
+            // Mastery
+            "thumb_up" => Icons.Material.Filled.ThumbUp,
             "favorite" => Icons.Material.Filled.Favorite,
             "star" => Icons.Material.Filled.Star,
             "cake" => Icons.Material.Filled.Cake,
             "settings" => Icons.Material.Filled.Settings,
+            "smart_toy" => Icons.Material.Filled.SmartToy,
+            // Explorer
+            "folder_open" => Icons.Material.Filled.FolderOpen,
             "explore" => Icons.Material.Filled.Explore,
             "account_tree" => Icons.Material.Filled.AccountTree,
+            "source" => Icons.Material.Filled.Source,
             "public" => Icons.Material.Filled.Public,
+            "inventory" => Icons.Material.Filled.Inventory,
             "travel_explore" => Icons.Material.Filled.TravelExplore,
+            "language" => Icons.Material.Filled.Language,
+            // Efficiency
+            "trending_up" => Icons.Material.Filled.TrendingUp,
             "speed" => Icons.Material.Filled.Speed,
+            "flash_on" => Icons.Material.Filled.FlashOn,
+            "electric_bolt" => Icons.Material.Filled.ElectricBolt,
             "savings" => Icons.Material.Filled.Savings,
+            "account_balance_wallet" => Icons.Material.Filled.AccountBalanceWallet,
+            "paid" => Icons.Material.Filled.Paid,
+            "monetization_on" => Icons.Material.Filled.MonetizationOn,
+            // Time
+            "directions_run" => Icons.Material.Filled.DirectionsRun,
+            "sprint" => Icons.Material.Filled.DirectionsRun,
             "dark_mode" => Icons.Material.Filled.DarkMode,
             "wb_sunny" => Icons.Material.Filled.WbSunny,
             "timer" => Icons.Material.Filled.Timer,
             "hourglass_top" => Icons.Material.Filled.HourglassTop,
             "nightlight" => Icons.Material.Filled.Nightlight,
+            "bedtime" => Icons.Material.Filled.Bedtime,
+            "wb_twilight" => Icons.Material.Filled.WbTwilight,
+            "mode_night" => Icons.Material.Filled.ModeNight,
+            "light_mode" => Icons.Material.Filled.LightMode,
+            // Economy
+            "token" => Icons.Material.Filled.Token,
+            "generating_tokens" => Icons.Material.Filled.GeneratingTokens,
+            "data_usage" => Icons.Material.Filled.DataUsage,
+            "attach_money" => Icons.Material.Filled.AttachMoney,
+            "payments" => Icons.Material.Filled.Payments,
+            "account_balance" => Icons.Material.Filled.AccountBalance,
+            "currency_exchange" => Icons.Material.Filled.CurrencyExchange,
+            "diversity_3" => Icons.Material.Filled.Diversity3,
+            // Pattern
+            "weekend" => Icons.Material.Filled.Weekend,
+            "event_available" => Icons.Material.Filled.EventAvailable,
+            "schedule" => Icons.Material.Filled.Schedule,
+            "lunch_dining" => Icons.Material.Filled.LunchDining,
+            "access_time" => Icons.Material.Filled.AccessTime,
+            "contrast" => Icons.Material.Filled.Contrast,
             _ => Icons.Material.Filled.EmojiEvents
         };
     }
@@ -184,7 +244,7 @@
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
-        max-height: 400px;
+        max-height: 500px;
         overflow-y: auto;
     }
 
