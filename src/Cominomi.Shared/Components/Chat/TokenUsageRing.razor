@@ -1,0 +1,88 @@
+@inject IChatState ChatState
+@implements IDisposable
+
+@if (CurrentSession != null)
+{
+    <MudTooltip Text="@BuildTooltip()" Placement="Placement.Top">
+        <svg class="token-usage-ring" width="22" height="22" viewBox="0 0 22 22">
+            <circle cx="11" cy="11" r="9" fill="none"
+                    stroke="var(--border-default)" stroke-width="3"/>
+            @if (UsagePercent > 0)
+            {
+                <circle cx="11" cy="11" r="9" fill="none"
+                        stroke="@FillColor" stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-dasharray="@Circumference"
+                        stroke-dashoffset="@DashOffset"
+                        transform="rotate(-90 11 11)"/>
+            }
+        </svg>
+    </MudTooltip>
+}
+
+@code {
+    [Parameter] public Session? CurrentSession { get; set; }
+    [Parameter] public string Model { get; set; } = string.Empty;
+
+    private const double CircumferenceValue = 2 * Math.PI * 9; // ~56.549
+
+    private long TotalTokens => (CurrentSession?.TotalInputTokens ?? 0) + (CurrentSession?.TotalOutputTokens ?? 0);
+    private int ContextWindow => ModelDefinitions.GetContextWindow(Model);
+    private double UsagePercent => ContextWindow > 0 ? Math.Min((double)TotalTokens / ContextWindow, 1.0) : 0;
+
+    private string Circumference => CircumferenceValue.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string DashOffset => (CircumferenceValue * (1 - UsagePercent))
+        .ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string FillColor => UsagePercent switch
+    {
+        > 0.95 => "var(--color-error)",
+        > 0.80 => "var(--color-warning)",
+        _ => "var(--accent)"
+    };
+
+    protected override void OnInitialized()
+    {
+        ChatState.OnChange += HandleStateChanged;
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ChatState.OnChange -= HandleStateChanged;
+    }
+
+    private string BuildTooltip()
+    {
+        var input = CurrentSession?.TotalInputTokens ?? 0;
+        var output = CurrentSession?.TotalOutputTokens ?? 0;
+        var total = input + output;
+        var pct = ContextWindow > 0 ? (double)total / ContextWindow * 100 : 0;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"토큰: {FormatTokens(total)} / {FormatTokens(ContextWindow)} ({pct:F1}%)");
+        sb.AppendLine($"입력: {FormatTokens(input)}");
+        sb.Append($"출력: {FormatTokens(output)}");
+
+        var pricing = ModelDefinitions.GetPricing(Model);
+        if (pricing != null)
+        {
+            var cost = (input * pricing.Input + output * pricing.Output) / 1_000_000m;
+            sb.Append($"\n예상 비용: ${cost:F4}");
+        }
+
+        return sb.ToString();
+    }
+
+    private static string FormatTokens(long tokens) => tokens switch
+    {
+        >= 1_000_000 => $"{tokens / 1_000_000.0:F1}M",
+        >= 1_000 => $"{tokens / 1_000.0:F1}K",
+        _ => tokens.ToString("N0")
+    };
+}

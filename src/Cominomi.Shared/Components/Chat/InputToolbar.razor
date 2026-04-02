@@ -36,6 +36,8 @@
             </MudTooltip>
         }
 
+        <TokenUsageRing CurrentSession="CurrentSession" Model="Model"/>
+
         <ModelSelector Model="Model" ResolvedModel="ResolvedModel"
                        OnModelChanged="OnModelChanged"
                        OnMenuClosed="@(() => OnModelMenuClosed.InvokeAsync())"
@@ -77,6 +79,7 @@
     [Parameter] public string EffortLevel { get; set; } = "auto";
     [Parameter] public EventCallback<string> OnEffortLevelChanged { get; set; }
     [Parameter] public string Model { get; set; } = string.Empty;
+    [Parameter] public Session? CurrentSession { get; set; }
     [Parameter] public EventCallback<string> OnModelChanged { get; set; }
     [Parameter] public string? ResolvedModel { get; set; }
     [Parameter] public bool IsStreaming { get; set; }

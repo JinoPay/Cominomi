@@ -7,6 +7,8 @@ public record ModelInfo(string Id, string DisplayName)
 {
     [JsonPropertyName("pricing")] public ModelPricing? Pricing { get; init; }
 
+    [JsonPropertyName("contextWindow")] public int ContextWindow { get; init; } = 200_000;
+
     [JsonPropertyName("keywords")] public string[] Keywords { get; init; } = [];
 }
 
@@ -35,6 +37,13 @@ public static class ModelDefinitions
 
     public static ModelInfo[] All => _config.Models;
     public static string PricingFallbackId => _config.DefaultPricingFallbackId;
+
+    public static int GetContextWindow(string modelId)
+    {
+        var normalized = NormalizeModelId(modelId);
+        var model = All.FirstOrDefault(m => m.Id == normalized);
+        return model?.ContextWindow ?? 200_000;
+    }
 
     public static bool SupportsMaxEffort(string modelId)
     {
