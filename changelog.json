@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.6.4",
+    "date": "2026-04-02",
+    "changes": [
+      { "type": "feat", "description": "로컬 워크스페이스 생성 시 비-git 디렉터리 자동 git init 지원" },
+      { "type": "fix", "description": "터미널 PTY ERROR_DIRECTORY 크래시 및 stale WorktreePath 근본 원인 수정" }
+    ]
+  },
+  {
     "version": "1.6.3",
     "date": "2026-04-01",
     "changes": [
