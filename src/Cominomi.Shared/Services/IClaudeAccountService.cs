@@ -29,4 +29,10 @@ public interface IClaudeAccountService
     ///     Call on page entry to catch external logins / logouts.
     /// </summary>
     Task SyncActiveAccountAsync();
+
+    /// <summary>계정의 백업 데이터를 읽어 내보내기 봉투를 구성합니다. 백업 없으면 예외.</summary>
+    Task<AccountExportEnvelope> PrepareExportAsync(string accountId);
+
+    /// <summary>가져오기 봉투로 계정을 등록합니다. 새 GUID로 저장.</summary>
+    Task<ClaudeAccount> ImportAccountAsync(AccountExportEnvelope envelope, string profileName);
 }

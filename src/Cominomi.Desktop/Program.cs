@@ -183,6 +183,7 @@ public static class Program
         appBuilder.Services.AddSingleton<HttpClient>();
         appBuilder.Services.AddSingleton<IClaudeCredentialService, ClaudeCredentialService>();
         appBuilder.Services.AddSingleton<IClaudeAccountService, ClaudeAccountService>();
+        appBuilder.Services.AddSingleton<ISaveFilePickerService, SaveFilePickerService>();
         appBuilder.Services.AddSingleton<IClaudeSettingsService, ClaudeSettingsService>();
         appBuilder.Services.AddSingleton<IRulesService, RulesService>();
         appBuilder.Services.AddSingleton<IInstructionsService, InstructionsService>();

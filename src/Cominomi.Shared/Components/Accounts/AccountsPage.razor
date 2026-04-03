@@ -13,12 +13,20 @@
                 각 계정의 인증 정보가 안전하게 백업되어 언제든 복원됩니다.
             </div>
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                   StartIcon="@Icons.Material.Filled.PersonAdd"
-                   OnClick="OpenAddDialog"
-                   Style="text-transform: none; flex-shrink: 0;">
-            현재 계정 등록
-        </MudButton>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.FileDownload"
+                       OnClick="OpenImportDialog"
+                       Style="text-transform: none;">
+                계정 가져오기
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.PersonAdd"
+                       OnClick="OpenAddDialog"
+                       Style="text-transform: none;">
+                현재 계정 등록
+            </MudButton>
+        </div>
     </div>
 
     <div class="settings-content-body">
@@ -108,6 +116,14 @@
     private async Task OpenAddDialog()
     {
         var dialog = await DialogService.ShowAsync<AddAccountDialog>(
+            "",
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+        await dialog.Result;
+    }
+
+    private async Task OpenImportDialog()
+    {
+        var dialog = await DialogService.ShowAsync<ImportAccountDialog>(
             "",
             new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
         await dialog.Result;
