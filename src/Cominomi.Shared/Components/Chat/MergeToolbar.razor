@@ -14,6 +14,7 @@
         var isWorktree = !session.Git.IsLocalDir;
         var hasRemote = !string.IsNullOrEmpty(workspace?.RepoUrl);
         var isStreaming = ChatState.IsSessionStreaming(session.Id);
+        var noTarget = string.IsNullOrEmpty(_targetBranch);
 
         @if (isWorktree)
         {
@@ -21,13 +22,16 @@
 
             @* 타겟 브랜치 선택 *@
             <div class="merge-branch-selector-wrap">
-                <button class="merge-branch-pill" @onclick="ToggleBranchMenu" disabled="@isStreaming">
-                    <MudIcon Icon="@Icons.Material.Filled.CallMerge"
-                             Style="font-size: 14px; opacity: 0.7;"/>
-                    <span class="merge-branch-name">@(_targetBranch ?? "브랜치 선택")</span>
-                    <MudIcon Icon="@Icons.Material.Filled.UnfoldMore"
-                             Style="font-size: 14px; opacity: 0.4;"/>
-                </button>
+                <MudTooltip Text="머지할 대상 브랜치 선택" Placement="Placement.Bottom">
+                    <button class="merge-target-badge @(isStreaming ? "disabled" : "")"
+                            @onclick="ToggleBranchMenu" disabled="@isStreaming">
+                        <MudIcon Icon="@Icons.Material.Filled.CallMerge"
+                                 Style="width: 11px; height: 11px;"/>
+                        <span>@(_targetBranch ?? "브랜치 선택")</span>
+                        <MudIcon Icon="@Icons.Material.Filled.ExpandMore"
+                                 Style="width: 11px; height: 11px; opacity: 0.5;"/>
+                    </button>
+                </MudTooltip>
 
                 <MudPopover Open="@_branchMenuOpen" AnchorOrigin="Origin.BottomRight"
                             TransformOrigin="Origin.TopRight" Class="branch-popover">
@@ -74,47 +78,48 @@
                 }
             </div>
 
-            @* 머지 스플릿 버튼 *@
-            <MudButtonGroup Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                            Class="merge-split-btn-group">
-                <MudTooltip Text="@($"{_targetBranch ?? "타겟"}에 머지")" Placement="Placement.Bottom">
-                    <MudButton OnClick="@(() => SendMergePrompt(false))"
-                               Disabled="@(isStreaming || string.IsNullOrEmpty(_targetBranch))"
-                               Style="font-size: 0.72rem; height: 26px; text-transform: none; padding: 0 8px;">
-                        머지
-                    </MudButton>
+            @* 액션 버튼들 *@
+            <div class="merge-actions">
+                <MudTooltip Text="@(noTarget ? "대상 브랜치를 선택하세요" : $"{_targetBranch}에 머지")" Placement="Placement.Bottom">
+                    <MudIconButton Icon="@Icons.Material.Outlined.MergeType"
+                                   Size="Size.Small"
+                                   OnClick="@(() => SendMergePrompt(false))"
+                                   Disabled="@(isStreaming || noTarget)"
+                                   Style="width: 28px; height: 28px; opacity: 0.5;"/>
                 </MudTooltip>
-                <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small"
-                         Variant="Variant.Filled" Color="Color.Primary"
-                         AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
-                         Style="min-width: 0; height: 26px;"
-                         Disabled="@(isStreaming || string.IsNullOrEmpty(_targetBranch))">
-                    <MudMenuItem Icon="@Icons.Material.Filled.Compress"
-                                 OnClick="@(() => SendMergePrompt(true))">
-                        스쿼시 머지
-                    </MudMenuItem>
-                    @if (hasRemote)
-                    {
-                        <MudMenuItem Icon="@Icons.Material.Filled.OpenInNew"
-                                     OnClick="SendCreatePrPrompt">
-                            PR 올리기
-                        </MudMenuItem>
-                    }
-                </MudMenu>
-            </MudButtonGroup>
+
+                <MudTooltip Text="@(noTarget ? "대상 브랜치를 선택하세요" : $"{_targetBranch}에 스쿼시 머지")" Placement="Placement.Bottom">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Compress"
+                                   Size="Size.Small"
+                                   OnClick="@(() => SendMergePrompt(true))"
+                                   Disabled="@(isStreaming || noTarget)"
+                                   Style="width: 28px; height: 28px; opacity: 0.5;"/>
+                </MudTooltip>
+
+                @if (hasRemote)
+                {
+                    <MudTooltip Text="PR 올리기" Placement="Placement.Bottom">
+                        <MudIconButton Icon="@Icons.Material.Outlined.OpenInNew"
+                                       Size="Size.Small"
+                                       OnClick="SendCreatePrPrompt"
+                                       Disabled="@isStreaming"
+                                       Style="width: 28px; height: 28px; opacity: 0.5;"/>
+                    </MudTooltip>
+                }
+            </div>
         }
         else if (hasRemote)
         {
             <div style="flex: 1;"></div>
-            <MudTooltip Text="PR 올리기" Placement="Placement.Bottom">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.OpenInNew"
-                           OnClick="SendCreatePrPrompt"
-                           Disabled="@isStreaming"
-                           Style="font-size: 0.72rem; height: 26px; text-transform: none; padding: 0 8px;">
-                    PR 올리기
-                </MudButton>
-            </MudTooltip>
+            <div class="merge-actions">
+                <MudTooltip Text="PR 올리기" Placement="Placement.Bottom">
+                    <MudIconButton Icon="@Icons.Material.Outlined.OpenInNew"
+                                   Size="Size.Small"
+                                   OnClick="SendCreatePrPrompt"
+                                   Disabled="@isStreaming"
+                                   Style="width: 28px; height: 28px; opacity: 0.5;"/>
+                </MudTooltip>
+            </div>
         }
     }
 </div>
@@ -169,7 +174,6 @@
             var (groups, defaultBranch) = await SessionInitializer.LoadBranchesAsync(repoPath);
             _branchGroups = groups;
 
-            // 기본 타겟: BaseBranch (세션이 포크된 브랜치) → 기본 브랜치 순
             var baseBranch = session.Git.BaseBranch;
             if (!string.IsNullOrEmpty(baseBranch) && _branchGroups.SelectMany(g => g.Branches).Contains(baseBranch))
                 _targetBranch = baseBranch;

@@ -578,8 +578,8 @@ html *::after {
 /* Keyboard shortcut badge — visible only while Ctrl/⌘ held */
 .tree-session-shortcuts {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+    flex-direction: row;
+    align-items: center;
     gap: 0;
     flex-shrink: 0;
     align-self: center;
@@ -681,53 +681,39 @@ html *::after {
     position: relative;
 }
 
-.merge-branch-pill {
-    display: flex;
+.merge-target-badge {
+    display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    border-radius: 12px;
-    border: 1px solid var(--border-default);
-    background: transparent;
+    gap: 3px;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--bg-surface);
+    border: none;
     cursor: pointer;
-    font-size: 0.72rem;
     color: var(--mud-palette-text-primary);
-    transition: background 0.15s;
+    opacity: 0.65;
+    transition: opacity 0.15s;
     white-space: nowrap;
-    max-width: 160px;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.merge-branch-pill:hover:not(:disabled) {
-    background: var(--mud-palette-action-default-hover);
+.merge-target-badge:hover:not(.disabled) {
+    opacity: 1;
 }
 
-.merge-branch-pill:disabled {
-    opacity: 0.4;
+.merge-target-badge.disabled {
+    opacity: 0.3;
     cursor: not-allowed;
 }
 
-.merge-branch-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 120px;
-}
-
-.merge-split-btn-group ::deep .mud-button-group-root {
-    height: 26px;
-}
-
-.merge-split-btn-group ::deep .mud-button {
-    font-size: 0.72rem !important;
-    text-transform: none !important;
-    height: 26px !important;
-    min-width: 48px;
-    padding: 0 8px !important;
-}
-
-.merge-split-btn-group ::deep .mud-icon-button {
-    height: 26px !important;
-    width: 24px !important;
-    padding: 0 !important;
+.merge-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 
 .main-toolbar {
@@ -5200,133 +5186,4 @@ select:focus-visible {
     gap: var(--space-2);
     max-height: 400px;
     overflow-y: auto;
-}
-
-/* ===== Account Management ===== */
-
-.accounts-how-to {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    background: var(--surface-secondary);
-    border-radius: 8px;
-    margin-bottom: var(--space-1);
-}
-
-.accounts-grid {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-}
-
-.accounts-empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-12) var(--space-6);
-    text-align: center;
-}
-
-.acct-card {
-    border: 1px solid var(--border-default);
-    border-radius: 12px;
-    padding: 14px 16px;
-    background: var(--surface-primary);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    transition: border-color 0.15s;
-}
-
-.acct-card--active {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 5%, var(--surface-primary));
-}
-
-.acct-card-top {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.acct-card-identity {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
-    flex: 1;
-}
-
-.acct-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: default;
-}
-
-.acct-email {
-    font-size: 11px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.acct-usage-block {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.acct-usage-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.acct-usage-label {
-    font-size: 11px;
-    color: var(--text-secondary);
-}
-
-.acct-usage-pct {
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.acct-card-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.acct-stats {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    color: var(--text-secondary);
-    flex-wrap: wrap;
-}
-
-.acct-stats strong {
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.acct-stats-dot {
-    color: var(--text-disabled);
-}
-
-.acct-actions {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    flex-shrink: 0;
 }
