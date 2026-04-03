@@ -18,13 +18,8 @@
 
         @if (isWorktree)
         {
-            @* 소스 → 타겟 브랜치 플로우 (왼쪽) *@
+            @* 타겟 브랜치 선택기 (왼쪽) *@
             <div class="merge-flow">
-                <MudIcon Icon="@Icons.Material.Filled.AccountTree"
-                         Style="width: 13px; height: 13px; opacity: 0.45; flex-shrink: 0;"/>
-                <span class="merge-source-badge" title="@session.Git.BranchName">@session.Git.BranchName</span>
-                <MudIcon Icon="@Icons.Material.Filled.ArrowRightAlt"
-                         Style="width: 16px; height: 16px; opacity: 0.35; flex-shrink: 0;"/>
                 <div class="merge-branch-selector-wrap">
                     <MudTooltip Text="머지할 대상 브랜치 선택" Placement="Placement.Bottom">
                         <button class="merge-target-badge @(isStreaming ? "disabled" : "")"
