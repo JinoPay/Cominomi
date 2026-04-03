@@ -3,6 +3,8 @@
 
 <div class="settings-content-area">
     <div class="settings-content-header">
+        <span class="typo-h6">@GetSectionTitle()</span>
+        <div style="flex: 1;"></div>
         @if (Section != "shortcuts" && Section != "extensions")
         {
             <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save"
@@ -55,6 +57,20 @@
     {
         _settings = await SettingsService.LoadAsync();
     }
+
+    private string GetSectionTitle() => Section switch
+    {
+        "general" => "일반",
+        "ai" => "AI 모델",
+        "notifications" => "알림",
+        "terminal" => "터미널",
+        "shortcuts" => "단축키",
+        "integrations" => "연동",
+        "extensions" => "확장",
+        "advanced" => "고급",
+        "updates" => "업데이트",
+        _ => "설정"
+    };
 
     private async Task Save()
     {

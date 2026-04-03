@@ -673,49 +673,28 @@ html *::after {
     border-bottom: 1px solid var(--border-default);
     display: flex;
     align-items: center;
-    justify-content: space-between;
     padding: 0 var(--space-3);
     gap: var(--space-2);
 }
 
-.merge-flow {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    min-width: 0;
-    flex: 1;
-}
-
-.merge-source-badge {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--mud-palette-text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 130px;
-    opacity: 0.7;
-}
-
 .merge-branch-selector-wrap {
     position: relative;
-    flex-shrink: 0;
 }
 
 .merge-target-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    padding: 3px var(--space-2);
+    padding: 2px var(--space-2);
     border-radius: var(--radius-full);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-default);
+    background: var(--bg-surface);
+    border: none;
     cursor: pointer;
     color: var(--mud-palette-text-primary);
-    opacity: 0.85;
-    transition: all 0.15s;
+    opacity: 0.65;
+    transition: opacity 0.15s;
     white-space: nowrap;
     max-width: 150px;
     overflow: hidden;
@@ -724,7 +703,6 @@ html *::after {
 
 .merge-target-badge:hover:not(.disabled) {
     opacity: 1;
-    border-color: var(--accent);
 }
 
 .merge-target-badge.disabled {
@@ -735,42 +713,7 @@ html *::after {
 .merge-actions {
     display: flex;
     align-items: center;
-    gap: var(--space-1);
-    flex-shrink: 0;
-}
-
-.merge-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: var(--text-xs);
-    padding: 0 var(--space-2);
-    height: 26px;
-    border-radius: var(--radius-md);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-default);
-    cursor: pointer;
-    color: var(--mud-palette-text-primary);
-    opacity: 0.8;
-    transition: all 0.15s;
-    white-space: nowrap;
-}
-
-.merge-action-btn:hover:not(:disabled) {
-    opacity: 1;
-    background: var(--bg-elevated);
-    border-color: var(--border-strong);
-}
-
-.merge-action-btn:disabled,
-.merge-action-btn.disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-
-.merge-action-pr:hover:not(:disabled) {
-    border-color: var(--accent);
-    color: var(--accent);
+    gap: 2px;
 }
 
 .main-toolbar {
@@ -3222,7 +3165,7 @@ html *::after {
 .settings-page {
     display: flex;
     height: 100%;
-    background: var(--mud-palette-background);
+    background: var(--bg-base);
 }
 
 .settings-page-nav {
@@ -3242,21 +3185,23 @@ html *::after {
     align-items: center;
     justify-content: flex-start;
     gap: var(--space-2);
-    width: 100%;
-    padding: var(--space-3) var(--space-4);
+    width: calc(100% - var(--space-3) * 2);
+    margin: var(--space-1) var(--space-3) var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border: none;
     background: transparent;
     color: var(--text-secondary);
     font-size: var(--text-sm);
+    font-weight: 500;
     cursor: pointer;
     transition: all var(--transition);
     text-align: left;
-    margin-bottom: var(--space-2);
+    border-radius: var(--radius-sm);
 }
 
 .settings-back-btn:hover {
     color: var(--text-primary);
-    background: var(--accent-hover);
+    background: var(--bg-hover);
 }
 
 .settings-nav-section {
@@ -3279,11 +3224,12 @@ html *::after {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: var(--space-1) var(--space-4);
+    margin-top: var(--space-3);
     margin-bottom: var(--space-1);
 }
 
 .ws-nav-item {
-    padding-left: var(--space-4) !important;
+    padding-left: var(--space-3);
 }
 
 .ws-nav-letter {
@@ -3344,6 +3290,8 @@ html *::after {
     align-items: center;
     gap: var(--space-3);
     margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .settings-content-body {
@@ -3408,8 +3356,9 @@ html *::after {
     align-items: center;
     justify-content: flex-start;
     gap: var(--space-2);
-    width: 100%;
-    padding: var(--space-2) var(--space-4);
+    width: calc(100% - var(--space-3) * 2);
+    margin: 0 var(--space-3);
+    padding: var(--space-2) var(--space-3);
     border: none;
     background: transparent;
     color: var(--text-secondary);
@@ -3417,18 +3366,18 @@ html *::after {
     cursor: pointer;
     transition: all var(--transition);
     text-align: left;
-    border-radius: 0;
+    border-radius: var(--radius-sm);
 }
 
 .settings-nav-item:hover {
-    background: var(--accent-hover);
+    background: var(--bg-hover);
     color: var(--text-primary);
 }
 
 .settings-nav-item.active {
     background: var(--accent-dim);
     color: var(--accent);
-    border-right: 2px solid var(--accent);
+    font-weight: 500;
 }
 
 .settings-content {
@@ -3469,18 +3418,35 @@ html *::after {
     margin-bottom: var(--space-3);
 }
 
-.settings-group {
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 8px;
-    padding: 16px;
-    margin-bottom: 12px;
-}
-
 .settings-toggle-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 0;
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    transition: border-color var(--transition);
+}
+
+.settings-toggle-row:hover {
+    border-color: var(--border-default);
+}
+
+.settings-group .settings-toggle-row {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-group .settings-toggle-row:last-child {
+    border-bottom: none;
+}
+
+.settings-group .settings-toggle-row:hover {
+    border-color: var(--border-subtle);
 }
 
 .settings-list-item .settings-delete-btn {
@@ -3492,22 +3458,22 @@ html *::after {
 }
 
 .settings-add-area {
-    border: 2px dashed var(--mud-palette-lines-default);
-    border-radius: 8px;
-    padding: 12px;
+    border: 2px dashed var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.15s;
+    transition: border-color var(--transition);
 }
 .settings-add-area:hover {
-    border-color: var(--mud-palette-primary);
+    border-color: var(--accent);
 }
 
 .settings-icon-box {
     width: 28px;
     height: 28px;
-    border-radius: 6px;
-    background: var(--mud-palette-primary-hover);
+    border-radius: var(--radius-sm);
+    background: var(--accent-dim);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3518,7 +3484,10 @@ html *::after {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-2) 0;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-base);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
 }
 
 .integration-status .status-ok {
@@ -3555,14 +3524,16 @@ html *::after {
 }
 
 .settings-seg-item {
-    padding: 6px 16px;
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-2) var(--space-4);
     border: none;
     background: transparent;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     color: var(--text-secondary);
     font-size: var(--text-sm);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--transition);
     white-space: nowrap;
     font-family: inherit;
     line-height: 1.4;
@@ -3588,18 +3559,18 @@ html *::after {
 .settings-pill-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--space-2);
 }
 
 .settings-pill {
-    padding: 5px 14px;
+    padding: var(--space-1) var(--space-3);
     border: 1px solid var(--border-default);
     background: transparent;
-    border-radius: 20px;
+    border-radius: var(--radius-full);
     color: var(--text-secondary);
     font-size: var(--text-xs);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--transition);
     font-family: inherit;
     line-height: 1.4;
 }
@@ -3621,18 +3592,90 @@ html *::after {
     pointer-events: none;
 }
 
+/* ===== Settings: Shortcuts Table ===== */
+.settings-shortcuts-table {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    max-width: 500px;
+}
+
+.shortcut-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background var(--transition);
+}
+
+.shortcut-row:last-child {
+    border-bottom: none;
+}
+
+.shortcut-row:hover {
+    background: var(--bg-hover);
+}
+
+.shortcut-label {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.shortcut-keys {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    display: flex;
+    gap: var(--space-1);
+    align-items: center;
+}
+
+.shortcut-keys kbd {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+    line-height: 1.6;
+}
+
+/* ===== Settings: Group Link (clickable card) ===== */
+.settings-group-link {
+    cursor: pointer;
+    transition: border-color var(--transition);
+}
+
+.settings-group-link:hover {
+    border-color: var(--border-strong);
+}
+
+/* ===== Settings: Group Title Margin Utilities ===== */
+.settings-group-title.mt {
+    margin-top: var(--space-4);
+}
+
+.settings-group-title.mt-lg {
+    margin-top: var(--space-6);
+}
+
 /* ===== Settings: Field Label & Hint ===== */
 .settings-field-label {
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: var(--space-2);
 }
 
 .settings-field-hint {
     font-size: var(--text-xs);
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: var(--space-1);
     line-height: 1.4;
 }
 
@@ -5055,6 +5098,7 @@ select:focus-visible {
 .tree-session:focus-visible,
 .main-tab:focus-visible,
 .settings-nav-item:focus-visible,
+.settings-back-btn:focus-visible,
 .askbar-option:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);

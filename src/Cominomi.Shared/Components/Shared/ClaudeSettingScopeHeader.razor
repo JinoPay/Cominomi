@@ -1,20 +1,27 @@
 <div class="settings-content-header">
-    <div class="d-flex align-center gap-2">
-        <MudChipSet T="string" SelectedValue="@_scopeStr" SelectedValueChanged="OnScopeChipChanged"
-                    SelectionMode="SelectionMode.SingleSelection" CheckMark="false"
-                    Variant="Variant.Outlined" Color="Color.Primary">
-            <MudChip T="string" Value="@("Global")" Icon="@Icons.Material.Filled.Public">글로벌</MudChip>
-            <MudChip T="string" Value="@("Project")" Icon="@Icons.Material.Filled.Folder"
-                     Disabled="@(string.IsNullOrEmpty(ProjectPath))">프로젝트
-            </MudChip>
+    <div class="d-flex align-center gap-3">
+        <div class="settings-segmented">
+            <button class="settings-seg-item @(Scope == ClaudeSettingsScope.Global ? "active" : "")"
+                    @onclick="@(() => OnScopeChanged(ClaudeSettingsScope.Global))">
+                <MudIcon Icon="@Icons.Material.Filled.Public" Size="Size.Small" Style="margin-right: 4px;"/>
+                글로벌
+            </button>
+            <button class="settings-seg-item @(Scope == ClaudeSettingsScope.Project ? "active" : "")"
+                    disabled="@(string.IsNullOrEmpty(ProjectPath))"
+                    @onclick="@(() => OnScopeChanged(ClaudeSettingsScope.Project))">
+                <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Style="margin-right: 4px;"/>
+                프로젝트
+            </button>
             @if (ShowLocalScope)
             {
-                <MudChip T="string" Value="@("Local")" Icon="@Icons.Material.Filled.Lock"
-                         Disabled="@(string.IsNullOrEmpty(ProjectPath))">
+                <button class="settings-seg-item @(Scope == ClaudeSettingsScope.Local ? "active" : "")"
+                        disabled="@(string.IsNullOrEmpty(ProjectPath))"
+                        @onclick="@(() => OnScopeChanged(ClaudeSettingsScope.Local))">
+                    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Style="margin-right: 4px;"/>
                     @(LocalScopeLabel ?? "로컬")
-                </MudChip>
+                </button>
             }
-        </MudChipSet>
+        </div>
 
         @if (Scope != ClaudeSettingsScope.Global)
         {
@@ -22,12 +29,13 @@
                 <ProjectScopePicker SelectedPath="@ProjectPath"
                                     SelectedPathChanged="OnProjectChanged" Label=""/>
             </div>
-            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                     Color="@(Scope == ClaudeSettingsScope.Project ? Color.Info : Color.Warning)">
+            <span class="typo-caption" style="color: @(Scope == ClaudeSettingsScope.Project ? "var(--color-info)" : "var(--color-warning)");">
                 @(Scope == ClaudeSettingsScope.Project ? "git tracked" : "gitignored")
-            </MudChip>
+            </span>
         }
     </div>
+
+    <div style="flex: 1;"></div>
 
     <div class="d-flex align-center gap-2">
         @if (ExtraActions != null)
@@ -52,12 +60,9 @@
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public RenderFragment? ExtraActions { get; set; }
 
-    private string _scopeStr => Scope.ToString();
-
-    private async Task OnScopeChipChanged(string value)
+    private async Task OnScopeChanged(ClaudeSettingsScope scope)
     {
-        var newScope = Enum.Parse<ClaudeSettingsScope>(value);
-        await ScopeChanged.InvokeAsync(newScope);
+        await ScopeChanged.InvokeAsync(scope);
     }
 
     private async Task OnProjectChanged(string? path)

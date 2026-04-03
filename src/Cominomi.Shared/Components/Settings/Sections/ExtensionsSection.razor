@@ -1,35 +1,32 @@
-<div class="settings-section-title">확장</div>
-<div class="settings-section-desc">플러그인, 커스텀 명령어를 관리합니다.</div>
-
-<div class="settings-group">
-    <div class="settings-group-title">플러그인</div>
-    <div class="stack gap-2">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Extension"
-                   OnClick="@(() => _pluginManagerOpen = true)"
-                   Style="text-transform: none; align-self: flex-start;"
-                   Size="Size.Small">
-            플러그인 관리
-        </MudButton>
-        <small class="typo-caption text-secondary">
-            플러그인 설치, 활성화/비활성화, 제거를 관리합니다.
-        </small>
+<div class="stack gap-3">
+    <div class="settings-group settings-group-link" @onclick="@(() => _pluginManagerOpen = true)">
+        <div class="stack-row items-center gap-3">
+            <div class="settings-icon-box">
+                <MudIcon Icon="@Icons.Material.Filled.Extension" Size="Size.Small"
+                         Style="color: var(--accent);"/>
+            </div>
+            <div style="flex: 1;">
+                <div class="typo-subtitle2">플러그인</div>
+                <div class="typo-caption text-secondary">플러그인 설치, 활성화/비활성화, 제거를 관리합니다.</div>
+            </div>
+            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"
+                     Style="color: var(--text-muted);"/>
+        </div>
     </div>
-</div>
 
-<div class="settings-group">
-    <div class="settings-group-title">슬래시 명령어</div>
-    <div class="stack gap-2">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Code"
-                   OnClick="@(() => _slashCommandsOpen = true)"
-                   Style="text-transform: none; align-self: flex-start;"
-                   Size="Size.Small">
-            명령어 관리
-        </MudButton>
-        <small class="typo-caption text-secondary">
-            커스텀 슬래시 명령어를 만들고 편집합니다. ~/.claude/commands/ 또는 프로젝트별 .claude/commands/ 에 저장됩니다.
-        </small>
+    <div class="settings-group settings-group-link" @onclick="@(() => _slashCommandsOpen = true)">
+        <div class="stack-row items-center gap-3">
+            <div class="settings-icon-box">
+                <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small"
+                         Style="color: var(--accent);"/>
+            </div>
+            <div style="flex: 1;">
+                <div class="typo-subtitle2">슬래시 명령어</div>
+                <div class="typo-caption text-secondary">커스텀 슬래시 명령어를 만들고 편집합니다.</div>
+            </div>
+            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"
+                     Style="color: var(--text-muted);"/>
+        </div>
     </div>
 </div>
 
