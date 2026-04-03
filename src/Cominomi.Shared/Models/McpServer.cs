@@ -13,9 +13,24 @@ public class McpServer
     public string? Url { get; set; }
 }
 
+public enum McpConnectionStatus
+{
+    Unknown,
+    Checking,
+    Reachable,
+    Unreachable,
+    Error
+}
+
 public class McpServerStatus
 {
-    public bool Running { get; set; }
+    public McpConnectionStatus ConnectionStatus { get; set; } = McpConnectionStatus.Unknown;
     public DateTime? LastChecked { get; set; }
     public string? Error { get; set; }
+}
+
+public record McpOperationResult(bool Success, string? Error = null)
+{
+    public static McpOperationResult Ok() => new(true);
+    public static McpOperationResult Fail(string error) => new(false, error);
 }

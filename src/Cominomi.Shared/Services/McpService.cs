@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Cominomi.Shared.Models;
@@ -6,155 +8,153 @@ using Microsoft.Extensions.Logging;
 namespace Cominomi.Shared.Services;
 
 public class McpService(
-    IShellService shellService,
-    IClaudeService claudeService,
     IProcessRunner processRunner,
+    HttpClient httpClient,
     ILogger<McpService> logger)
     : IMcpService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions ReadOptions = new()
     {
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip
     };
 
-    public async Task<bool> AddServerAsync(string name, string transport, string? command, List<string>? args,
-        Dictionary<string, string>? env, string? url, string scope)
+    private static readonly JsonSerializerOptions WriteOptions = new()
     {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    private static readonly string ClaudeHomeDir =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+
+    private readonly SemaphoreSlim _lock = new(1, 1);
+
+    // ── CRUD ────────────────────────────────────────────────────────────────
+
+    public async Task<McpOperationResult> AddServerAsync(McpServer server)
+    {
+        await _lock.WaitAsync();
         try
         {
-            var shell = await shellService.GetShellAsync();
-            var cmdParts = new List<string> { "mcp", "add" };
+            var configPath = GetConfigPath(server.Scope);
+            var config = await ReadConfigAsync(configPath);
+            config.McpServers ??= new Dictionary<string, McpServerEntry>();
 
-            if (scope != "user")
-                cmdParts.AddRange(["--scope", scope]);
+            if (config.McpServers.ContainsKey(server.Name))
+                return McpOperationResult.Fail($"서버 '{server.Name}'이 이미 존재합니다.");
 
-            cmdParts.Add(QuoteForShell(name, shell.Type));
-
-            if (transport == "sse" && !string.IsNullOrEmpty(url))
-            {
-                cmdParts.Add(QuoteForShell(url, shell.Type));
-            }
-            else if (!string.IsNullOrEmpty(command))
-            {
-                cmdParts.Add(QuoteForShell(command, shell.Type));
-                if (args != null)
-                    foreach (var arg in args)
-                        cmdParts.Add(QuoteForShell(arg, shell.Type));
-            }
-
-            // Add environment variables
-            if (env != null)
-                foreach (var (key, value) in env)
-                    cmdParts.AddRange(["-e", $"{key}={value}"]);
-
-            var cmd = string.Join(" ", cmdParts);
-            var output = await RunClaudeCommandAsync(shell, cmd);
-            return output != null;
+            config.McpServers[server.Name] = ToEntry(server);
+            await WriteConfigAsync(configPath, config);
+            logger.LogInformation("MCP server '{Name}' added to scope '{Scope}'", server.Name, server.Scope);
+            return McpOperationResult.Ok();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to add MCP server {Name}", name);
-            return false;
+            logger.LogError(ex, "Failed to add MCP server {Name}", server.Name);
+            return McpOperationResult.Fail(ex.Message);
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 
-    public async Task<bool> ImportFromClaudeDesktopAsync()
+    public async Task<McpOperationResult> RemoveServerAsync(string name, string scope)
     {
+        await _lock.WaitAsync();
         try
         {
-            var shell = await shellService.GetShellAsync();
-            var output = await RunClaudeCommandAsync(shell, "mcp add-from-claude-desktop");
-            return output != null;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to import from Claude Desktop");
-            return false;
-        }
-    }
+            var configPath = GetConfigPath(scope);
+            var config = await ReadConfigAsync(configPath);
+            if (config.McpServers == null || !config.McpServers.ContainsKey(name))
+                return McpOperationResult.Fail($"서버 '{name}'을 찾을 수 없습니다.");
 
-    public async Task<bool> ImportFromJsonAsync(string json, string scope)
-    {
-        try
-        {
-            var shell = await shellService.GetShellAsync();
-            var scopeArg = scope != "user" ? $" --scope {scope}" : "";
-            var quotedJson = QuoteForShell(json, shell.Type);
-            var output = await RunClaudeCommandAsync(shell, $"mcp add-json{scopeArg} {quotedJson}");
-            return output != null;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to import MCP from JSON");
-            return false;
-        }
-    }
-
-    public async Task<bool> RemoveServerAsync(string name, string scope)
-    {
-        try
-        {
-            var shell = await shellService.GetShellAsync();
-            var scopeArg = scope != "user" ? $" --scope {scope}" : "";
-            var output = await RunClaudeCommandAsync(shell, $"mcp remove{scopeArg} {QuoteForShell(name, shell.Type)}");
-            return output != null;
+            config.McpServers.Remove(name);
+            await WriteConfigAsync(configPath, config);
+            logger.LogInformation("MCP server '{Name}' removed from scope '{Scope}'", name, scope);
+            return McpOperationResult.Ok();
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to remove MCP server {Name}", name);
-            return false;
+            return McpOperationResult.Fail(ex.Message);
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 
-    public async Task<bool> TestConnectionAsync(string name)
+    public async Task<McpOperationResult> UpdateServerAsync(string oldName, string oldScope, McpServer server)
     {
-        // Best-effort test: just try listing and see if the server is present
-        var servers = await ListServersAsync();
-        return servers.Any(s => s.Name == name);
-    }
-
-    public async Task<bool> UpdateServerAsync(string oldName, string oldScope, string name, string transport,
-        string? command, List<string>? args, Dictionary<string, string>? env, string? url, string scope)
-    {
+        await _lock.WaitAsync();
         try
         {
-            var removed = await RemoveServerAsync(oldName, oldScope);
-            if (!removed)
-                return false;
-
-            var added = await AddServerAsync(name, transport, command, args, env, url, scope);
-            if (!added)
+            if (oldScope == server.Scope)
             {
-                logger.LogWarning(
-                    "Failed to add server after removing old one during update. Old: {OldName}/{OldScope}", oldName,
-                    oldScope);
-                return false;
+                // Same scope: single read-write cycle
+                var configPath = GetConfigPath(server.Scope);
+                var config = await ReadConfigAsync(configPath);
+                config.McpServers ??= new Dictionary<string, McpServerEntry>();
+
+                if (!config.McpServers.ContainsKey(oldName))
+                    return McpOperationResult.Fail($"서버 '{oldName}'을 찾을 수 없습니다.");
+
+                if (oldName != server.Name && config.McpServers.ContainsKey(server.Name))
+                    return McpOperationResult.Fail($"서버 '{server.Name}'이 이미 존재합니다.");
+
+                config.McpServers.Remove(oldName);
+                config.McpServers[server.Name] = ToEntry(server);
+                await WriteConfigAsync(configPath, config);
+            }
+            else
+            {
+                // Cross-scope: remove from old, add to new
+                var oldConfigPath = GetConfigPath(oldScope);
+                var oldConfig = await ReadConfigAsync(oldConfigPath);
+                if (oldConfig.McpServers == null || !oldConfig.McpServers.ContainsKey(oldName))
+                    return McpOperationResult.Fail($"서버 '{oldName}'을 찾을 수 없습니다.");
+
+                oldConfig.McpServers.Remove(oldName);
+                await WriteConfigAsync(oldConfigPath, oldConfig);
+
+                var newConfigPath = GetConfigPath(server.Scope);
+                var newConfig = await ReadConfigAsync(newConfigPath);
+                newConfig.McpServers ??= new Dictionary<string, McpServerEntry>();
+
+                if (newConfig.McpServers.ContainsKey(server.Name))
+                    return McpOperationResult.Fail($"서버 '{server.Name}'이 이미 존재합니다.");
+
+                newConfig.McpServers[server.Name] = ToEntry(server);
+                await WriteConfigAsync(newConfigPath, newConfig);
             }
 
-            return true;
+            logger.LogInformation("MCP server '{OldName}' updated to '{Name}'", oldName, server.Name);
+            return McpOperationResult.Ok();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to update MCP server {OldName} -> {Name}", oldName, name);
-            return false;
+            logger.LogError(ex, "Failed to update MCP server {OldName} -> {Name}", oldName, server.Name);
+            return McpOperationResult.Fail(ex.Message);
+        }
+        finally
+        {
+            _lock.Release();
         }
     }
 
-    public async Task<List<McpServer>> ListServersAsync()
+    public async Task<List<McpServer>> ListServersAsync(string? projectPath = null)
     {
         var servers = new List<McpServer>();
         try
         {
-            // Read user-scope config: ~/.claude/mcp.json
-            var userConfigPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".claude", "mcp.json");
+            var userConfigPath = Path.Combine(ClaudeHomeDir, "mcp.json");
             await LoadServersFromConfigAsync(servers, userConfigPath, "user");
 
-            // Read project-scope config: <project>/.claude/mcp.json
-            var projectConfigPath = Path.Combine(
-                Directory.GetCurrentDirectory(), ".claude", "mcp.json");
+            var projectDir = projectPath ?? Directory.GetCurrentDirectory();
+            var projectConfigPath = Path.Combine(projectDir, ".claude", "mcp.json");
             await LoadServersFromConfigAsync(servers, projectConfigPath, "project");
         }
         catch (Exception ex)
@@ -165,20 +165,150 @@ public class McpService(
         return servers;
     }
 
-    private static string QuoteForShell(string arg, ShellType shellType)
+    // ── Import ───────────────────────────────────────────────────────────────
+
+    public async Task<McpOperationResult> ImportFromClaudeDesktopAsync(string scope = "user")
     {
-        if (shellType == ShellType.Cmd)
+        try
         {
-            // cmd.exe: use double quotes, escape internal double quotes by doubling
-            var escaped = arg.Replace("\"", "\"\"");
-            return $"\"{escaped}\"";
+            var desktopConfigPath = GetClaudeDesktopConfigPath();
+            if (desktopConfigPath == null)
+                return McpOperationResult.Fail("이 플랫폼에서는 Claude Desktop 설정을 찾을 수 없습니다.");
+
+            if (!File.Exists(desktopConfigPath))
+                return McpOperationResult.Fail($"Claude Desktop 설정 파일을 찾을 수 없습니다: {desktopConfigPath}");
+
+            var json = await File.ReadAllTextAsync(desktopConfigPath);
+            var desktopConfig = JsonSerializer.Deserialize<McpConfigFile>(json, ReadOptions);
+            if (desktopConfig?.McpServers == null || desktopConfig.McpServers.Count == 0)
+                return McpOperationResult.Fail("Claude Desktop 설정에 MCP 서버가 없습니다.");
+
+            return await MergeServersAsync(desktopConfig.McpServers, scope);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogError(ex, "Failed to parse Claude Desktop config");
+            return McpOperationResult.Fail($"설정 파일 파싱 실패: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to import from Claude Desktop");
+            return McpOperationResult.Fail(ex.Message);
+        }
+    }
+
+    public async Task<McpOperationResult> ImportFromJsonAsync(string json, string scope)
+    {
+        try
+        {
+            var importConfig = JsonSerializer.Deserialize<McpConfigFile>(json, ReadOptions);
+            if (importConfig?.McpServers == null || importConfig.McpServers.Count == 0)
+                return McpOperationResult.Fail("JSON에 MCP 서버가 없습니다.");
+
+            return await MergeServersAsync(importConfig.McpServers, scope);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogError(ex, "Failed to parse MCP JSON");
+            return McpOperationResult.Fail($"JSON 파싱 실패: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to import MCP from JSON");
+            return McpOperationResult.Fail(ex.Message);
+        }
+    }
+
+    // ── Connection Test ──────────────────────────────────────────────────────
+
+    public async Task<McpServerStatus> TestConnectionAsync(McpServer server, CancellationToken ct = default)
+    {
+        var status = new McpServerStatus
+        {
+            ConnectionStatus = McpConnectionStatus.Checking,
+            LastChecked = DateTime.UtcNow
+        };
+
+        try
+        {
+            if (server.Transport == "sse" || !string.IsNullOrEmpty(server.Url))
+            {
+                status = await TestSseConnectionAsync(server.Url!, ct);
+            }
+            else if (!string.IsNullOrEmpty(server.Command))
+            {
+                status = await TestStdioConnectionAsync(server, ct);
+            }
+            else
+            {
+                status.ConnectionStatus = McpConnectionStatus.Error;
+                status.Error = "command 또는 URL이 없습니다.";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            status.ConnectionStatus = McpConnectionStatus.Unreachable;
+            status.Error = "연결 시간 초과";
+        }
+        catch (Exception ex)
+        {
+            status.ConnectionStatus = McpConnectionStatus.Error;
+            status.Error = ex.Message;
         }
 
-        // bash/zsh: use single quotes, escape embedded single quotes
-        // Single quotes preserve ALL characters literally (including backslashes),
-        // which is critical for Windows paths passed to bash on Windows.
-        var bashEscaped = arg.Replace("'", "'\\''");
-        return $"'{bashEscaped}'";
+        status.LastChecked = DateTime.UtcNow;
+        return status;
+    }
+
+    // ── Private Helpers ──────────────────────────────────────────────────────
+
+    private static string GetConfigPath(string scope)
+    {
+        return scope switch
+        {
+            "user" => Path.Combine(ClaudeHomeDir, "mcp.json"),
+            _ => Path.Combine(Directory.GetCurrentDirectory(), ".claude", "mcp.json")
+        };
+    }
+
+    private static string? GetClaudeDesktopConfigPath()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            return Path.Combine(appData, "Claude", "claude_desktop_config.json");
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
+        }
+
+        return null;
+    }
+
+    private async Task<McpConfigFile> ReadConfigAsync(string configPath)
+    {
+        if (!File.Exists(configPath))
+            return new McpConfigFile();
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(configPath);
+            return JsonSerializer.Deserialize<McpConfigFile>(json, ReadOptions) ?? new McpConfigFile();
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Failed to parse MCP config at {Path}, starting fresh", configPath);
+            return new McpConfigFile();
+        }
+    }
+
+    private static async Task WriteConfigAsync(string configPath, McpConfigFile config)
+    {
+        var json = JsonSerializer.Serialize(config, WriteOptions);
+        await AtomicFileWriter.WriteAsync(configPath, json);
     }
 
     private async Task LoadServersFromConfigAsync(List<McpServer> servers, string configPath, string scope)
@@ -188,23 +318,22 @@ public class McpService(
         try
         {
             var json = await File.ReadAllTextAsync(configPath);
-            var config = JsonSerializer.Deserialize<McpConfigFile>(json, JsonOptions);
+            var config = JsonSerializer.Deserialize<McpConfigFile>(json, ReadOptions);
             if (config?.McpServers == null) return;
 
             foreach (var (name, entry) in config.McpServers)
             {
-                var transport = entry.Type?.ToLower() ?? "stdio";
                 servers.Add(new McpServer
                 {
                     Name = name,
-                    Transport = transport,
+                    Transport = entry.Type?.ToLowerInvariant() ?? "stdio",
                     Command = entry.Command,
                     Args = entry.Args ?? [],
                     Env = entry.Env ?? new Dictionary<string, string>(),
                     Url = entry.Url,
                     Scope = scope,
                     IsActive = true,
-                    Status = new McpServerStatus { Running = true, LastChecked = DateTime.UtcNow }
+                    Status = new McpServerStatus { ConnectionStatus = McpConnectionStatus.Unknown }
                 });
             }
         }
@@ -214,34 +343,120 @@ public class McpService(
         }
     }
 
-    private async Task<string?> RunClaudeCommandAsync(ShellInfo shell, string subCommand)
+    private async Task<McpOperationResult> MergeServersAsync(Dictionary<string, McpServerEntry> entries, string scope)
     {
-        var (found, claudePath) = await claudeService.DetectCliAsync();
-        if (!found || string.IsNullOrEmpty(claudePath))
+        await _lock.WaitAsync();
+        try
         {
-            logger.LogWarning("Claude CLI not found");
-            return null;
+            var configPath = GetConfigPath(scope);
+            var config = await ReadConfigAsync(configPath);
+            config.McpServers ??= new Dictionary<string, McpServerEntry>();
+
+            var imported = 0;
+            var skipped = new List<string>();
+
+            foreach (var (name, entry) in entries)
+            {
+                if (config.McpServers.ContainsKey(name))
+                {
+                    skipped.Add(name);
+                    continue;
+                }
+
+                config.McpServers[name] = entry;
+                imported++;
+            }
+
+            await WriteConfigAsync(configPath, config);
+
+            var message = $"{imported}개 서버를 가져왔습니다.";
+            if (skipped.Count > 0)
+                message += $" {skipped.Count}개 건너뜀 (이미 존재): {string.Join(", ", skipped)}";
+
+            logger.LogInformation("MCP import: {Imported} added, {Skipped} skipped", imported, skipped.Count);
+            return imported == 0 && skipped.Count > 0
+                ? McpOperationResult.Fail($"모든 서버가 이미 존재합니다: {string.Join(", ", skipped)}")
+                : new McpOperationResult(true, message);
         }
-
-        var quotedClaudePath = QuoteForShell(claudePath, shell.Type);
-        var shellCommand = $"{quotedClaudePath} {subCommand}";
-        var result = await processRunner.RunAsync(new ProcessRunOptions
+        finally
         {
-            FileName = shell.FileName,
-            Arguments = shell.Type == ShellType.Cmd
-                ? ["/c", shellCommand]
-                : ["-c", shellCommand],
-            Timeout = TimeSpan.FromSeconds(30)
-        });
-
-        if (!result.Success)
-        {
-            logger.LogWarning("Claude MCP command failed: {Error}", result.Stderr);
-            return null;
+            _lock.Release();
         }
-
-        return result.Stdout;
     }
+
+    private async Task<McpServerStatus> TestStdioConnectionAsync(McpServer server, CancellationToken ct)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(5));
+
+        try
+        {
+            var result = await processRunner.RunAsync(new ProcessRunOptions
+            {
+                FileName = server.Command!,
+                Arguments = server.Args.ToArray(),
+                Timeout = TimeSpan.FromSeconds(5),
+                EnvironmentVariables = server.Env.Count > 0 ? server.Env : null
+            }, cts.Token);
+
+            // Process started and produced output = reachable
+            var isReachable = !string.IsNullOrEmpty(result.Stdout) || result.ExitCode != -1;
+            return new McpServerStatus
+            {
+                ConnectionStatus = isReachable ? McpConnectionStatus.Reachable : McpConnectionStatus.Unreachable,
+                LastChecked = DateTime.UtcNow,
+                Error = isReachable ? null : result.Stderr
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            // Timeout likely means the server started and is waiting for input — that's reachable
+            return new McpServerStatus
+            {
+                ConnectionStatus = McpConnectionStatus.Reachable,
+                LastChecked = DateTime.UtcNow
+            };
+        }
+    }
+
+    private async Task<McpServerStatus> TestSseConnectionAsync(string url, CancellationToken ct)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(5));
+
+        try
+        {
+            var response = await httpClient.GetAsync(url, cts.Token);
+            return new McpServerStatus
+            {
+                ConnectionStatus = response.IsSuccessStatusCode || (int)response.StatusCode < 500
+                    ? McpConnectionStatus.Reachable
+                    : McpConnectionStatus.Unreachable,
+                LastChecked = DateTime.UtcNow,
+                Error = response.IsSuccessStatusCode ? null : $"HTTP {(int)response.StatusCode}"
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            return new McpServerStatus
+            {
+                ConnectionStatus = McpConnectionStatus.Unreachable,
+                LastChecked = DateTime.UtcNow,
+                Error = ex.Message
+            };
+        }
+    }
+
+    private static McpServerEntry ToEntry(McpServer server) => new()
+    {
+        Command = string.IsNullOrEmpty(server.Command) ? null : server.Command,
+        Args = server.Args.Count > 0 ? server.Args : null,
+        Env = server.Env.Count > 0 ? server.Env : null,
+        Type = server.Transport != "stdio" ? server.Transport : null,
+        Url = string.IsNullOrEmpty(server.Url) ? null : server.Url
+    };
+
+    // ── JSON models ──────────────────────────────────────────────────────────
 
     private sealed class McpConfigFile
     {
@@ -251,13 +466,12 @@ public class McpService(
     private sealed class McpServerEntry
     {
         [JsonPropertyName("env")] public Dictionary<string, string>? Env { get; set; }
-
         [JsonPropertyName("args")] public List<string>? Args { get; set; }
-
         [JsonPropertyName("command")] public string? Command { get; set; }
-
         [JsonPropertyName("type")] public string? Type { get; set; }
-
         [JsonPropertyName("url")] public string? Url { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? ExtraData { get; set; }
     }
 }

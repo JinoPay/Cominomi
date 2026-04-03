@@ -35,6 +35,15 @@ public class TemplateDefinition
     public string? McpType { get; init; }
     public string? McpUrl { get; init; }
     public required TemplateCategory Category { get; init; }
+
+    /// <summary>Properly separated MCP args list (preferred over McpArgs).</summary>
+    public List<string>? McpArgsList { get; init; }
+
+    /// <summary>Environment variables required by this MCP server. Values are placeholder hints.</summary>
+    public Dictionary<string, string>? McpEnv { get; init; }
+
+    /// <summary>Arg values that need user substitution (e.g. "/path/to/dir").</summary>
+    public List<string>? McpPlaceholders { get; init; }
 }
 
 public static class BuiltInTemplates
@@ -249,7 +258,8 @@ public static class BuiltInTemplates
                 Description = "MCP를 통한 로컬 파일 읽기/쓰기",
                 Category = TemplateCategory.Mcp,
                 McpType = "stdio", McpCommand = "npx",
-                McpArgs = "-y @modelcontextprotocol/server-filesystem /path/to/dir"
+                McpArgsList = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"],
+                McpPlaceholders = ["/path/to/dir"]
             },
             new()
             {
@@ -257,7 +267,8 @@ public static class BuiltInTemplates
                 Description = "MCP를 통한 GitHub API 접근",
                 Category = TemplateCategory.Mcp,
                 McpType = "stdio", McpCommand = "npx",
-                McpArgs = "-y @modelcontextprotocol/server-github"
+                McpArgsList = ["-y", "@modelcontextprotocol/server-github"],
+                McpEnv = new Dictionary<string, string> { ["GITHUB_PERSONAL_ACCESS_TOKEN"] = "ghp_..." }
             },
             new()
             {
@@ -265,7 +276,8 @@ public static class BuiltInTemplates
                 Description = "PostgreSQL 데이터베이스 쿼리",
                 Category = TemplateCategory.Mcp,
                 McpType = "stdio", McpCommand = "npx",
-                McpArgs = "-y @modelcontextprotocol/server-postgres postgresql://localhost/mydb"
+                McpArgsList = ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"],
+                McpPlaceholders = ["postgresql://localhost/mydb"]
             },
             new()
             {
@@ -273,7 +285,7 @@ public static class BuiltInTemplates
                 Description = "MCP를 통한 영구 메모리 저장소",
                 Category = TemplateCategory.Mcp,
                 McpType = "stdio", McpCommand = "npx",
-                McpArgs = "-y @modelcontextprotocol/server-memory"
+                McpArgsList = ["-y", "@modelcontextprotocol/server-memory"]
             },
             new()
             {
@@ -281,7 +293,47 @@ public static class BuiltInTemplates
                 Description = "SQLite 데이터베이스 쿼리",
                 Category = TemplateCategory.Mcp,
                 McpType = "stdio", McpCommand = "npx",
-                McpArgs = "-y @modelcontextprotocol/server-sqlite /path/to/db.sqlite"
+                McpArgsList = ["-y", "@modelcontextprotocol/server-sqlite", "/path/to/db.sqlite"],
+                McpPlaceholders = ["/path/to/db.sqlite"]
+            },
+            new()
+            {
+                Id = "mcp-brave-search", Name = "Brave Search",
+                Description = "Brave Search API를 통한 웹 검색",
+                Category = TemplateCategory.Mcp,
+                McpType = "stdio", McpCommand = "npx",
+                McpArgsList = ["-y", "@modelcontextprotocol/server-brave-search"],
+                McpEnv = new Dictionary<string, string> { ["BRAVE_API_KEY"] = "BSA..." }
+            },
+            new()
+            {
+                Id = "mcp-puppeteer", Name = "Puppeteer",
+                Description = "Puppeteer로 브라우저 자동화 및 스크린샷",
+                Category = TemplateCategory.Mcp,
+                McpType = "stdio", McpCommand = "npx",
+                McpArgsList = ["-y", "@modelcontextprotocol/server-puppeteer"]
+            },
+            new()
+            {
+                Id = "mcp-slack", Name = "Slack",
+                Description = "Slack 채널 읽기/메시지 전송",
+                Category = TemplateCategory.Mcp,
+                McpType = "stdio", McpCommand = "npx",
+                McpArgsList = ["-y", "@modelcontextprotocol/server-slack"],
+                McpEnv = new Dictionary<string, string>
+                {
+                    ["SLACK_BOT_TOKEN"] = "xoxb-...",
+                    ["SLACK_TEAM_ID"] = "T..."
+                }
+            },
+            new()
+            {
+                Id = "mcp-sentry", Name = "Sentry",
+                Description = "Sentry 이슈 및 에러 추적",
+                Category = TemplateCategory.Mcp,
+                McpType = "stdio", McpCommand = "npx",
+                McpArgsList = ["-y", "@modelcontextprotocol/server-sentry"],
+                McpEnv = new Dictionary<string, string> { ["SENTRY_AUTH_TOKEN"] = "sntrys_..." }
             }
         ];
     }

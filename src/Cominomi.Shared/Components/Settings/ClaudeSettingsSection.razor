@@ -144,7 +144,7 @@
                                     <span class="typo-body2">@server.Name</span>
                                     <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small"
                                              Style="font-size: 8px;"
-                                             Color="@(server.Status.Running ? Color.Success : Color.Default)"/>
+                                             Color="@(server.Status.ConnectionStatus == McpConnectionStatus.Reachable ? Color.Success : Color.Default)"/>
                                 </div>
                             }
                         </div>
