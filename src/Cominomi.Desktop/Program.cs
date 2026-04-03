@@ -135,7 +135,6 @@ public static class Program
         appBuilder.Services.AddSingleton<IChatEventBus, ChatEventBus>();
         appBuilder.Services.AddSingleton<IChatState, ChatState>();
         appBuilder.Services.AddSingleton<LightboxService>();
-        appBuilder.Services.AddSingleton<FilePreviewService>();
         appBuilder.Services.AddSingleton<IGitService, GitService>();
         appBuilder.Services.AddSingleton<IGitBranchWatcherService, GitBranchWatcherService>();
         appBuilder.Services.AddSingleton<IWorktreeSyncService, WorktreeSyncService>();

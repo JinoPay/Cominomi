@@ -1,6 +1,6 @@
 @using System.Text
 @inject LightboxService Lightbox
-@inject FilePreviewService FilePreview
+@inject IChatState ChatState
 
 @if (Attachments.Count > 0)
 {
@@ -59,7 +59,7 @@
         try
         {
             var content = Encoding.UTF8.GetString(attachment.Data);
-            FilePreview.Open(attachment.FileName, content);
+            ChatState.Tabs.OpenFileContentTab(attachment.FileName, content);
         }
         catch
         {
