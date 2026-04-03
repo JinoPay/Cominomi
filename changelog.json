@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.6.9",
+    "date": "2026-04-03",
+    "changes": [
+      { "type": "feat", "description": "계정 관리 UI 추가 — 계정 전환, 등록, 삭제 및 사용량 표시" },
+      { "type": "feat", "description": "계정 내보내기/가져오기 (AES-256-GCM 암호화 지원)" },
+      { "type": "feat", "description": "AI 위임 방식의 머지/스쿼시/PR 툴바 추가" },
+      { "type": "refactor", "description": "MergeToolbar UI 경량화 — MainToolbar 패턴의 아이콘 버튼으로 통일" }
+    ]
+  },
+  {
     "version": "1.6.8",
     "date": "2026-04-03",
     "changes": [
