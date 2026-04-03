@@ -673,28 +673,49 @@ html *::after {
     border-bottom: 1px solid var(--border-default);
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: 0 var(--space-3);
     gap: var(--space-2);
 }
 
+.merge-flow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+    flex: 1;
+}
+
+.merge-source-badge {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--mud-palette-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 130px;
+    opacity: 0.7;
+}
+
 .merge-branch-selector-wrap {
     position: relative;
+    flex-shrink: 0;
 }
 
 .merge-target-badge {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    padding: 2px var(--space-2);
+    padding: 3px var(--space-2);
     border-radius: var(--radius-full);
-    background: var(--bg-surface);
-    border: none;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
     cursor: pointer;
     color: var(--mud-palette-text-primary);
-    opacity: 0.65;
-    transition: opacity 0.15s;
+    opacity: 0.85;
+    transition: all 0.15s;
     white-space: nowrap;
     max-width: 150px;
     overflow: hidden;
@@ -703,6 +724,7 @@ html *::after {
 
 .merge-target-badge:hover:not(.disabled) {
     opacity: 1;
+    border-color: var(--accent);
 }
 
 .merge-target-badge.disabled {
@@ -713,7 +735,42 @@ html *::after {
 .merge-actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-1);
+    flex-shrink: 0;
+}
+
+.merge-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--text-xs);
+    padding: 0 var(--space-2);
+    height: 26px;
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    cursor: pointer;
+    color: var(--mud-palette-text-primary);
+    opacity: 0.8;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.merge-action-btn:hover:not(:disabled) {
+    opacity: 1;
+    background: var(--bg-elevated);
+    border-color: var(--border-strong);
+}
+
+.merge-action-btn:disabled,
+.merge-action-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.merge-action-pr:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 .main-toolbar {

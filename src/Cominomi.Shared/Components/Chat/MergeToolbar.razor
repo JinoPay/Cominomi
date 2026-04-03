@@ -18,92 +18,100 @@
 
         @if (isWorktree)
         {
-            <div style="flex: 1;"></div>
+            @* 소스 → 타겟 브랜치 플로우 (왼쪽) *@
+            <div class="merge-flow">
+                <MudIcon Icon="@Icons.Material.Filled.AccountTree"
+                         Style="width: 13px; height: 13px; opacity: 0.45; flex-shrink: 0;"/>
+                <span class="merge-source-badge" title="@session.Git.BranchName">@session.Git.BranchName</span>
+                <MudIcon Icon="@Icons.Material.Filled.ArrowRightAlt"
+                         Style="width: 16px; height: 16px; opacity: 0.35; flex-shrink: 0;"/>
+                <div class="merge-branch-selector-wrap">
+                    <MudTooltip Text="머지할 대상 브랜치 선택" Placement="Placement.Bottom">
+                        <button class="merge-target-badge @(isStreaming ? "disabled" : "")"
+                                @onclick="ToggleBranchMenu" disabled="@isStreaming">
+                            <MudIcon Icon="@Icons.Material.Filled.CallMerge"
+                                     Style="width: 12px; height: 12px;"/>
+                            <span>@(_targetBranch ?? "브랜치 선택")</span>
+                            <MudIcon Icon="@Icons.Material.Filled.ExpandMore"
+                                     Style="width: 12px; height: 12px; opacity: 0.5;"/>
+                        </button>
+                    </MudTooltip>
 
-            @* 타겟 브랜치 선택 *@
-            <div class="merge-branch-selector-wrap">
-                <MudTooltip Text="머지할 대상 브랜치 선택" Placement="Placement.Bottom">
-                    <button class="merge-target-badge @(isStreaming ? "disabled" : "")"
-                            @onclick="ToggleBranchMenu" disabled="@isStreaming">
-                        <MudIcon Icon="@Icons.Material.Filled.CallMerge"
-                                 Style="width: 11px; height: 11px;"/>
-                        <span>@(_targetBranch ?? "브랜치 선택")</span>
-                        <MudIcon Icon="@Icons.Material.Filled.ExpandMore"
-                                 Style="width: 11px; height: 11px; opacity: 0.5;"/>
+                    <MudPopover Open="@_branchMenuOpen" AnchorOrigin="Origin.BottomLeft"
+                                TransformOrigin="Origin.TopLeft" Class="branch-popover">
+                        <div class="branch-search-container">
+                            <MudTextField T="string" @bind-Value="_branchSearchText"
+                                          Placeholder="브랜치 검색..."
+                                          Variant="Variant.Text"
+                                          Immediate="true"
+                                          Adornment="Adornment.Start"
+                                          AdornmentIcon="@Icons.Material.Filled.Search"
+                                          Style="font-size: var(--text-sm);"/>
+                        </div>
+                        <MudList T="string" Dense="true" Class="branch-list">
+                            @foreach (var group in FilteredBranchGroups)
+                            {
+                                <div class="branch-group-header">@group.Name</div>
+                                @foreach (var branch in group.Branches)
+                                {
+                                    <MudListItem T="string" OnClick="@(() => SelectTargetBranch(branch))"
+                                                 Class="@(branch == _targetBranch ? "branch-item-active" : "")">
+                                        <div class="branch-item-content">
+                                            <MudIcon Icon="@Icons.Material.Filled.AccountTree"
+                                                     Style="font-size: 14px; opacity: 0.5;"/>
+                                            <span class="branch-item-name">@branch</span>
+                                            @if (branch == _targetBranch)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.Check"
+                                                         Style="font-size: 14px; color: var(--accent);"/>
+                                            }
+                                        </div>
+                                    </MudListItem>
+                                }
+                            }
+                            @if (!FilteredBranchGroups.Any())
+                            {
+                                <div class="branch-no-results">일치하는 브랜치 없음</div>
+                            }
+                        </MudList>
+                    </MudPopover>
+
+                    @if (_branchMenuOpen)
+                    {
+                        <MudOverlay Visible="true" OnClick="CloseBranchMenu" DarkBackground="false" ZIndex="1"/>
+                    }
+                </div>
+            </div>
+
+            @* 액션 버튼들 (오른쪽) *@
+            <div class="merge-actions">
+                <MudTooltip Text="@(noTarget ? "대상 브랜치를 선택하세요" : $"{_targetBranch}에 일반 머지")" Placement="Placement.Bottom">
+                    <button class="merge-action-btn @(isStreaming || noTarget ? "disabled" : "")"
+                            @onclick="@(() => SendMergePrompt(false))"
+                            disabled="@(isStreaming || noTarget)">
+                        <MudIcon Icon="@Icons.Material.Outlined.MergeType" Style="width: 14px; height: 14px;"/>
+                        <span>머지</span>
                     </button>
                 </MudTooltip>
 
-                <MudPopover Open="@_branchMenuOpen" AnchorOrigin="Origin.BottomRight"
-                            TransformOrigin="Origin.TopRight" Class="branch-popover">
-                    <div class="branch-search-container">
-                        <MudTextField T="string" @bind-Value="_branchSearchText"
-                                      Placeholder="브랜치 검색..."
-                                      Variant="Variant.Text"
-                                      Immediate="true"
-                                      Adornment="Adornment.Start"
-                                      AdornmentIcon="@Icons.Material.Filled.Search"
-                                      Style="font-size: var(--text-sm);"/>
-                    </div>
-                    <MudList T="string" Dense="true" Class="branch-list">
-                        @foreach (var group in FilteredBranchGroups)
-                        {
-                            <div class="branch-group-header">@group.Name</div>
-                            @foreach (var branch in group.Branches)
-                            {
-                                <MudListItem T="string" OnClick="@(() => SelectTargetBranch(branch))"
-                                             Class="@(branch == _targetBranch ? "branch-item-active" : "")">
-                                    <div class="branch-item-content">
-                                        <MudIcon Icon="@Icons.Material.Filled.AccountTree"
-                                                 Style="font-size: 14px; opacity: 0.5;"/>
-                                        <span class="branch-item-name">@branch</span>
-                                        @if (branch == _targetBranch)
-                                        {
-                                            <MudIcon Icon="@Icons.Material.Filled.Check"
-                                                     Style="font-size: 14px; color: var(--accent);"/>
-                                        }
-                                    </div>
-                                </MudListItem>
-                            }
-                        }
-                        @if (!FilteredBranchGroups.Any())
-                        {
-                            <div class="branch-no-results">일치하는 브랜치 없음</div>
-                        }
-                    </MudList>
-                </MudPopover>
-
-                @if (_branchMenuOpen)
-                {
-                    <MudOverlay Visible="true" OnClick="CloseBranchMenu" DarkBackground="false" ZIndex="1"/>
-                }
-            </div>
-
-            @* 액션 버튼들 *@
-            <div class="merge-actions">
-                <MudTooltip Text="@(noTarget ? "대상 브랜치를 선택하세요" : $"{_targetBranch}에 머지")" Placement="Placement.Bottom">
-                    <MudIconButton Icon="@Icons.Material.Outlined.MergeType"
-                                   Size="Size.Small"
-                                   OnClick="@(() => SendMergePrompt(false))"
-                                   Disabled="@(isStreaming || noTarget)"
-                                   Style="width: 28px; height: 28px; opacity: 0.5;"/>
-                </MudTooltip>
-
                 <MudTooltip Text="@(noTarget ? "대상 브랜치를 선택하세요" : $"{_targetBranch}에 스쿼시 머지")" Placement="Placement.Bottom">
-                    <MudIconButton Icon="@Icons.Material.Outlined.Compress"
-                                   Size="Size.Small"
-                                   OnClick="@(() => SendMergePrompt(true))"
-                                   Disabled="@(isStreaming || noTarget)"
-                                   Style="width: 28px; height: 28px; opacity: 0.5;"/>
+                    <button class="merge-action-btn @(isStreaming || noTarget ? "disabled" : "")"
+                            @onclick="@(() => SendMergePrompt(true))"
+                            disabled="@(isStreaming || noTarget)">
+                        <MudIcon Icon="@Icons.Material.Outlined.Compress" Style="width: 14px; height: 14px;"/>
+                        <span>스쿼시</span>
+                    </button>
                 </MudTooltip>
 
                 @if (hasRemote)
                 {
                     <MudTooltip Text="PR 올리기" Placement="Placement.Bottom">
-                        <MudIconButton Icon="@Icons.Material.Outlined.OpenInNew"
-                                       Size="Size.Small"
-                                       OnClick="SendCreatePrPrompt"
-                                       Disabled="@isStreaming"
-                                       Style="width: 28px; height: 28px; opacity: 0.5;"/>
+                        <button class="merge-action-btn merge-action-pr @(isStreaming ? "disabled" : "")"
+                                @onclick="SendCreatePrPrompt"
+                                disabled="@isStreaming">
+                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="width: 14px; height: 14px;"/>
+                            <span>PR</span>
+                        </button>
                     </MudTooltip>
                 }
             </div>
@@ -112,13 +120,12 @@
         {
             <div style="flex: 1;"></div>
             <div class="merge-actions">
-                <MudTooltip Text="PR 올리기" Placement="Placement.Bottom">
-                    <MudIconButton Icon="@Icons.Material.Outlined.OpenInNew"
-                                   Size="Size.Small"
-                                   OnClick="SendCreatePrPrompt"
-                                   Disabled="@isStreaming"
-                                   Style="width: 28px; height: 28px; opacity: 0.5;"/>
-                </MudTooltip>
+                <button class="merge-action-btn merge-action-pr @(isStreaming ? "disabled" : "")"
+                        @onclick="SendCreatePrPrompt"
+                        disabled="@isStreaming">
+                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="width: 14px; height: 14px;"/>
+                    <span>PR 올리기</span>
+                </button>
             </div>
         }
     }
