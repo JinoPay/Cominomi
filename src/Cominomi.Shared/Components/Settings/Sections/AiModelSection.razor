@@ -35,16 +35,10 @@
         <div class="settings-segmented">
             <button class="settings-seg-item @(Settings.DefaultEffortLevel == "auto" ? "active" : "")"
                     @onclick="@(() => Settings.DefaultEffortLevel = "auto")">Auto</button>
-            <button class="settings-seg-item @(Settings.DefaultEffortLevel == "low" ? "active" : "")"
-                    @onclick="@(() => Settings.DefaultEffortLevel = "low")">Low</button>
-            <button class="settings-seg-item @(Settings.DefaultEffortLevel == "medium" ? "active" : "")"
-                    @onclick="@(() => Settings.DefaultEffortLevel = "medium")">Medium</button>
-            <button class="settings-seg-item @(Settings.DefaultEffortLevel == "high" ? "active" : "")"
-                    @onclick="@(() => Settings.DefaultEffortLevel = "high")">High</button>
-            <button class="settings-seg-item @(Settings.DefaultEffortLevel == "max" ? "active" : "")"
-                    @onclick="@(() => Settings.DefaultEffortLevel = "max")">Max</button>
+            <button class="settings-seg-item @(Settings.DefaultEffortLevel != "auto" ? "active" : "")"
+                    @onclick="@(() => Settings.DefaultEffortLevel = ModelDefinitions.GetMaxEffortLevel(Settings.DefaultModel))">최대</button>
         </div>
-        <div class="settings-field-hint">auto: 모델 기본값, high: 높은 사고 수준, max: 확장 사고 모드 (Opus 전용)</div>
+        <div class="settings-field-hint">auto: 모델 기본값, 최대: 모델별 최고 사고 수준 (Opus: max, 그 외: high)</div>
     </div>
 
     <div>
