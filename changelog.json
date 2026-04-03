@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.16.12",
+    "date": "2026-04-04",
+    "changes": [
+      { "type": "feat", "description": "MCP 서버 관리를 독립 페이지로 분리 및 UI 개선" },
+      { "type": "feat", "description": "설정 UI 현대화 — 드롭다운을 세그먼트 컨트롤과 pill 셀렉터로 교체" },
+      { "type": "feat", "description": "설정 전체 UX/UI 현대화 — 사이드바, 토글행, 단축키, 확장 섹션 개선" },
+      { "type": "feat", "description": "설정 UI 현대화 — Effort 레벨 binary 선택, 모델별 최대 자동 적용" },
+      { "type": "feat", "description": "MergeToolbar를 GitHub 스타일 스플릿 버튼으로 리디자인" },
+      { "type": "feat", "description": "채팅 버블 첨부파일 썸네일 크기 축소 및 가로 wrap 레이아웃" },
+      { "type": "fix", "description": "MergeToolbar에서 소스 브랜치 표시 제거" },
+      { "type": "fix", "description": "채팅 버블 첨부파일과 헤더 간격 추가" }
+    ]
+  },
+  {
     "version": "1.16.11",
     "date": "2026-04-03",
     "changes": [
