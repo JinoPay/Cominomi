@@ -50,16 +50,48 @@
     {
         <MudProgressLinear Indeterminate="true" Size="Size.Small" Rounded="true" Style="margin:8px 0 4px;"/>
     }
-    else if (_usage?.Utilization.HasValue == true)
+    else if (HasAnyUsage())
     {
-        <div class="acct-usage-block">
-            <div class="acct-usage-header">
-                <span class="acct-usage-label">5시간 Rate Limit</span>
-                <span class="acct-usage-pct" style="color:@UsageColorCss(_usage.Utilization.Value);">@($"{_usage.Utilization:F0}%")</span>
-            </div>
-            <MudProgressLinear Value="@_usage.Utilization.Value" Max="100"
-                               Color="@UsageColor(_usage.Utilization.Value)"
-                               Rounded="true" Size="Size.Small"/>
+        <div class="acct-usage-grid">
+            @if (_usage!.FiveHour is { } fh)
+            {
+                <div class="acct-usage-col">
+                    <span class="acct-usage-label">현재 세션</span>
+                    <div class="acct-usage-bar-row">
+                        <MudProgressLinear Value="@fh.Utilization" Max="100"
+                                           Color="@UsageColor(fh.Utilization)"
+                                           Rounded="true" Size="Size.Small"/>
+                        <span class="acct-usage-pct" style="color:@UsageColorCss(fh.Utilization);">@($"{fh.Utilization:F0}%")</span>
+                    </div>
+                    <span class="acct-usage-reset">@FormatResetTime(fh.ResetsAt)</span>
+                </div>
+            }
+            @if (_usage!.SevenDayAll is { } all)
+            {
+                <div class="acct-usage-col">
+                    <span class="acct-usage-label">모든 모델</span>
+                    <div class="acct-usage-bar-row">
+                        <MudProgressLinear Value="@all.Utilization" Max="100"
+                                           Color="@UsageColor(all.Utilization)"
+                                           Rounded="true" Size="Size.Small"/>
+                        <span class="acct-usage-pct" style="color:@UsageColorCss(all.Utilization);">@($"{all.Utilization:F0}%")</span>
+                    </div>
+                    <span class="acct-usage-reset">@FormatResetTime(all.ResetsAt)</span>
+                </div>
+            }
+            @if (_usage!.SevenDaySonnet is { } sonnet)
+            {
+                <div class="acct-usage-col">
+                    <span class="acct-usage-label">Sonnet만</span>
+                    <div class="acct-usage-bar-row">
+                        <MudProgressLinear Value="@sonnet.Utilization" Max="100"
+                                           Color="@UsageColor(sonnet.Utilization)"
+                                           Rounded="true" Size="Size.Small"/>
+                        <span class="acct-usage-pct" style="color:@UsageColorCss(sonnet.Utilization);">@($"{sonnet.Utilization:F0}%")</span>
+                    </div>
+                    <span class="acct-usage-reset">@FormatResetTime(sonnet.ResetsAt)</span>
+                </div>
+            }
         </div>
     }
 
@@ -210,6 +242,40 @@
         if (d.TotalHours < 1)   return $"{(int)d.TotalMinutes}분 전";
         if (d.TotalDays < 1)    return $"{(int)d.TotalHours}시간 전";
         return $"{(int)d.TotalDays}일 전";
+    }
+
+    private bool HasAnyUsage() =>
+        _usage?.FiveHour != null || _usage?.SevenDayAll != null || _usage?.SevenDaySonnet != null;
+
+    private static string FormatResetTime(DateTimeOffset? resetsAt)
+    {
+        if (resetsAt == null) return "";
+
+        var diff = resetsAt.Value - DateTimeOffset.UtcNow;
+
+        if (diff.TotalSeconds > 0 && diff.TotalHours < 24)
+        {
+            if (diff.TotalMinutes < 1) return "곧 재설정";
+            if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}분 후 재설정";
+            var hours = (int)diff.TotalHours;
+            var mins  = (int)(diff.TotalMinutes % 60);
+            return mins > 0 ? $"{hours}시간 {mins}분 후 재설정" : $"{hours}시간 후 재설정";
+        }
+
+        var local = resetsAt.Value.ToLocalTime();
+        var day = local.DayOfWeek switch
+        {
+            DayOfWeek.Monday    => "월",
+            DayOfWeek.Tuesday   => "화",
+            DayOfWeek.Wednesday => "수",
+            DayOfWeek.Thursday  => "목",
+            DayOfWeek.Friday    => "금",
+            DayOfWeek.Saturday  => "토",
+            _                   => "일",
+        };
+        var amPm  = local.Hour < 12 ? "오전" : "오후";
+        var hour12 = local.Hour % 12 is 0 ? 12 : local.Hour % 12;
+        return $"({day}) {amPm} {hour12}:{local.Minute:D2}에 재설정";
     }
 
     private static Color UsageColor(double p) => p >= 90 ? Color.Error : p >= 70 ? Color.Warning : Color.Success;

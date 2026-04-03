@@ -5253,16 +5253,28 @@ select:focus-visible {
     text-overflow: ellipsis;
 }
 
-.acct-usage-block {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+.acct-usage-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
 }
 
-.acct-usage-header {
+.acct-usage-col {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.acct-usage-bar-row {
+    display: flex;
     align-items: center;
+    gap: 6px;
+}
+
+.acct-usage-bar-row .mud-progress-linear {
+    flex: 1;
+    min-width: 0;
 }
 
 .acct-usage-label {
@@ -5273,6 +5285,16 @@ select:focus-visible {
 .acct-usage-pct {
     font-size: 12px;
     font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.acct-usage-reset {
+    font-size: 10px;
+    color: var(--text-muted, var(--text-secondary));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .acct-card-footer {

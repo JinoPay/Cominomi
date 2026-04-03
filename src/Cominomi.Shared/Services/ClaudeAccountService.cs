@@ -411,72 +411,38 @@ public class ClaudeAccountService(
             var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
-            // ── 5-hour rate limit ──────────────────────────────────────────
-            if (root.TryGetProperty("five_hour", out var fiveHour))
-            {
-                TryGetDouble(fiveHour, out var u, "utilization");  info.Utilization = u;
-                TryGetDouble(fiveHour, out var l, "limit");        info.Limit = l;
-                TryGetDouble(fiveHour, out var us, "used");        info.Used = us;
-            }
-            else
-            {
-                TryGetDouble(root, out var u, "utilization");  info.Utilization = u;
-                TryGetDouble(root, out var l, "limit");        info.Limit = l;
-                TryGetDouble(root, out var us, "used");        info.Used = us;
-            }
-
-            // ── Current week totals ────────────────────────────────────────
-            // Try common key names the API might use
-            JsonElement week = default;
-            bool hasWeek = root.TryGetProperty("current_week", out week)
-                        || root.TryGetProperty("week", out week)
-                        || root.TryGetProperty("weekly", out week);
-
-            if (hasWeek && week.ValueKind == JsonValueKind.Object)
-            {
-                TryGetLong(week, out var wt, "total_tokens", "tokens", "input_tokens");
-                TryGetLong(week, out var wr, "total_requests", "requests", "count");
-                info.WeeklyAllTokens = wt;
-                info.WeeklyAllRequests = wr;
-
-                // by_model array: [{ "model": "claude-sonnet-...", "tokens": 123, "requests": 4 }]
-                if (week.TryGetProperty("by_model", out var byModel)
-                    && byModel.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var entry in byModel.EnumerateArray())
-                    {
-                        if (!entry.TryGetProperty("model", out var modelProp)) continue;
-                        var modelName = modelProp.GetString() ?? "";
-                        if (!modelName.Contains("sonnet", StringComparison.OrdinalIgnoreCase)) continue;
-
-                        TryGetLong(entry, out var st, "tokens", "input_tokens", "total_tokens");
-                        TryGetLong(entry, out var sr, "requests", "count", "total_requests");
-                        info.WeeklySonnetTokens = (info.WeeklySonnetTokens ?? 0) + (st ?? 0);
-                        info.WeeklySonnetRequests = (info.WeeklySonnetRequests ?? 0) + (sr ?? 0);
-                    }
-                }
-            }
+            info.FiveHour       = ParseBucket(root, "five_hour");
+            info.SevenDayAll    = ParseBucket(root, "seven_day");
+            info.SevenDaySonnet = ParseBucket(root, "seven_day_sonnet");
         }
         catch { /* raw JSON still captured */ }
 
         return info;
     }
 
-    private static void TryGetDouble(JsonElement el, out double? result, params string[] keys)
+    private static UsageBucket? ParseBucket(JsonElement root, string propertyName)
     {
-        result = null;
-        foreach (var k in keys)
-            if (el.TryGetProperty(k, out var v) &&
-                (v.ValueKind == JsonValueKind.Number) && v.TryGetDouble(out var d))
-            { result = d; return; }
-    }
+        if (!root.TryGetProperty(propertyName, out var el)
+            || el.ValueKind != JsonValueKind.Object)
+            return null;
 
-    private static void TryGetLong(JsonElement el, out long? result, params string[] keys)
-    {
-        result = null;
-        foreach (var k in keys)
-            if (el.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number)
-            { result = v.GetInt64(); return; }
+        var bucket = new UsageBucket();
+
+        if (el.TryGetProperty("utilization", out var u)
+            && u.ValueKind == JsonValueKind.Number
+            && u.TryGetDouble(out var utilVal))
+        {
+            bucket.Utilization = utilVal;
+        }
+
+        if (el.TryGetProperty("resets_at", out var r)
+            && r.ValueKind == JsonValueKind.String
+            && DateTimeOffset.TryParse(r.GetString(), out var resetVal))
+        {
+            bucket.ResetsAt = resetVal;
+        }
+
+        return bucket;
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
