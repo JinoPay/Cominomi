@@ -1,6 +1,6 @@
 <div class="input-toolbar">
     <div class="input-toolbar-left">
-        <MudTooltip Text="@GetPermissionModeTooltip()">
+        <MudTooltip Text="@GetPermissionModeTooltip()" Placement="Placement.Top">
             <MudIconButton Icon="@GetPermissionModeIcon()"
                            Color="@GetPermissionModeColor()"
                            Size="Size.Small"
@@ -8,7 +8,7 @@
                            Disabled="Disabled || IsStreaming"/>
         </MudTooltip>
 
-        <MudTooltip Text="@GetEffortLevelTooltip()">
+        <MudTooltip Text="@GetEffortLevelTooltip()" Placement="Placement.Top">
             <MudIconButton Icon="@Icons.Material.Filled.Psychology"
                            Color="@GetEffortLevelColor()"
                            Size="Size.Small"
@@ -16,7 +16,7 @@
                            Disabled="@(Disabled || IsStreaming)"/>
         </MudTooltip>
 
-        <MudTooltip Text="파일 첨부">
+        <MudTooltip Text="파일 첨부" Placement="Placement.Top">
             <MudIconButton Icon="@Icons.Material.Filled.AttachFile"
                            Color="Color.Default"
                            Size="Size.Small"
@@ -28,7 +28,7 @@
     <div class="input-toolbar-right">
         @if (!string.IsNullOrEmpty(PlanFilePath))
         {
-            <MudTooltip Text="플랜 보기">
+            <MudTooltip Text="플랜 보기" Placement="Placement.Top">
                 <MudIconButton Icon="@Icons.Material.Filled.Map"
                                Color="Color.Warning"
                                Size="Size.Small"
