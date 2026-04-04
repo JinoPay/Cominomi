@@ -8,9 +8,6 @@ public class MessageStartHandler : IStreamEventHandler
 
     public Task HandleAsync(StreamEvent evt, StreamProcessingContext ctx)
     {
-        if (evt.Message?.Model is string startModel && !string.IsNullOrEmpty(startModel))
-            ctx.Session.ResolvedModel = startModel;
-
         ctx.UsageRecorded = false;
 
         if (evt.Message?.Usage is { } startUsage)

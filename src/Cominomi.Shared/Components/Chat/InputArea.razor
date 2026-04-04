@@ -40,7 +40,6 @@
                       OnEffortLevelChanged="HandleEffortLevelChangedLocal"
                       Model="@_currentModel"
                       OnModelChanged="HandleModelChangedLocal"
-                      ResolvedModel="ResolvedModel"
                       CurrentSession="CurrentSession"
                       IsStreaming="IsStreaming"
                       Disabled="Disabled"
@@ -64,7 +63,6 @@
     [Parameter] public EventCallback<string> PermissionModeChanged { get; set; }
     [Parameter] public string Model { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> OnModelChanged { get; set; }
-    [Parameter] public string? ResolvedModel { get; set; }
     [Parameter] public string EffortLevel { get; set; } = "auto";
     [Parameter] public EventCallback<string> EffortLevelChanged { get; set; }
     [Parameter] public Session? CurrentSession { get; set; }
@@ -91,7 +89,6 @@
     private bool _prevDisabled;
     private string _prevPermissionMode = "bypassAll";
     private string _prevModel = string.Empty;
-    private string? _prevResolvedModel;
     private string _prevEffortLevel = "auto";
     private string? _prevPlanFilePath;
     private string? _prevPlanContent;
@@ -145,7 +142,6 @@
             _prevDisabled != Disabled ||
             _prevPermissionMode != PermissionMode ||
             _prevModel != Model ||
-            _prevResolvedModel != ResolvedModel ||
             _prevEffortLevel != EffortLevel ||
             _prevPlanFilePath != PlanFilePath ||
             _prevPlanContent != PlanContent ||
@@ -155,7 +151,6 @@
             _prevDisabled = Disabled;
             _prevPermissionMode = PermissionMode;
             _prevModel = Model;
-            _prevResolvedModel = ResolvedModel;
             _prevEffortLevel = EffortLevel;
             _prevPlanFilePath = PlanFilePath;
             _prevPlanContent = PlanContent;

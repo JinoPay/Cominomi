@@ -10,8 +10,6 @@ public class SystemInitHandler : IStreamEventHandler
     {
         if (evt.Subtype != "init") return Task.CompletedTask;
 
-        if (evt.Model != null)
-            ctx.Session.ResolvedModel = evt.Model;
         if (!string.IsNullOrEmpty(evt.SessionId))
             ctx.Session.ConversationId = evt.SessionId;
 

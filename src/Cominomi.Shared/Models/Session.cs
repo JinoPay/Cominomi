@@ -68,8 +68,6 @@ public class Session
 
     public string? PlanFilePath { get; set; }
 
-    [JsonIgnore] public string? ResolvedModel { get; set; }
-
     public List<ChatMessage> GetMessagesSnapshot()
     {
         lock (MessagesLock)
