@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.16.13",
+    "date": "2026-04-04",
+    "changes": [
+      { "type": "feat", "description": "진행 중인 세션 종료 시 확인 다이얼로그 추가" },
+      { "type": "feat", "description": "크래시 시 로그 플러시 보장" },
+      { "type": "feat", "description": "스트리밍 중 사이드바 타이틀/브랜치 실시간 업데이트" },
+      { "type": "feat", "description": "플랜 보기를 다이얼로그에서 탭 방식으로 변경" },
+      { "type": "feat", "description": "TokenUsageRing 도넛 링 인디케이터 개선" },
+      { "type": "feat", "description": "모델 선택기 description 추가 및 ResolvedModel 제거" },
+      { "type": "fix", "description": "입력창 하단 툴팁이 화면 아래로 벗어날 때 위로 표시하도록 개선" },
+      { "type": "fix", "description": "모델 선택기 툴팁 Placement.Top 재적용" }
+    ]
+  },
+  {
     "version": "1.16.12",
     "date": "2026-04-04",
     "changes": [
