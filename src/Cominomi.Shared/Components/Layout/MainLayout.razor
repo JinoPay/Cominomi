@@ -13,6 +13,7 @@
 @inject IReleaseNotesService ReleaseNotesService
 @inject INotificationService NotificationService
 @inject INotificationHistoryService NotificationHistory
+@inject IWindowCloseGuardService WindowCloseGuard
 @using System.Diagnostics
 @using System.Reflection
 @using Microsoft.Extensions.Logging
@@ -119,6 +120,15 @@
 
 </div>
 
+<MudMessageBox @ref="_closeConfirmBox" Title="앱 종료" CancelText="취소">
+    <MessageContent>
+        진행 중인 세션이 있습니다. 지금 종료하면 세션이 중단됩니다. 종료하시겠습니까?
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error">종료</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 <SetupDialog IsOpen="_setupOpen" IsOpenChanged="OnSetupVisibleChanged"/>
 <Cominomi.Shared.Components.Onboarding.OnboardingDialog IsOpen="_onboardingOpen"
                                                         IsOpenChanged="OnOnboardingVisibleChanged"
@@ -137,6 +147,8 @@
     private int _rightPanelWidth = 400;
     private DotNetObjectReference<MainLayout>? _panelShortcutRef;
     private CancellationTokenSource? _updateTimerCts;
+    private MudMessageBox _closeConfirmBox = default!;
+    private IDisposable? _closeRequestedSub;
 
     protected override async Task OnInitializedAsync()
     {
@@ -145,6 +157,7 @@
         SettingsService.OnSettingsChanged += HandleUiScaleChanged;
         ChatState.OnRequestShowOnboarding += HandleShowOnboarding;
         ChatState.OnRequestShowWhatsNew += HandleShowWhatsNew;
+        _closeRequestedSub = EventBus.Subscribe<WindowCloseRequestedEvent>(_ => HandleCloseRequested());
 
         try
         {
@@ -522,6 +535,16 @@
         });
     }
 
+    private void HandleCloseRequested()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            var confirmed = await _closeConfirmBox.ShowAsync();
+            if (confirmed == true)
+                WindowCloseGuard.ForceClose();
+        });
+    }
+
     private readonly HashSet<string> _reloadingTabs = new();
 
     private async Task ReloadEvictedContent(MainTab tab)
@@ -556,6 +579,7 @@
         SettingsService.OnSettingsChanged -= HandleUiScaleChanged;
         ChatState.OnRequestShowOnboarding -= HandleShowOnboarding;
         ChatState.OnRequestShowWhatsNew -= HandleShowWhatsNew;
+        _closeRequestedSub?.Dispose();
         try
         {
             await JS.InvokeVoidAsync("unregisterPanelShortcuts");

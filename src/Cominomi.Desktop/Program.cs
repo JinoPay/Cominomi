@@ -238,6 +238,7 @@ public static class Program
         appBuilder.Services.AddSingleton<IInstructionsService, InstructionsService>();
         appBuilder.Services.AddSingleton<IGamificationService, GamificationService>();
         appBuilder.Services.AddSingleton<ISessionReplayService, SessionReplayService>();
+        appBuilder.Services.AddSingleton<IWindowCloseGuardService, WindowCloseGuardService>();
 
         // Load external model definitions
         var modelsJsonPath = Path.Combine(AppPaths.Settings, "models.json");
@@ -278,7 +279,7 @@ public static class Program
             }
         });
 
-        // Window closing handler — confirm if streaming sessions exist
+        // Window closing handler — block close and show in-app confirm dialog when streaming
         app.MainWindow.WindowClosingHandler = (sender, _) =>
         {
             try
@@ -286,12 +287,10 @@ public static class Program
                 var chatState = app.Services.GetService<IChatState>();
                 if (chatState?.HasAnyStreaming() != true) return false; // allow close
 
-                // Show native confirmation dialog
-                app.MainWindow.ShowMessage("Cominomi",
-                    "진행 중인 세션이 있습니다. 종료하시겠습니까?");
-                // ShowMessage is synchronous and blocking.
-                // Since there's no Yes/No variant, we allow close after user dismisses.
-                return false;
+                // Block the OS close and let the Blazor UI handle the confirmation dialog
+                var eventBus = app.Services.GetService<IChatEventBus>();
+                eventBus?.Publish(new WindowCloseRequestedEvent());
+                return true; // cancel close
             }
             catch
             {

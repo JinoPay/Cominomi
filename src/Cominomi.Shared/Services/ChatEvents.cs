@@ -36,3 +36,5 @@ public sealed record WorktreeSyncStartedEvent(string SessionId, string Workspace
 public sealed record WorktreeSyncStoppedEvent(string SessionId, string WorkspaceId) : ChatEvent;
 
 public sealed record MergeRequestedEvent(ChatInputMessage Input) : ChatEvent;
+
+public sealed record WindowCloseRequestedEvent : ChatEvent;
