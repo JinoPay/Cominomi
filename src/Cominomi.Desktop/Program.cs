@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Cominomi.Desktop.Components;
 using Cominomi.Desktop.Services;
 using Cominomi.Shared.Models;
@@ -19,6 +20,15 @@ namespace Cominomi.Desktop;
 
 public static class Program
 {
+    private static volatile bool _flushed;
+
+    private static void FlushLogs()
+    {
+        if (_flushed) return;
+        _flushed = true;
+        Log.CloseAndFlush();
+    }
+
     private static string GetIconPath()
     {
         var baseDir = AppContext.BaseDirectory;
@@ -75,6 +85,46 @@ public static class Program
                 "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
 
+        // Unhandled exception handlers — registered here (before RunApp) so they're active
+        // even if Build() or early initialization crashes on a background thread.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+                Log.Fatal(ex, "AppDomain unhandled exception (IsTerminating={IsTerminating})", e.IsTerminating);
+            else
+                Log.Fatal("AppDomain unhandled exception: {Error}", e.ExceptionObject);
+
+            // Main's finally block does NOT run for background-thread crashes,
+            // so we must flush here before the CLR kills the process.
+            if (e.IsTerminating)
+                FlushLogs();
+        };
+
+        // Belt-and-suspenders: also flush on normal process exit (including Environment.Exit).
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => { FlushLogs(); };
+
+        // POSIX signals (SIGTERM from OS shutdown / kill, SIGINT from Ctrl+C in dev terminal).
+        if (!OperatingSystem.IsWindows())
+        {
+            PosixSignalRegistration.Create(PosixSignal.SIGTERM, _ =>
+            {
+                Log.Information("Received SIGTERM, shutting down");
+                FlushLogs();
+            });
+            PosixSignalRegistration.Create(PosixSignal.SIGINT, _ =>
+            {
+                Log.Information("Received SIGINT, shutting down");
+                FlushLogs();
+            });
+        }
+
+        // Mark unobserved task exceptions as observed after logging to prevent a secondary crash.
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Log.Error(e.Exception, "Unobserved task exception");
+            e.SetObserved();
+        };
+
         try
         {
             RunApp(args);
@@ -85,7 +135,7 @@ public static class Program
         }
         finally
         {
-            Log.CloseAndFlush();
+            FlushLogs();
         }
     }
 
@@ -248,17 +298,6 @@ public static class Program
                 return false;
             }
         };
-
-        // Unhandled exception handlers
-        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-        {
-            if (e.ExceptionObject is Exception ex)
-                Log.Fatal(ex, "AppDomain unhandled exception (IsTerminating={IsTerminating})", e.IsTerminating);
-            else
-                Log.Fatal("AppDomain unhandled exception: {Error}", e.ExceptionObject);
-        };
-
-        TaskScheduler.UnobservedTaskException += (_, e) => { Log.Error(e.Exception, "Unobserved task exception"); };
 
         // Plugin initialization
         try
