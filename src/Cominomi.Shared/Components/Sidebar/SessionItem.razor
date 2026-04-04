@@ -131,6 +131,12 @@
     [Parameter] public EventCallback<string> OnOpenInIde { get; set; }
     [Parameter] public List<IdeInfo>? AvailableIdes { get; set; }
 
+    /// <summary>Blazor 변경 감지용 — Session.Title의 스칼라 복사본. 렌더링은 Session에서 직접 읽음.</summary>
+    [Parameter] public string? SessionTitle { get; set; }
+
+    /// <summary>Blazor 변경 감지용 — Session.Git.BranchName의 스칼라 복사본. 렌더링은 Session에서 직접 읽음.</summary>
+    [Parameter] public string? SessionBranch { get; set; }
+
     private MudMenu? _contextMenu;
 
     private async Task OpenContextMenu()

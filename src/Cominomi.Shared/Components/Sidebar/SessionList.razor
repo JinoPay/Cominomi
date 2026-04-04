@@ -100,6 +100,8 @@
                         var isCompleted = ChatState.IsSessionCompleted(row.Session!.Id);
                         var hasDiffStats = DataService.DiffStatsCache.TryGetValue(row.Session!.Id, out var stats);
                         <SessionItem Session="row.Session!"
+                                     SessionTitle="@row.Session!.Title"
+                                     SessionBranch="@row.Session!.Git.BranchName"
                                      IsActive="@(ChatState.CurrentSession?.Id == row.Session!.Id)"
                                      IsStreaming="isStreaming"
                                      IsCompleted="isCompleted"
@@ -466,8 +468,7 @@
     }
 
     private string? _lastSessionId;
-    private string? _lastBranchName;
-    private string? _lastSessionTitle;
+    private int _lastSessionTitleHash;
     private bool _lastHasStreaming;
     private int _lastStreamingHash;
     private int _lastCompletedHash;
@@ -496,12 +497,21 @@
                     completedHash ^= row.Session.Id.GetHashCode();
             }
 
-            var branchName = ChatState.CurrentSession?.Git.BranchName;
-            var sessionTitle = ChatState.CurrentSession?.Title;
-            if (currentId == _lastSessionId && branchName == _lastBranchName
-                                            && sessionTitle == _lastSessionTitle
-                                            && hasStreaming == _lastHasStreaming
-                                            && streamingHash == _lastStreamingHash && completedHash == _lastCompletedHash)
+            // Compute a hash of all visible sessions' titles and branch names
+            // to detect changes in any session, not just the current one
+            var sessionTitleHash = 0;
+            foreach (var row in _flatRows)
+            {
+                if (row.Session != null)
+                    sessionTitleHash = HashCode.Combine(sessionTitleHash,
+                        row.Session.Title, row.Session.Git.BranchName);
+            }
+
+            if (currentId == _lastSessionId
+                && sessionTitleHash == _lastSessionTitleHash
+                && hasStreaming == _lastHasStreaming
+                && streamingHash == _lastStreamingHash
+                && completedHash == _lastCompletedHash)
                 return;
 
             // If streaming state changed, rebuild flat rows to update collapsed indicators
@@ -520,8 +530,7 @@
             }
 
             _lastSessionId = currentId;
-            _lastBranchName = branchName;
-            _lastSessionTitle = sessionTitle;
+            _lastSessionTitleHash = sessionTitleHash;
             _lastHasStreaming = hasStreaming;
             _lastStreamingHash = streamingHash;
             _lastCompletedHash = completedHash;
