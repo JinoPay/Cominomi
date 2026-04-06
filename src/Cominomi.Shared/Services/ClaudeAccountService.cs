@@ -302,13 +302,13 @@ public class ClaudeAccountService(
             var refreshToken = ExtractToken(credJson, "refreshToken", "refresh_token");
             if (accessToken == null) return null;
 
-            var (responseJson, newAccessToken) = await FetchUsageWithRefreshAsync(accessToken, refreshToken, accountId);
+            var (responseJson, newAccessToken, newRefreshToken) = await FetchUsageWithRefreshAsync(accessToken, refreshToken, accountId);
             if (responseJson == null) return null;
 
-            // If token was refreshed, persist the new token
+            // If token was refreshed, persist both new tokens
             if (newAccessToken != null && newAccessToken != accessToken)
             {
-                await UpdateStoredTokenAsync(accountId, account.IsActive, credJson, newAccessToken);
+                await UpdateStoredTokenAsync(accountId, account.IsActive, credJson, newAccessToken, newRefreshToken);
             }
 
             return ParseUsageResponse(accountId, responseJson);
@@ -320,21 +320,21 @@ public class ClaudeAccountService(
         }
     }
 
-    private async Task<(string? json, string? newAccessToken)> FetchUsageWithRefreshAsync(
+    private async Task<(string? json, string? newAccessToken, string? newRefreshToken)> FetchUsageWithRefreshAsync(
         string accessToken, string? refreshToken, string accountId)
     {
         var result = await CallUsageApiAsync(accessToken);
-        if (result != null) return (result, null);
+        if (result != null) return (result, null, null);
 
         // 401 — try to refresh
-        if (refreshToken == null) return (null, null);
+        if (refreshToken == null) return (null, null, null);
 
         logger.LogDebug("Access token expired for {Id}, attempting refresh", accountId);
-        var newToken = await RefreshAccessTokenAsync(refreshToken);
-        if (newToken == null) return (null, null);
+        var (newAccessToken, newRefreshToken) = await RefreshAccessTokenAsync(refreshToken);
+        if (newAccessToken == null) return (null, null, null);
 
-        result = await CallUsageApiAsync(newToken);
-        return (result, newToken);
+        result = await CallUsageApiAsync(newAccessToken);
+        return (result, newAccessToken, newRefreshToken);
     }
 
     private async Task<string?> CallUsageApiAsync(string accessToken)
@@ -352,7 +352,7 @@ public class ClaudeAccountService(
         return await response.Content.ReadAsStringAsync();
     }
 
-    private async Task<string?> RefreshAccessTokenAsync(string refreshToken)
+    private async Task<(string? accessToken, string? refreshToken)> RefreshAccessTokenAsync(string refreshToken)
     {
         try
         {
@@ -363,22 +363,27 @@ public class ClaudeAccountService(
             ]);
 
             var response = await httpClient.PostAsync("https://console.anthropic.com/v1/oauth/token", body);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode) return (null, null);
 
             var json = await response.Content.ReadAsStringAsync();
             var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("access_token", out var token))
-                return token.GetString();
+            string? newAccessToken = null;
+            string? newRefreshToken = null;
+            if (doc.RootElement.TryGetProperty("access_token", out var at))
+                newAccessToken = at.GetString();
+            if (doc.RootElement.TryGetProperty("refresh_token", out var rt))
+                newRefreshToken = rt.GetString();
+            return (newAccessToken, newRefreshToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Token refresh failed");
         }
 
-        return null;
+        return (null, null);
     }
 
-    private async Task UpdateStoredTokenAsync(string accountId, bool isActive, string oldCredJson, string newAccessToken)
+    private async Task UpdateStoredTokenAsync(string accountId, bool isActive, string oldCredJson, string newAccessToken, string? newRefreshToken = null)
     {
         try
         {
@@ -389,6 +394,11 @@ public class ClaudeAccountService(
             var updated = false;
             if (node.ContainsKey("accessToken"))  { node["accessToken"]  = newAccessToken; updated = true; }
             if (node.ContainsKey("access_token")) { node["access_token"] = newAccessToken; updated = true; }
+            if (newRefreshToken != null)
+            {
+                if (node.ContainsKey("refreshToken"))  node["refreshToken"]  = newRefreshToken;
+                if (node.ContainsKey("refresh_token")) node["refresh_token"] = newRefreshToken;
+            }
 
             // Update nested keys (e.g. Windows: "claudeAiOauth": { "accessToken": "..." })
             if (!updated)
@@ -398,6 +408,11 @@ public class ClaudeAccountService(
                     if (child.Value is not JsonObject nested) continue;
                     if (nested.ContainsKey("accessToken"))  { nested["accessToken"]  = newAccessToken; updated = true; }
                     if (nested.ContainsKey("access_token")) { nested["access_token"] = newAccessToken; updated = true; }
+                    if (newRefreshToken != null)
+                    {
+                        if (nested.ContainsKey("refreshToken"))  nested["refreshToken"]  = newRefreshToken;
+                        if (nested.ContainsKey("refresh_token")) nested["refresh_token"] = newRefreshToken;
+                    }
                     if (updated) break;
                 }
             }
@@ -533,10 +548,10 @@ public class ClaudeAccountService(
                 return false;
             }
 
-            var newAccessToken = await RefreshAccessTokenAsync(refreshToken);
+            var (newAccessToken, newRefreshToken) = await RefreshAccessTokenAsync(refreshToken);
             if (newAccessToken == null) return false;
 
-            await UpdateStoredTokenAsync(accountId, account.IsActive, credJson, newAccessToken);
+            await UpdateStoredTokenAsync(accountId, account.IsActive, credJson, newAccessToken, newRefreshToken);
             logger.LogInformation("Manually refreshed token for account {Id}", accountId);
             return true;
         }
