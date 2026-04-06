@@ -6,6 +6,10 @@
     <div class="replay-page-header">
         <span class="typo-h6">세션 히스토리</span>
         <MudChip T="string" Size="Size.Small" Variant="Variant.Text">@_totalCount 세션</MudChip>
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
+                       Style="width: 22px; height: 22px; opacity: 0.5;"
+                       OnClick="RefreshSessionsAsync" Disabled="_loading"
+                       Title="새로고침"/>
         <button class="replay-nav-link" @onclick="@(() => ChatState.SetSettingsSection("usage"))">
             <MudIcon Icon="@Icons.Material.Filled.Analytics" Size="Size.Small"/>
             사용량 분석 →
@@ -468,6 +472,42 @@
         var livePaths = _liveSessions.Select(l => l.FilePath).ToHashSet();
         foreach (var s in _sessions)
             s.IsLive = livePaths.Contains(s.FilePath);
+    }
+
+    private async Task RefreshSessionsAsync()
+    {
+        _loading = true;
+        _selected = null;
+        _events = [];
+        _displayEvents = [];
+        StateHasChanged();
+
+        try
+        {
+            await ReplayService.RefreshSessionIndexAsync(force: true);
+
+            var listTask = ReplayService.ListSessionsAsync(10, 0);
+            var tagsTask = ReplayService.GetTagsAsync();
+            var liveTask = ReplayService.DetectLiveSessionsAsync();
+            await Task.WhenAll(listTask, tagsTask, liveTask);
+
+            var result = listTask.Result;
+            _sessions = result.Sessions;
+            _totalCount = result.Total;
+            _hasMoreSessions = result.HasMore;
+            _tagsData = tagsTask.Result;
+            _liveSessions = liveTask.Result;
+            MarkLiveSessions();
+        }
+        catch
+        {
+            /* silent */
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task LoadMoreSessions()
