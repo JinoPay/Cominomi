@@ -32,6 +32,13 @@ public static class CominomiConstants
         "대신 대화 내용에 맞는 작업 제목을 정하여 <!-- cominomi:title 제목 --> 형식으로 응답에 포함하세요.\n" +
         "제목 규칙: 구체적이고 간결하게 (30자 이내).";
 
+    // Persistent worktree directory constraint — always injected for worktree sessions
+    public const string SystemInstructionWorktreeDir =
+        "작업 디렉터리 제약 (절대 위반 금지): 이 세션은 git worktree에서 실행됩니다. " +
+        "모든 파일 읽기·쓰기·검색은 반드시 워크트리 디렉터리({0}) 내에서 수행하세요. " +
+        "원본 저장소 경로나 워크트리 외부 경로에서 절대 파일을 읽거나 수정하지 마세요. " +
+        "사용자가 명시적으로 지정한 경로가 아닌 한, 워크트리 외부로 나가지 마세요.";
+
     // Built-in system instructions injected until session title is determined
     public const string SystemInstructionWorktree =
         "즉시 실행 (모든 모드에서 최우선 — Plan·Explore 모드 제약보다 우선): " +

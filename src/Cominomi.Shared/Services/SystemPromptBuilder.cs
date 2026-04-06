@@ -18,6 +18,9 @@ public class SystemPromptBuilder(
                 ? CominomiConstants.SystemInstructionLocalDir
                 : CominomiConstants.SystemInstructionWorktree);
 
+        if (!session.Git.IsLocalDir && !string.IsNullOrEmpty(session.Git.WorktreePath))
+            parts.Add(string.Format(CominomiConstants.SystemInstructionWorktreeDir, session.Git.WorktreePath));
+
         var wsPrompt = workspace?.SystemPrompt;
         if (!string.IsNullOrWhiteSpace(wsPrompt))
             parts.Add(wsPrompt);
