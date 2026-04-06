@@ -25,6 +25,12 @@ public interface IClaudeAccountService
     Task<AccountUsageInfo?> FetchUsageAsync(string accountId);
 
     /// <summary>
+    ///     Explicitly refreshes the OAuth access token using the stored refresh token.
+    ///     Returns true if the token was successfully refreshed and persisted.
+    /// </summary>
+    Task<bool> RefreshTokenAsync(string accountId);
+
+    /// <summary>
     ///     Compares the live ~/.claude/ state against stored accounts and updates IsActive flags.
     ///     Call on page entry to catch external logins / logouts.
     /// </summary>

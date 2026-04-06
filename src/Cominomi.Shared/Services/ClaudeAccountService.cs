@@ -385,8 +385,28 @@ public class ClaudeAccountService(
             var node = JsonNode.Parse(oldCredJson)?.AsObject();
             if (node == null) return;
 
-            if (node.ContainsKey("accessToken")) node["accessToken"] = newAccessToken;
-            if (node.ContainsKey("access_token")) node["access_token"] = newAccessToken;
+            // Update top-level keys
+            var updated = false;
+            if (node.ContainsKey("accessToken"))  { node["accessToken"]  = newAccessToken; updated = true; }
+            if (node.ContainsKey("access_token")) { node["access_token"] = newAccessToken; updated = true; }
+
+            // Update nested keys (e.g. Windows: "claudeAiOauth": { "accessToken": "..." })
+            if (!updated)
+            {
+                foreach (var child in node)
+                {
+                    if (child.Value is not JsonObject nested) continue;
+                    if (nested.ContainsKey("accessToken"))  { nested["accessToken"]  = newAccessToken; updated = true; }
+                    if (nested.ContainsKey("access_token")) { nested["access_token"] = newAccessToken; updated = true; }
+                    if (updated) break;
+                }
+            }
+
+            if (!updated)
+            {
+                logger.LogWarning("Could not locate accessToken field in credentials JSON for {Id}", accountId);
+                return;
+            }
 
             var updatedJson = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 
@@ -490,6 +510,41 @@ public class ClaudeAccountService(
         catch { /* ignore */ }
 
         return null;
+    }
+
+    public async Task<bool> RefreshTokenAsync(string accountId)
+    {
+        try
+        {
+            var store = await LoadStoreAsync();
+            var account = store.Accounts.FirstOrDefault(a => a.Id == accountId);
+            if (account == null) return false;
+
+            var credJson = account.IsActive
+                ? await credentialService.ReadCurrentCredentialsAsync()
+                : (await credentialService.LoadBackupAsync(accountId))?.CredentialsJson;
+
+            if (credJson == null) return false;
+
+            var refreshToken = ExtractToken(credJson, "refreshToken", "refresh_token");
+            if (refreshToken == null)
+            {
+                logger.LogWarning("No refresh token found for account {Id}", accountId);
+                return false;
+            }
+
+            var newAccessToken = await RefreshAccessTokenAsync(refreshToken);
+            if (newAccessToken == null) return false;
+
+            await UpdateStoredTokenAsync(accountId, account.IsActive, credJson, newAccessToken);
+            logger.LogInformation("Manually refreshed token for account {Id}", accountId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Manual token refresh failed for account {Id}", accountId);
+            return false;
+        }
     }
 
     // ── Drift detection ────────────────────────────────────────────────────

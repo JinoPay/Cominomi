@@ -126,6 +126,11 @@
                                OnClick="FetchUsage" Disabled="_fetchingUsage"
                                Style="width:28px;height:28px;"/>
             </MudTooltip>
+            <MudTooltip Text="토큰 갱신">
+                <MudIconButton Icon="@Icons.Material.Filled.Key" Size="Size.Small"
+                               OnClick="RefreshToken" Disabled="_refreshingToken"
+                               Style="width:28px;height:28px;"/>
+            </MudTooltip>
             <MudTooltip Text="이름 편집">
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
                                OnClick="StartEdit" Style="width:28px;height:28px;"/>
@@ -147,6 +152,7 @@
 
     private bool _switching;
     private bool _fetchingUsage;
+    private bool _refreshingToken;
     private bool _editingName;
     private bool _backupMissing;
     private string _editName = "";
@@ -196,6 +202,26 @@
                 Snackbar.Add($"사용량 조회 오류: {ex.Message}", Severity.Error);
         }
         finally { _fetchingUsage = false; }
+    }
+
+    private async Task RefreshToken()
+    {
+        _refreshingToken = true;
+        StateHasChanged();
+        try
+        {
+            var ok = await AccountService.RefreshTokenAsync(Account.Id);
+            if (ok)
+            {
+                Snackbar.Add("토큰이 갱신되었습니다.", Severity.Success);
+                await FetchUsage();
+            }
+            else
+            {
+                Snackbar.Add("토큰 갱신 실패. refresh_token이 없거나 만료되었습니다.", Severity.Warning);
+            }
+        }
+        finally { _refreshingToken = false; }
     }
 
     private void StartEdit() { _editName = Account.ProfileName; _editingName = true; }
