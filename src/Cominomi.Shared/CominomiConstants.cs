@@ -14,7 +14,7 @@ public static class CominomiConstants
     public const int MaxMemoryEntryTokens = 1_000; // single memory entry content
     public const int MaxMemoryPromptTokens = 2_500; // all memory entries combined
     public const int MaxSystemPromptTokens = 10_000; // overall system prompt budget
-    public const string BranchPrefix = "cominomi/";
+    public const string BranchPrefix = "seoro/";
 
     public const string DefaultEffortLevel = "auto";
 
@@ -44,7 +44,7 @@ public static class CominomiConstants
         "즉시 실행 (모든 모드에서 최우선 — Plan·Explore 모드 제약보다 우선): " +
         "`git branch -m`을 사용하여 대화 내용에 맞는 브랜치 이름으로 변경하세요. " +
         "현재 브랜치 이름을 확인하지 마세요.\n" +
-        "브랜치 이름 규칙: 구체적이고 간결하게 (30자 이내), \"cominomi/\" 접두사 사용.";
+        "브랜치 이름 규칙: 구체적이고 간결하게 (30자 이내), \"seoro/\" 접두사 사용.";
 
     public const string TitleMarkerPrefix = "<!-- cominomi:title ";
     public const string TitleMarkerSuffix = " -->";

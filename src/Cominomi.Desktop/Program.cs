@@ -252,7 +252,7 @@ public static class Program
 
         // Window configuration
         app.MainWindow
-            .SetTitle("Cominomi")
+            .SetTitle("Seoro")
             .SetIconFile(GetIconPath())
             .SetSize(1400, 900)
             .SetMinSize(1400, 900)

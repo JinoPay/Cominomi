@@ -101,19 +101,19 @@ jobs:
       - name: Create macOS .app bundle
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
-          mkdir -p "publish/Cominomi.app/Contents/MacOS"
-          mkdir -p "publish/Cominomi.app/Contents/Resources"
-          cp -R publish/mac/* "publish/Cominomi.app/Contents/MacOS/"
-          cp src/Cominomi.Desktop/icon.icns "publish/Cominomi.app/Contents/Resources/app.icns"
-          cat > "publish/Cominomi.app/Contents/Info.plist" << PLIST
+          mkdir -p "publish/Seoro.app/Contents/MacOS"
+          mkdir -p "publish/Seoro.app/Contents/Resources"
+          cp -R publish/mac/* "publish/Seoro.app/Contents/MacOS/"
+          cp src/Cominomi.Desktop/icon.icns "publish/Seoro.app/Contents/Resources/app.icns"
+          cat > "publish/Seoro.app/Contents/Info.plist" << PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
             <key>CFBundleName</key>
-            <string>Cominomi</string>
+            <string>Seoro</string>
             <key>CFBundleDisplayName</key>
-            <string>Cominomi</string>
+            <string>Seoro</string>
             <key>CFBundleIdentifier</key>
             <string>com.cominomi.app</string>
             <key>CFBundleExecutable</key>
@@ -150,7 +150,7 @@ jobs:
           dotnet vpk pack
           --packId Cominomi
           --packVersion ${{ steps.version.outputs.VERSION }}
-          --packDir publish/Cominomi.app
+          --packDir publish/Seoro.app
           --mainExe Cominomi.Desktop
           --channel osx
           --outputDir releases/mac
