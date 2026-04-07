@@ -17,14 +17,15 @@ public class FileDiff
     public FileChangeType ChangeType { get; set; }
     public int Additions { get; set; }
     public int Deletions { get; set; }
+    public bool IsBinary { get; set; }
     public string FilePath { get; set; } = "";
     public string UnifiedDiff { get; set; } = "";
 }
 
 public class DiffSummary
 {
-    public int TotalAdditions => Files.Sum(f => f.Additions);
-    public int TotalDeletions => Files.Sum(f => f.Deletions);
+    public int TotalAdditions => Files.Where(f => !f.IsBinary).Sum(f => f.Additions);
+    public int TotalDeletions => Files.Where(f => !f.IsBinary).Sum(f => f.Deletions);
     public List<FileDiff> Files { get; set; } = [];
 }
 

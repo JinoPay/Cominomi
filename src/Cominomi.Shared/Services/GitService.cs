@@ -181,6 +181,19 @@ public class GitService(
                 var fullPath = Path.Combine(workingDir, relPath.Replace('/', Path.DirectorySeparatorChar));
                 if (!File.Exists(fullPath)) continue;
 
+                if (IsLikelyBinary(relPath))
+                {
+                    summary.Files.Add(new FileDiff
+                    {
+                        FilePath = relPath,
+                        ChangeType = FileChangeType.Untracked,
+                        IsBinary = true,
+                        Additions = 0,
+                        Deletions = 0
+                    });
+                    continue;
+                }
+
                 var content = await File.ReadAllTextAsync(fullPath, ct);
                 var lines = content.Split('\n');
                 var addCount = lines.Length;
@@ -719,6 +732,19 @@ public class GitService(
         return new Process { StartInfo = psi };
     }
 
+    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".tiff", ".tif",
+        ".svg", ".pdf", ".zip", ".tar", ".gz", ".7z", ".rar",
+        ".exe", ".dll", ".so", ".dylib", ".wasm",
+        ".mp3", ".mp4", ".wav", ".ogg", ".flac", ".mov", ".avi", ".mkv",
+        ".ttf", ".otf", ".woff", ".woff2",
+        ".db", ".sqlite", ".bin", ".dat"
+    };
+
+    private static bool IsLikelyBinary(string filePath) =>
+        BinaryExtensions.Contains(Path.GetExtension(filePath));
+
     private static void FlushFileDiff(Dictionary<string, FileDiff> fileMap, string? filePath, StringBuilder diffContent,
         int additions, int deletions)
     {
@@ -726,8 +752,17 @@ public class GitService(
         if (!fileMap.TryGetValue(filePath, out var fileDiff)) return;
 
         fileDiff.UnifiedDiff = diffContent.ToString();
-        fileDiff.Additions = additions;
-        fileDiff.Deletions = deletions;
+        if (IsLikelyBinary(filePath))
+        {
+            fileDiff.IsBinary = true;
+            fileDiff.Additions = 0;
+            fileDiff.Deletions = 0;
+        }
+        else
+        {
+            fileDiff.Additions = additions;
+            fileDiff.Deletions = deletions;
+        }
     }
 
     private async Task<DiffSummary> BuildUntrackedOnlySummaryAsync(string workingDir, CancellationToken ct)
@@ -740,6 +775,19 @@ public class GitService(
             {
                 var fullPath = Path.Combine(workingDir, relPath.Replace('/', Path.DirectorySeparatorChar));
                 if (!File.Exists(fullPath)) continue;
+
+                if (IsLikelyBinary(relPath))
+                {
+                    summary.Files.Add(new FileDiff
+                    {
+                        FilePath = relPath,
+                        ChangeType = FileChangeType.Untracked,
+                        IsBinary = true,
+                        Additions = 0,
+                        Deletions = 0
+                    });
+                    continue;
+                }
 
                 var content = await File.ReadAllTextAsync(fullPath, ct);
                 var lines = content.Split('\n');

@@ -74,13 +74,16 @@
                                      Style="@($"width: 14px; height: 14px; {GetFileIconStyle(file.ChangeType)}")"/>
                             <span class="sidebar-file-name">@GetFileName(file.FilePath)</span>
                             <div class="diff-stats" style="margin-left: auto;">
-                                @if (file.Additions > 0)
+                                @if (!file.IsBinary)
                                 {
-                                    <span class="additions">+@file.Additions</span>
-                                }
-                                @if (file.Deletions > 0)
-                                {
-                                    <span class="deletions">-@file.Deletions</span>
+                                    @if (file.Additions > 0)
+                                    {
+                                        <span class="additions">+@file.Additions</span>
+                                    }
+                                    @if (file.Deletions > 0)
+                                    {
+                                        <span class="deletions">-@file.Deletions</span>
+                                    }
                                 }
                             </div>
                         </div>
