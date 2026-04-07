@@ -2,13 +2,13 @@
 
 ## Critical Context
 - **Tech Stack**: .NET 10.0 + Blazor + Photino.Blazor (desktop) + MudBlazor (UI)
-- **Solution**: `Cominomi.slnx` (new XML solution format)
+- **Solution**: `Seoro.slnx` (new XML solution format)
 - **Projects**:
-  - `src/Cominomi.Desktop` - Desktop app entry point (WinExe, Photino window)
-  - `src/Cominomi.Shared` - Shared library (models, services, Razor components)
-  - `tests/Cominomi.Shared.Tests` - xUnit test suite
+  - `src/Seoro.Desktop` - Desktop app entry point (WinExe, Photino window)
+  - `src/Seoro.Shared` - Shared library (models, services, Razor components)
+  - `tests/Seoro.Shared.Tests` - xUnit test suite
 - **Platform**: Windows x64, macOS ARM64
-- **Build**: `dotnet build Cominomi.slnx`, release via `dotnet publish` + Velopack
+- **Build**: `dotnet build Seoro.slnx`, release via `dotnet publish` + Velopack
 - **Test**: `dotnet test`
 - **Auto-update**: Velopack (`vpk` tool)
 - **CI/CD**: GitHub Actions (`release.yml`) - triggered on `v*` tags
@@ -21,16 +21,16 @@ git operations, file management, plugins, and more.
 
 ```
 src/
-  Cominomi.Desktop/         # Entry point, DI setup, platform services
+  Seoro.Desktop/         # Entry point, DI setup, platform services
     Program.cs               # Main entry - DI container, Photino window init
     Services/                # Desktop-specific: file picker, notifications, updates
-  Cominomi.Shared/           # Core logic (platform-agnostic)
+  Seoro.Shared/           # Core logic (platform-agnostic)
     Models/                  # Data models (Session, ChatMessage, StreamEvent, etc.)
     Services/                # Business logic (ClaudeService, GitService, ChatState, etc.)
     Components/              # Blazor Razor components (Accounts/, Chat/, Dashboard/, Files/, Hooks/, Instructions/, Layout/, Mcp/, Memory/, Notifications/, Onboarding/, Rules/, Sessions/, Settings/, Setup/, Shared/, Sidebar/, Tools/)
-    CominomiConstants.cs     # Shared constants and limits
+    SeoroConstants.cs     # Shared constants and limits
 tests/
-  Cominomi.Shared.Tests/    # Unit tests (xUnit)
+  Seoro.Shared.Tests/    # Unit tests (xUnit)
 ```
 
 ## Key Services
@@ -60,7 +60,7 @@ tests/
 - `ContextService` - Context item management (notes, todos, plans)
 - `PluginService` - Plugin loading and execution engine
 
-## Key Constants (`CominomiConstants.cs`)
+## Key Constants (`SeoroConstants.cs`)
 - Max 20 active sessions per workspace
 - Token limits: context 5K, memory entry 1K, memory total 2.5K, system prompt 10K
 - Default permission mode: `bypassAll`
@@ -68,9 +68,9 @@ tests/
 
 ## Development Workflow
 1. `dotnet tool restore` - Restore CLI tools (ilspycmd, vpk)
-2. `dotnet build Cominomi.slnx` - Build all projects
+2. `dotnet build Seoro.slnx` - Build all projects
 3. `dotnet test` - Run tests
-4. `dotnet run --project src/Cominomi.Desktop` - Run the app
+4. `dotnet run --project src/Seoro.Desktop` - Run the app
 5. Release: tag `vX.Y.Z` and push to trigger CI/CD
 
 ## Release Checklist
@@ -80,7 +80,7 @@ tests/
 3. CI가 태그에서 버전을 추출하여 어셈블리에 자동 반영 (`-p:Version`)
 
 ## Anti-Patterns
-- Do not modify `CominomiConstants.cs` limits without understanding token budget implications
+- Do not modify `SeoroConstants.cs` limits without understanding token budget implications
 - Do not bypass the `StreamEventProcessor` pipeline - add new handlers instead
 - Do not use blocking I/O in Blazor components - use async throughout
 - Do not hard-code platform paths - use the service abstractions

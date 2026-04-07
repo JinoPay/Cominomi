@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Seoro</title>
+    <base href="/" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link id="hljs-theme" rel="stylesheet" href="lib/highlightjs/github-dark.min.css" />
+    <link rel="stylesheet" href="lib/xterm/xterm.css" />
+    <link rel="stylesheet" href="Seoro.Desktop.styles.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <script>
+        // Apply cached UI zoom before first paint to prevent flash
+        (function() {
+            var zoom = localStorage.getItem('seoro-ui-zoom');
+            if (zoom) {
+                document.documentElement.style.zoom = zoom;
+            } else {
+                var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                document.documentElement.style.zoom = isMac ? '1.1' : '1';
+            }
+        })();
+    </script>
+</head>
+
+<body>
+
+    <div id="app">로딩 중...</div>
+
+    <div id="blazor-error-ui" data-nosnippet>
+        처리되지 않은 오류가 발생했습니다.
+        <a href="." class="reload">새로고침</a>
+        <span class="dismiss">X</span>
+    </div>
+
+    <script src="_framework/blazor.webview.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="lib/highlightjs/highlight.min.js"></script>
+    <script src="lib/xterm/xterm.js"></script>
+    <script src="lib/xterm/addon-fit.js"></script>
+    <script>
+        // Disable browser context menu (Save As, Reload, etc.)
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
+        // Prevent browser refresh shortcuts (F5, Ctrl+R, Cmd+R)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F5' ||
+                ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
+                e.preventDefault();
+            }
+        });
+
+        // Global error capture — surfaces errors hidden by blazor-error-ui
+        window.addEventListener('error', function(e) {
+            console.error('[Seoro] Unhandled JS error:', e.message, '\nFile:', e.filename, 'Line:', e.lineno, '\nError:', e.error);
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('[Seoro] Unhandled promise rejection:', e.reason);
+        });
+    </script>
+    <script>
+        // --- Syntax highlighting interop ---
+        window.highlightCodeBlock = function(elementId) {
+            var el = document.getElementById(elementId);
+            if (!el) return;
+            var codeEl = el.querySelector('pre code');
+            if (codeEl && window.hljs) {
+                hljs.highlightElement(codeEl);
+            }
+        };
+
+        // --- Markdown code block enhancement: syntax highlight + copy button ---
+        var _mdLangNames = {
+            'csharp': 'C#', 'javascript': 'JavaScript', 'typescript': 'TypeScript',
+            'python': 'Python', 'rust': 'Rust', 'go': 'Go', 'java': 'Java',
+            'cpp': 'C++', 'c': 'C', 'ruby': 'Ruby', 'bash': 'Bash', 'sh': 'Shell',
+            'shell': 'Shell', 'powershell': 'PowerShell', 'json': 'JSON',
+            'yaml': 'YAML', 'xml': 'XML', 'html': 'HTML', 'css': 'CSS',
+            'scss': 'SCSS', 'sql': 'SQL', 'swift': 'Swift', 'kotlin': 'Kotlin',
+            'dart': 'Dart', 'php': 'PHP', 'lua': 'Lua', 'r': 'R',
+            'dockerfile': 'Dockerfile', 'makefile': 'Makefile', 'toml': 'TOML',
+            'ini': 'INI', 'graphql': 'GraphQL', 'markdown': 'Markdown',
+            'diff': 'Diff', 'plaintext': 'Text', 'text': 'Text'
+        };
+
+        var _copyIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+        var _checkIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+        window.enhanceMarkdownCodeBlocks = function(containerId, isStreaming) {
+            if (!window.hljs) return;
+            var container = document.getElementById(containerId);
+            if (!container) return;
+            var codeBlocks = container.querySelectorAll('.markdown-body pre > code');
+            var total = codeBlocks.length;
+            codeBlocks.forEach(function(codeEl, index) {
+                // During streaming, skip the last block (may be incomplete)
+                if (isStreaming && index === total - 1) return;
+                // Skip already-enhanced blocks
+                if (codeEl.dataset.enhanced === 'true') return;
+
+                var pre = codeEl.parentElement;
+                if (!pre || pre.parentElement.classList.contains('code-block-wrapper')) return;
+
+                // Detect language from class (Markdig outputs "language-xxx")
+                var lang = '';
+                var langDisplay = '';
+                codeEl.classList.forEach(function(cls) {
+                    if (cls.startsWith('language-')) {
+                        lang = cls.replace('language-', '');
+                    }
+                });
+                if (lang) {
+                    langDisplay = _mdLangNames[lang.toLowerCase()] || lang;
+                }
+
+                // Create wrapper
+                var wrapper = document.createElement('div');
+                wrapper.className = 'code-block-wrapper';
+
+                // Create header
+                var header = document.createElement('div');
+                header.className = 'code-block-header';
+
+                var langLabel = document.createElement('span');
+                langLabel.className = 'code-lang-label';
+                langLabel.textContent = langDisplay;
+
+                var copyBtn = document.createElement('button');
+                copyBtn.className = 'code-copy-btn';
+                copyBtn.innerHTML = _copyIconSvg + '<span>복사</span>';
+                copyBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    window.copyCodeToClipboard(copyBtn, codeEl.innerText);
+                });
+
+                header.appendChild(langLabel);
+                header.appendChild(copyBtn);
+
+                // Wrap pre in wrapper
+                pre.parentElement.insertBefore(wrapper, pre);
+                wrapper.appendChild(header);
+                wrapper.appendChild(pre);
+
+                // Apply syntax highlighting
+                try {
+                    if (lang && hljs.getLanguage(lang)) {
+                        hljs.highlightElement(codeEl);
+                    } else if (lang) {
+                        // Try auto-detect if language not registered
+                        hljs.highlightElement(codeEl);
+                    } else {
+                        hljs.highlightElement(codeEl);
+                    }
+                } catch(e) { /* ignore */ }
+
+                codeEl.dataset.enhanced = 'true';
+            });
+        };
+
+        window.copyCodeToClipboard = function(btn, text) {
+            navigator.clipboard.writeText(text).then(function() {
+                var span = btn.querySelector('span');
+                var origHtml = btn.innerHTML;
+                btn.innerHTML = _checkIconSvg + '<span>복사됨</span>';
+                btn.classList.add('copied');
+                setTimeout(function() {
+                    btn.innerHTML = origHtml;
+                    btn.classList.remove('copied');
+                }, 1500);
+            }).catch(function(err) {
+                console.error('[Seoro] Copy failed:', err);
+            });
+        };
+
+        window.highlightDiffBlock = function(elementId, language) {
+            var el = document.getElementById(elementId);
+            if (!el || !window.hljs) return;
+            var codeSpans = el.querySelectorAll('.diff-code');
+            codeSpans.forEach(function(span) {
+                if (span.dataset.highlighted) return;
+                var text = span.textContent;
+                if (!text) return;
+                try {
+                    var result = language
+                        ? hljs.highlight(text, { language: language, ignoreIllegals: true })
+                        : hljs.highlightAuto(text);
+                    span.innerHTML = result.value;
+                    span.dataset.highlighted = 'true';
+                } catch(e) { /* ignore unknown language */ }
+            });
+        };
+
+        window.setTheme = function(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            var hljsThemeEl = document.getElementById('hljs-theme');
+            if (hljsThemeEl) {
+                hljsThemeEl.href = theme === 'light'
+                    ? 'lib/highlightjs/github.min.css'
+                    : 'lib/highlightjs/github-dark.min.css';
+            }
+        };
+
+        window.setUiScale = function(scale) {
+            document.documentElement.style.zoom = scale;
+            localStorage.setItem('seoro-ui-zoom', scale);
+        };
+
+        window.getDefaultUiScale = function() {
+            var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            return isMac ? 1.1 : 1.0;
+        };
+
+        window.scrollToBottom = function(elementId) {
+            const el = document.getElementById(elementId);
+            if (el) el.scrollTop = el.scrollHeight;
+        };
+
+        // Scroll position watcher — reports whether user is near bottom
+        window.registerScrollWatcher = function(elementId, dotNetRef) {
+            var el = document.getElementById(elementId);
+            if (!el) return;
+            var threshold = 80;
+            el._scrollHandler = function() {
+                var isAtBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < threshold;
+                dotNetRef.invokeMethodAsync('OnScrollPositionChanged', isAtBottom);
+            };
+            el.addEventListener('scroll', el._scrollHandler, { passive: true });
+            el._scrollDotNetRef = dotNetRef;
+        };
+
+        window.unregisterScrollWatcher = function(elementId) {
+            var el = document.getElementById(elementId);
+            if (!el || !el._scrollHandler) return;
+            el.removeEventListener('scroll', el._scrollHandler);
+            el._scrollHandler = null;
+            el._scrollDotNetRef = null;
+        };
+
+        // --- Input area handler helpers ---
+        // Find the actual input element (textarea or input) inside a container.
+        // MudBlazor may render <textarea> or <input> depending on timing/config.
+        window._findInputEl = function(container) {
+            if (!container) return null;
+            return container.querySelector('textarea') || container.querySelector('input.mud-input-slot');
+        };
+
+        // Attach all handlers (enter, paste, composition, drop) to a given input element.
+        window._attachInputHandlers = function(inputEl, container, dotNetRef) {
+            if (!inputEl || inputEl._seoroHandlers) return; // already attached
+            inputEl._seoroHandlers = true;
+
+            // Disable macOS autocorrect/spellcheck to prevent cursor jumping
+            inputEl.setAttribute('spellcheck', 'false');
+            inputEl.setAttribute('autocorrect', 'off');
+            inputEl.setAttribute('autocomplete', 'off');
+            inputEl.setAttribute('autocapitalize', 'off');
+
+            var isTextarea = inputEl.tagName === 'TEXTAREA';
+
+            // --- IME composition tracking (Korean/CJK) ---
+            inputEl._isComposing = false;
+            inputEl._compositionStartHandler = function() {
+                inputEl._isComposing = true;
+                dotNetRef.invokeMethodAsync('OnCompositionStart');
+            };
+            inputEl._compositionEndHandler = function() {
+                inputEl._isComposing = false;
+                dotNetRef.invokeMethodAsync('OnCompositionEnd');
+            };
+            inputEl.addEventListener('compositionstart', inputEl._compositionStartHandler);
+            inputEl.addEventListener('compositionend', inputEl._compositionEndHandler);
+
+            // --- Slash popup flag (synced from C#) ---
+            inputEl._slashPopupOpen = false;
+
+            // --- Keydown: slash popup routing + Enter / Shift+Enter ---
+            inputEl._keydownHandler = function(e) {
+                // Slash popup keyboard routing
+                if (inputEl._slashPopupOpen && !e.isComposing && !inputEl._isComposing) {
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('OnSlashArrowDown');
+                        return;
+                    }
+                    if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('OnSlashArrowUp');
+                        return;
+                    }
+                    if (e.key === 'Enter' || e.key === 'Tab') {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('OnSlashEnterSelect');
+                        return;
+                    }
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('OnSlashDismiss');
+                        return;
+                    }
+                }
+
+                // Original Enter / Shift+Enter handling
+                if (e.key === 'Enter' && !e.isComposing && !inputEl._isComposing) {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        var start = inputEl.selectionStart;
+                        var end = inputEl.selectionEnd;
+                        var newValue = inputEl.value.substring(0, start) + '\n' + inputEl.value.substring(end);
+                        inputEl.value = newValue;
+                        inputEl.selectionStart = inputEl.selectionEnd = start + 1;
+                        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                        inputEl.style.height = 'auto';
+                        inputEl.style.height = inputEl.scrollHeight + 'px';
+                        dotNetRef.invokeMethodAsync('OnNewlineInserted', newValue);
+                    } else {
+                        dotNetRef.invokeMethodAsync('SendFromJs');
+                    }
+                }
+            };
+            inputEl.addEventListener('keydown', inputEl._keydownHandler);
+
+            // --- Paste (images/files from clipboard) ---
+            inputEl._pasteHandler = async function(e) {
+                if (e._seoroHandled) return; // prevent duplicate via bubbling
+                e._seoroHandled = true;
+
+                var items = e.clipboardData?.items;
+
+                // Grab text synchronously before any async ops (clipboardData is ephemeral)
+                var plainText = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+
+                // Collect file items (sync)
+                var files = [];
+                if (items && items.length > 0) {
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].kind === 'file') {
+                            var f = items[i].getAsFile();
+                            if (f) files.push(f);
+                        }
+                    }
+                }
+
+                // Primary: file items found in clipboardData
+                if (files.length > 0) {
+                    e.preventDefault();
+
+                    for (var i = 0; i < files.length; i++) {
+                        try {
+                            var base64 = await window._fileToBase64(files[i]);
+                            await dotNetRef.invokeMethodAsync('OnFilePasted',
+                                files[i].name || 'pasted-image.png',
+                                files[i].type || 'application/octet-stream',
+                                base64);
+                        } catch (err) {
+                            console.error('[Seoro:paste] file read error:', err);
+                        }
+                    }
+
+                    // Also insert accompanying text (e.g. Notion rich paste with images + text)
+                    if (plainText && plainText.trim()) {
+                        window._insertTextAtCursor(inputEl, plainText);
+                    }
+                    return;
+                }
+
+                // Long text: auto-convert to file attachment
+                if (plainText && plainText.length >= 500) {
+                    e.preventDefault();
+                    try {
+                        var encoded = btoa(unescape(encodeURIComponent(plainText)));
+                        await dotNetRef.invokeMethodAsync('OnLargeTextPasted', 'pasted-text.txt', 'text/plain', encoded);
+                    } catch (err) {
+                        console.error('[Seoro:paste] large text encode error:', err);
+                    }
+                    return;
+                }
+
+                // Fallback: if no file items in clipboardData, try Clipboard API
+                if (navigator.clipboard && navigator.clipboard.read) {
+                    try {
+                        var clipboardItems = await navigator.clipboard.read();
+                        var foundImage = false;
+                        for (var ci = 0; ci < clipboardItems.length; ci++) {
+                            var types = clipboardItems[ci].types;
+                            for (var ti = 0; ti < types.length; ti++) {
+                                var type = types[ti];
+                                if (type.startsWith('image/')) {
+                                    if (!foundImage) { e.preventDefault(); foundImage = true; }
+                                    var blob = await clipboardItems[ci].getType(type);
+                                    var base64 = await window._fileToBase64(new File([blob], 'pasted-image.' + (type.split('/')[1] || 'png'), { type: type }));
+                                    await dotNetRef.invokeMethodAsync('OnFilePasted',
+                                        'pasted-image.' + (type.split('/')[1] || 'png'), type, base64);
+                                }
+                            }
+                        }
+                        // Also insert accompanying text in fallback path
+                        if (foundImage && plainText && plainText.trim()) {
+                            window._insertTextAtCursor(inputEl, plainText);
+                        }
+                    } catch (_) {
+                        // Permission denied or no image — let text paste proceed normally
+                    }
+                }
+            };
+            inputEl.addEventListener('paste', inputEl._pasteHandler);
+
+            // Also listen on container for paste capture when textarea isn't focused
+            if (container && !container._seoroPasteHandler) {
+                container._seoroPasteHandler = inputEl._pasteHandler;
+                container.addEventListener('paste', container._seoroPasteHandler);
+            }
+        };
+
+        // Detach all handlers from an input element.
+        window._detachInputHandlers = function(inputEl) {
+            if (!inputEl || !inputEl._seoroHandlers) return;
+            if (inputEl._keydownHandler) inputEl.removeEventListener('keydown', inputEl._keydownHandler);
+            if (inputEl._compositionStartHandler) inputEl.removeEventListener('compositionstart', inputEl._compositionStartHandler);
+            if (inputEl._compositionEndHandler) inputEl.removeEventListener('compositionend', inputEl._compositionEndHandler);
+            if (inputEl._pasteHandler) inputEl.removeEventListener('paste', inputEl._pasteHandler);
+            inputEl._seoroHandlers = false;
+        };
+
+        // --- Public registration: uses MutationObserver to handle late/replaced elements ---
+        // Insert text at the current cursor position in an input/textarea element
+        window._insertTextAtCursor = function(inputEl, text) {
+            var start = inputEl.selectionStart || 0;
+            var end = inputEl.selectionEnd || 0;
+            var current = inputEl.value || '';
+            inputEl.value = current.substring(0, start) + text + current.substring(end);
+            inputEl.selectionStart = inputEl.selectionEnd = start + text.length;
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            inputEl.style.height = 'auto';
+            inputEl.style.height = inputEl.scrollHeight + 'px';
+        };
+
+        // Convert a File/Blob to a base64 string (without the data-url prefix)
+        window._fileToBase64 = function(file) {
+            return new Promise(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function() {
+                    // result is "data:<type>;base64,<data>" — extract the base64 part
+                    var idx = reader.result.indexOf(',');
+                    resolve(idx >= 0 ? reader.result.substring(idx + 1) : reader.result);
+                };
+                reader.onerror = function() { reject(reader.error); };
+                reader.readAsDataURL(file);
+            });
+        };
+
+        window.registerInputHandlers = function(elementId, dotNetRef) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+
+            // Try to attach immediately
+            var inputEl = window._findInputEl(container);
+            if (inputEl) {
+                window._attachInputHandlers(inputEl, container, dotNetRef);
+            }
+
+            // Watch for textarea/input being added or replaced by MudBlazor
+            var observer = new MutationObserver(function() {
+                var current = window._findInputEl(container);
+                if (current && !current._seoroHandlers) {
+                    window._attachInputHandlers(current, container, dotNetRef);
+                }
+            });
+            observer.observe(container, { childList: true, subtree: true });
+            container._inputObserver = observer;
+            container._dotNetRef = dotNetRef;
+
+            // Drop handlers on the container itself
+            container._dragCounter = 0;
+            container._dragEnterHandler = function(e) {
+                e.preventDefault();
+                container._dragCounter++;
+                container.classList.add('drop-active');
+            };
+            container._dragOverHandler = function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            };
+            container._dragLeaveHandler = function(e) {
+                container._dragCounter--;
+                if (container._dragCounter <= 0) {
+                    container._dragCounter = 0;
+                    container.classList.remove('drop-active');
+                }
+            };
+            container._dropHandler = async function(e) {
+                e.preventDefault();
+                container._dragCounter = 0;
+                container.classList.remove('drop-active');
+                var files = e.dataTransfer?.files;
+                if (!files || files.length === 0) return;
+                for (var i = 0; i < files.length; i++) {
+                    try {
+                        var file = files[i];
+                        var base64 = await window._fileToBase64(file);
+                        await dotNetRef.invokeMethodAsync('OnFileDropped',
+                            file.name, file.type || 'application/octet-stream', base64);
+                    } catch (err) {
+                        console.error('[Seoro:drop] file read error:', err);
+                    }
+                }
+            };
+            container.addEventListener('dragenter', container._dragEnterHandler);
+            container.addEventListener('dragover', container._dragOverHandler);
+            container.addEventListener('dragleave', container._dragLeaveHandler);
+            container.addEventListener('drop', container._dropHandler);
+        };
+
+        window.unregisterInputHandlers = function(elementId) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+            // Stop observer
+            if (container._inputObserver) {
+                container._inputObserver.disconnect();
+                container._inputObserver = null;
+            }
+            // Detach input element handlers
+            var inputEl = window._findInputEl(container);
+            window._detachInputHandlers(inputEl);
+            // Detach container paste handler
+            if (container._seoroPasteHandler) {
+                container.removeEventListener('paste', container._seoroPasteHandler);
+                container._seoroPasteHandler = null;
+            }
+            // Detach drop handlers
+            if (container._dragEnterHandler) container.removeEventListener('dragenter', container._dragEnterHandler);
+            if (container._dragOverHandler) container.removeEventListener('dragover', container._dragOverHandler);
+            if (container._dragLeaveHandler) container.removeEventListener('dragleave', container._dragLeaveHandler);
+            if (container._dropHandler) container.removeEventListener('drop', container._dropHandler);
+        };
+
+        window.clearInputArea = function(elementId) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+            var inputEl = window._findInputEl(container);
+            if (inputEl) {
+                inputEl.value = '';
+                inputEl.style.height = '';
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        };
+
+        window.focusInputArea = function(elementId) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+            var inputEl = window._findInputEl(container);
+            if (inputEl) inputEl.focus();
+        };
+
+        // --- Slash popup helpers ---
+        window.setSlashPopupState = function(elementId, isOpen) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+            var inputEl = window._findInputEl(container);
+            if (inputEl) inputEl._slashPopupOpen = !!isOpen;
+        };
+
+        window.scrollSlashPopupActiveIntoView = function() {
+            var el = document.querySelector('.slash-popup-item-active');
+            if (el) el.scrollIntoView({ block: 'nearest' });
+        };
+
+        window.replaceSlashCommand = function(elementId, newText) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+            var inputEl = window._findInputEl(container);
+            if (!inputEl) return;
+            inputEl.value = newText;
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            inputEl.style.height = 'auto';
+            inputEl.style.height = inputEl.scrollHeight + 'px';
+            inputEl.selectionStart = inputEl.selectionEnd = newText.length;
+            inputEl.focus();
+        };
+
+        // Legacy aliases — keep for backward compat during transition
+        window.registerPasteHandler = function() {};
+        window.registerDropHandler = function() {};
+        window.registerEnterHandler = function() {};
+        window.unregisterFileHandlers = function(id) { window.unregisterInputHandlers(id); };
+        window.unregisterEnterHandler = function() {};
+
+        window.isWindowFocused = function() {
+            return document.hasFocus();
+        };
+
+        // Intercept external link clicks and open in default browser
+        document.addEventListener('click', function(e) {
+            var anchor = e.target.closest('a[href]');
+            if (!anchor) return;
+            var href = anchor.getAttribute('href');
+            if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                    window.external.sendMessage('OPEN_URL:' + href);
+                } catch (ex) {
+                    console.warn('Failed to send external URL message', ex);
+                }
+            }
+        }, true);
+
+        window.registerWindowFocusTracker = function(dotNetRef) {
+            window._focusTrackerRef = dotNetRef;
+            var notify = function(focused) {
+                if (window._focusTrackerRef) {
+                    window._focusTrackerRef.invokeMethodAsync('OnWindowFocusChanged', focused);
+                }
+            };
+            document.addEventListener('visibilitychange', function() { notify(!document.hidden); });
+            window.addEventListener('focus', function() { notify(true); });
+            window.addEventListener('blur', function() { notify(false); });
+        };
+        window.unregisterWindowFocusTracker = function() {
+            window._focusTrackerRef = null;
+        };
+
+        window.registerSessionShortcuts = function(dotNetRef) {
+            if (window._sessionShortcutHandler) {
+                document.removeEventListener('keydown', window._sessionShortcutHandler);
+            }
+            window._sessionShortcutHandler = function(e) {
+                var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                var modifier = isMac ? e.metaKey : e.ctrlKey;
+                if (modifier && e.key >= '1' && e.key <= '5') {
+                    e.preventDefault();
+                    var index = parseInt(e.key) - 1;
+                    dotNetRef.invokeMethodAsync('OnSessionShortcut', index);
+                }
+                if (modifier && (e.key === 'd' || e.key === 'D')) {
+                    e.preventDefault();
+                    dotNetRef.invokeMethodAsync('OnDeleteCurrentSessionShortcut');
+                }
+                if (modifier && e.shiftKey && (e.key === 'e' || e.key === 'E')) {
+                    e.preventDefault();
+                    dotNetRef.invokeMethodAsync('OnExpandAllProjects');
+                }
+                if (modifier && e.shiftKey && (e.key === 'w' || e.key === 'W')) {
+                    e.preventDefault();
+                    dotNetRef.invokeMethodAsync('OnCollapseAllProjects');
+                }
+            };
+            document.addEventListener('keydown', window._sessionShortcutHandler);
+        };
+
+        window.unregisterSessionShortcuts = function() {
+            if (window._sessionShortcutHandler) {
+                document.removeEventListener('keydown', window._sessionShortcutHandler);
+                window._sessionShortcutHandler = null;
+            }
+        };
+
+        // --- Ctrl/⌘ Key Watcher (for shortcut label reveal) ---
+        window.registerCtrlWatcher = function(dotNetRef) {
+            var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            window._ctrlDownHandler = function(e) {
+                if ((isMac && e.key === 'Meta') || (!isMac && e.key === 'Control')) {
+                    dotNetRef.invokeMethodAsync('OnCtrlStateChanged', true);
+                }
+            };
+            window._ctrlUpHandler = function(e) {
+                if ((isMac && e.key === 'Meta') || (!isMac && e.key === 'Control')) {
+                    dotNetRef.invokeMethodAsync('OnCtrlStateChanged', false);
+                }
+            };
+            window._ctrlBlurHandler = function() {
+                dotNetRef.invokeMethodAsync('OnCtrlStateChanged', false);
+            };
+            document.addEventListener('keydown', window._ctrlDownHandler);
+            document.addEventListener('keyup', window._ctrlUpHandler);
+            window.addEventListener('blur', window._ctrlBlurHandler);
+        };
+
+        window.unregisterCtrlWatcher = function() {
+            if (window._ctrlDownHandler) {
+                document.removeEventListener('keydown', window._ctrlDownHandler);
+                document.removeEventListener('keyup', window._ctrlUpHandler);
+                window.removeEventListener('blur', window._ctrlBlurHandler);
+                window._ctrlDownHandler = null;
+                window._ctrlUpHandler = null;
+                window._ctrlBlurHandler = null;
+            }
+        };
+
+        // --- Panel Resizer ---
+        window.registerPanelResizer = function(element, dotNetRef, minSize, maxSize, reverse) {
+            if (!element) return;
+            element._resizerData = { dotNetRef, minSize, maxSize, reverse };
+
+            element._onMouseDown = function(e) {
+                e.preventDefault();
+                var data = element._resizerData;
+                var startX = e.clientX;
+                var shell = element.closest('.seoro-shell');
+
+                // Get current computed size of the adjacent panel
+                var panel = reverse
+                    ? element.nextElementSibling
+                    : element.previousElementSibling;
+                if (!panel) return;
+                var startWidth = panel.getBoundingClientRect().width;
+
+                var onMouseMove = function(e2) {
+                    var dx = e2.clientX - startX;
+                    var newSize = reverse ? startWidth - dx : startWidth + dx;
+                    newSize = Math.round(Math.max(data.minSize, Math.min(data.maxSize, newSize)));
+
+                    if (shell) {
+                        // Inside shell: use CSS variables for sidebar/detail
+                        if (reverse) {
+                            shell.style.setProperty('--detail-width', newSize + 'px');
+                        } else {
+                            shell.style.setProperty('--sidebar-width', newSize + 'px');
+                        }
+                    } else {
+                        // Outside shell (e.g. chat-split): set width directly
+                        panel.style.width = newSize + 'px';
+                    }
+
+                    data.dotNetRef.invokeMethodAsync('OnDragResize', newSize);
+                };
+
+                var onMouseUp = function() {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    data.dotNetRef.invokeMethodAsync('OnDragEnd');
+                };
+
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            };
+
+            element.addEventListener('mousedown', element._onMouseDown);
+        };
+
+        window.unregisterPanelResizer = function(element) {
+            if (!element || !element._onMouseDown) return;
+            element.removeEventListener('mousedown', element._onMouseDown);
+            element._resizerData = null;
+        };
+
+        // --- Keyboard Navigation: Ctrl/Cmd+B toggle sidebar, Ctrl/Cmd+] toggle detail ---
+        window.registerPanelShortcuts = function(dotNetRef) {
+            if (window._panelShortcutHandler) {
+                document.removeEventListener('keydown', window._panelShortcutHandler);
+            }
+            window._panelShortcutHandler = function(e) {
+                var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                var modifier = isMac ? e.metaKey : e.ctrlKey;
+                if (!modifier) return;
+
+                if (e.key === 'b' || e.key === 'B') {
+                    e.preventDefault();
+                    dotNetRef.invokeMethodAsync('OnToggleSidebarShortcut');
+                }
+                if (e.shiftKey && (e.key === 'l' || e.key === 'L')) {
+                    e.preventDefault();
+                    window.focusInputArea('input-area');
+                }
+                if (e.shiftKey && (e.key === 't' || e.key === 'T')) {
+                    e.preventDefault();
+                    dotNetRef.invokeMethodAsync('OnToggleThemeShortcut');
+                }
+                if (e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+                    e.preventDefault();
+                    dotNetRef.invokeMethodAsync('OnTogglePlanModeShortcut');
+                }
+                if (e.shiftKey && (e.key === 'm' || e.key === 'M')) {
+                    e.preventDefault();
+                    dotNetRef.invokeMethodAsync('OnToggleEffortLevelShortcut');
+                }
+                if (e.shiftKey && (e.key === 's' || e.key === 'S')) {
+                    e.preventDefault();
+                    dotNetRef.invokeMethodAsync('OnToggleSyncShortcut');
+                }
+            };
+            document.addEventListener('keydown', window._panelShortcutHandler);
+        };
+
+        window.unregisterPanelShortcuts = function() {
+            if (window._panelShortcutHandler) {
+                document.removeEventListener('keydown', window._panelShortcutHandler);
+                window._panelShortcutHandler = null;
+            }
+        };
+
+        // --- Integrated Terminal (xterm.js) ---
+        window._terminals = {};
+
+        window.initTerminal = function(elementId, dotNetRef) {
+            var container = document.getElementById(elementId);
+            if (!container) return;
+
+            // Read CSS custom properties for theme
+            var styles = getComputedStyle(document.documentElement);
+            var bg = styles.getPropertyValue('--bg-base').trim() || '#0f172a';
+            var fg = styles.getPropertyValue('--text-primary').trim() || 'rgba(255,255,255,0.87)';
+            var cursor = styles.getPropertyValue('--accent').trim() || '#a78bfa';
+            var selBg = styles.getPropertyValue('--accent-dim').trim() || 'rgba(167,139,250,0.10)';
+
+            var term = new Terminal({
+                cursorBlink: true,
+                cursorStyle: 'bar',
+                fontSize: 13,
+                fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace",
+                lineHeight: 1.2,
+                scrollback: 5000,
+                theme: {
+                    background: bg,
+                    foreground: fg,
+                    cursor: cursor,
+                    selectionBackground: selBg
+                }
+            });
+
+            var fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(container);
+
+            // Delay fit slightly to ensure container has layout
+            requestAnimationFrame(function() { fitAddon.fit(); });
+
+            // Ctrl+C copies when text is selected, otherwise sends SIGINT
+            // Ctrl+V pastes from clipboard
+            term.attachCustomKeyEventHandler(function(ev) {
+                if (ev.type !== 'keydown') return true;
+                var isMac = navigator.platform.indexOf('Mac') >= 0;
+                var mod = isMac ? ev.metaKey : ev.ctrlKey;
+                if (mod && ev.key === 'c' && term.hasSelection()) {
+                    navigator.clipboard.writeText(term.getSelection());
+                    return false;
+                }
+                if (mod && ev.key === 'v') {
+                    navigator.clipboard.readText().then(function(text) {
+                        if (text) dotNetRef.invokeMethodAsync('OnTerminalInput', text);
+                    });
+                    return false;
+                }
+                return true;
+            });
+
+            term.onData(function(data) {
+                dotNetRef.invokeMethodAsync('OnTerminalInput', data);
+            });
+
+            // Notify C# when xterm resizes so PTY dimensions stay in sync
+            term.onResize(function(size) {
+                dotNetRef.invokeMethodAsync('OnTerminalResize', size.cols, size.rows);
+            });
+
+            window._terminals[elementId] = { term: term, fitAddon: fitAddon, dotNetRef: dotNetRef };
+        };
+
+        window.terminalWrite = function(elementId, data) {
+            var t = window._terminals[elementId];
+            if (t) t.term.write(data);
+        };
+
+        window.terminalFit = function(elementId) {
+            var t = window._terminals[elementId];
+            if (t) {
+                try { t.fitAddon.fit(); } catch(_) {}
+            }
+        };
+
+        window.terminalClear = function(elementId) {
+            var t = window._terminals[elementId];
+            if (t) { t.term.clear(); t.term.reset(); }
+        };
+
+        window.disposeTerminal = function(elementId) {
+            var t = window._terminals[elementId];
+            if (t) {
+                t.term.dispose();
+                delete window._terminals[elementId];
+            }
+        };
+
+        window.updateAllTerminalThemes = function() {
+            var styles = getComputedStyle(document.documentElement);
+            var bg = styles.getPropertyValue('--bg-base').trim() || '#0f172a';
+            var fg = styles.getPropertyValue('--text-primary').trim() || 'rgba(255,255,255,0.87)';
+            var cursor = styles.getPropertyValue('--accent').trim() || '#a78bfa';
+            var selBg = styles.getPropertyValue('--accent-dim').trim() || 'rgba(167,139,250,0.10)';
+
+            var newTheme = {
+                background: bg,
+                foreground: fg,
+                cursor: cursor,
+                selectionBackground: selBg
+            };
+
+            for (var id in window._terminals) {
+                var t = window._terminals[id];
+                if (t && t.term) {
+                    t.term.options.theme = newTheme;
+                }
+            }
+        };
+
+        // --- Vertical Panel Resizer (top/bottom split) ---
+        window.registerVerticalResizer = function(element, dotNetRef, minSize, maxSize) {
+            if (!element) return;
+            element._vResizerData = { dotNetRef: dotNetRef, minSize: minSize, maxSize: maxSize };
+
+            element._onMouseDown = function(e) {
+                e.preventDefault();
+                var data = element._vResizerData;
+                var startY = e.clientY;
+
+                // Get current height of the panel above the resizer
+                var topPanel = element.previousElementSibling;
+                if (!topPanel) return;
+                var startHeight = topPanel.getBoundingClientRect().height;
+
+                var onMouseMove = function(e2) {
+                    var dy = e2.clientY - startY;
+                    var newSize = Math.round(Math.max(data.minSize, Math.min(data.maxSize, startHeight + dy)));
+                    topPanel.style.height = newSize + 'px';
+                    data.dotNetRef.invokeMethodAsync('OnDragResize', newSize);
+                };
+
+                var onMouseUp = function() {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    data.dotNetRef.invokeMethodAsync('OnDragEnd');
+                };
+
+                document.body.style.cursor = 'row-resize';
+                document.body.style.userSelect = 'none';
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            };
+
+            element.addEventListener('mousedown', element._onMouseDown);
+        };
+
+        window.unregisterVerticalResizer = function(element) {
+            if (!element || !element._onMouseDown) return;
+            element.removeEventListener('mousedown', element._onMouseDown);
+            element._vResizerData = null;
+        };
+    </script>
+
+</body>
+
+</html>

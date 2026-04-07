@@ -1,0 +1,345 @@
+@using Markdig
+@using Seoro.Shared.Helpers
+@inject IChatState ChatState
+@inject LightboxService Lightbox
+@inject IJSRuntime JS
+
+@if (Message.Role == MessageRole.System)
+{
+    <div class="system-message">
+        <div class="system-message-content">
+            <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small"
+                     Style="width: 14px; height: 14px; opacity: 0.5;"/>
+            <span>@Message.Text</span>
+            <span class="message-time">@Message.Timestamp.ToLocalTime().ToString("HH:mm")</span>
+        </div>
+    </div>
+    return;
+}
+
+<div class="message-bubble @(Message.Role == MessageRole.User ? "user-message" : "assistant-message")">
+    <div class="message-layout">
+        <div class="message-avatar">
+            @if (Message.Role == MessageRole.User)
+            {
+                <MudAvatar Color="Color.Primary" Variant="Variant.Filled"
+                           Style="width: 22px; height: 22px; font-size: 12px; background: rgba(167, 139, 250, 0.2); color: var(--accent);">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Style="width: 13px; height: 13px;"/>
+                </MudAvatar>
+            }
+            else
+            {
+                <MudAvatar Variant="Variant.Filled"
+                           Style="width: 22px; height: 22px; font-size: 12px; background: var(--color-info-bg); color: var(--color-info);">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Style="width: 13px; height: 13px;"/>
+                </MudAvatar>
+            }
+        </div>
+        <div class="message-content" id="msg-@(Message.Id)">
+            <div class="message-header">
+                <span class="role-name">@(Message.Role == MessageRole.User ? "나" : "Claude")</span>
+                <span class="message-time">@Message.Timestamp.ToLocalTime().ToString("HH:mm")</span>
+                @if (Message.Role == MessageRole.Assistant && Message.Duration.HasValue && !HasActivitySummary())
+                {
+                    <span class="message-duration">@FormatDuration(Message.Duration.Value)</span>
+                }
+            </div>
+
+            @if (Message.Attachments.Count > 0)
+            {
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; margin-bottom: 8px;">
+                    @foreach (var attachment in Message.Attachments)
+                    {
+                        @if (attachment.IsImage)
+                        {
+                            <div style="cursor: pointer;"
+                                 title="@attachment.OriginalFileName"
+                                 @onclick="@(() => Lightbox.Open(GetImageSrc(attachment), attachment.OriginalFileName))">
+                                <img src="@GetImageSrc(attachment)"
+                                     alt="@attachment.OriginalFileName"
+                                     style="width: 48px; height: 48px; border-radius: 6px; object-fit: cover;"/>
+                            </div>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Icon="@GetAttachmentIcon(attachment)"
+                                     Size="Size.Small" Variant="Variant.Outlined"
+                                     OnClick="@(() => OpenFileInTab(attachment))"
+                                     Style="font-size: 0.75rem; cursor: pointer;">
+                                @attachment.OriginalFileName @($"({FormatFileSize(attachment.SizeBytes)})")
+                            </MudChip>
+                        }
+                    }
+                </div>
+            }
+
+            @if (Message.Parts.Count > 0)
+            {
+                var groups = ContentGrouper.Group(Message.Parts, Message.IsStreaming);
+                <CascadingValue Value="Message.Parts" Name="MessageParts">
+
+                    @if (Message.IsStreaming)
+                    {
+                        @* === STREAMING: show live updates === *@
+                        var lastToolGroupIndex = groups.FindLastIndex(g => g.Type == ContentGroupType.ToolGroup);
+
+                        @foreach (var (group, idx) in groups.Select((g, i) => (g, i)))
+                        {
+                            @if (group.Type == ContentGroupType.Thinking)
+                            {
+                                var thinkingText = group.Parts[0].Text ?? "";
+
+                                <div
+                                    class="thinking-block @(_thinkingExpanded.Contains(idx) ? "expanded" : "") streaming"
+                                    @onclick="@(() => ToggleThinkingBlock(idx))">
+                                    <div class="thinking-header">
+                                        <MudIcon Icon="@Icons.Material.Filled.Psychology" Size="Size.Small"
+                                                 Style="width: 14px; height: 14px; opacity: 0.6; flex-shrink: 0;"/>
+                                        <span
+                                            style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">@GetThinkingHeaderText(thinkingText, _thinkingExpanded.Contains(idx))</span>
+                                        <MudIcon
+                                            Icon="@(_thinkingExpanded.Contains(idx) ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                            Size="Size.Small"
+                                            Style="opacity: 0.4; width: 14px; height: 14px; margin-left: auto; flex-shrink: 0;"/>
+                                    </div>
+                                    @if (_thinkingExpanded.Contains(idx))
+                                    {
+                                        <div class="thinking-content">
+                                            @((MarkupString)Markdown.ToHtml(thinkingText, MarkdownHelper.ChatPipeline))
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else if (group.Type == ContentGroupType.ToolGroup)
+                            {
+                                var isLastToolGroup = idx == lastToolGroupIndex;
+                                <ToolGroupCard Group="group" IsActive="@isLastToolGroup"/>
+                            }
+                            else if (group.Type == ContentGroupType.FinalText)
+                            {
+                                var text = group.Parts[0].Text ?? "";
+                                <div class="markdown-body">
+                                    @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.ChatPipeline))
+                                </div>
+                            }
+                            else if (group.Type == ContentGroupType.Text)
+                            {
+                                var text = group.Parts[0].Text ?? "";
+                                @if (group.IsIntermediate)
+                                {
+                                    <div class="intermediate-text">
+                                        @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.ChatPipeline))
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="markdown-body">
+                                        @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.ChatPipeline))
+                                    </div>
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        @* === COMPLETED: collapsed activity summary + final text === *@
+                        var activityGroups = groups.Where(g => g.Type != ContentGroupType.FinalText).ToList();
+                        var finalText = groups.FirstOrDefault(g => g.Type == ContentGroupType.FinalText);
+
+                        @* Safeguard: if no FinalText exists, promote the last text group *@
+                        if (finalText == null)
+                        {
+                            var lastTextInActivity = activityGroups.LastOrDefault(g => g.Type == ContentGroupType.Text);
+                            if (lastTextInActivity != null)
+                            {
+                                lastTextInActivity.Type = ContentGroupType.FinalText;
+                                lastTextInActivity.IsIntermediate = false;
+                                activityGroups.Remove(lastTextInActivity);
+                                finalText = lastTextInActivity;
+                            }
+                        }
+
+                        @if (activityGroups.Count > 0 && activityGroups.Any(g => g.Type == ContentGroupType.ToolGroup))
+                        {
+                            var summaryInfo = ContentGrouper.BuildActivitySummary(activityGroups);
+                            <ActivitySummary ActivityGroups="activityGroups"
+                                             SummaryInfo="summaryInfo"
+                                             Duration="Message.Duration"/>
+                        }
+
+                        @if (finalText != null)
+                        {
+                            var text = finalText.Parts[0].Text ?? "";
+                            <div class="markdown-body">
+                                @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.ChatPipeline))
+                            </div>
+                        }
+                    }
+                </CascadingValue>
+            }
+            else
+            {
+                @* Fallback for old messages without Parts *@
+                @if (Message.ToolCalls.Count > 0)
+                {
+                    @foreach (var tool in Message.ToolCalls)
+                    {
+                        <ToolCallCard Tool="tool"/>
+                    }
+                }
+
+                @if (!string.IsNullOrEmpty(Message.Text))
+                {
+                    <div class="markdown-body">
+                        @((MarkupString)Markdown.ToHtml(Message.Text, MarkdownHelper.ChatPipeline))
+                    </div>
+                }
+            }
+
+            @if (Message.IsStreaming)
+            {
+                <StreamingIndicator Phase="ChatState.Phase" ActiveToolName="@ChatState.ActiveToolName"
+                                    StartedAt="Message.StreamingStartedAt"/>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter][EditorRequired] public ChatMessage Message { get; set; } = default!;
+
+    private readonly Dictionary<string, string> _imageCache = new();
+    private readonly HashSet<int> _thinkingExpanded = [];
+    private int _lastThinkingGroupCount;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Message.Role != MessageRole.Assistant) return;
+        try
+        {
+            await JS.InvokeVoidAsync("enhanceMarkdownCodeBlocks", $"msg-{Message.Id}", Message.IsStreaming);
+        }
+        catch { /* JS interop may fail during disposal */ }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!Message.IsStreaming) return;
+
+        var groups = ContentGrouper.Group(Message.Parts, true);
+        var thinkingCount = groups.Count(g => g.Type == ContentGroupType.Thinking);
+
+        if (thinkingCount > _lastThinkingGroupCount)
+        {
+            _thinkingExpanded.Clear();
+            _lastThinkingGroupCount = thinkingCount;
+        }
+    }
+
+    private bool HasActivitySummary()
+    {
+        if (Message.IsStreaming || Message.Parts.Count == 0) return false;
+        var groups = ContentGrouper.Group(Message.Parts, false);
+        return groups.Any(g => g.Type == ContentGroupType.ToolGroup);
+    }
+
+    private void ToggleThinkingBlock(int index)
+    {
+        if (!_thinkingExpanded.Remove(index))
+            _thinkingExpanded.Add(index);
+    }
+
+    private static string GetThinkingHeaderText(string thinkingText, bool isExpanded)
+    {
+        if (isExpanded || string.IsNullOrWhiteSpace(thinkingText))
+            return "생각 중...";
+
+        var preview = thinkingText.Trim().ReplaceLineEndings(" ");
+        return preview.Length <= 80 ? preview : preview[..80] + "...";
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalSeconds < 60)
+            return $"{(int)duration.TotalSeconds}초";
+        return $"{(int)duration.TotalMinutes}분 {duration.Seconds}초";
+    }
+
+    private static readonly HashSet<string> TextContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "text/plain", "text/markdown", "text/csv", "text/html", "text/css",
+        "application/json", "application/xml", "application/javascript",
+        "application/x-yaml", "text/yaml", "text/x-log"
+    };
+
+    private void OpenFileInTab(FileAttachment attachment)
+    {
+        if (attachment.IsImage)
+        {
+            Lightbox.Open(GetImageSrc(attachment), attachment.OriginalFileName);
+            return;
+        }
+
+        // Only open text-based files in tab
+        if (!TextContentTypes.Contains(attachment.ContentType)
+            && !attachment.OriginalFileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+            && !attachment.OriginalFileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+            && !attachment.OriginalFileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            && !attachment.OriginalFileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
+            && !attachment.OriginalFileName.EndsWith(".log", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var worktreePath = ChatState.CurrentSession?.Git.WorktreePath;
+        if (string.IsNullOrEmpty(worktreePath)) return;
+
+        var filePath = Path.Combine(worktreePath, ".seoro-attachments", attachment.StoredFileName);
+        if (!File.Exists(filePath)) return;
+
+        var content = File.ReadAllText(filePath);
+        ChatState.Tabs.OpenFileContentTab(filePath, content);
+    }
+
+    private string GetImageSrc(FileAttachment attachment)
+    {
+        if (_imageCache.TryGetValue(attachment.Id, out var cached))
+            return cached;
+
+        var worktreePath = ChatState.CurrentSession?.Git.WorktreePath;
+        if (string.IsNullOrEmpty(worktreePath))
+            return string.Empty;
+
+        var filePath = Path.Combine(worktreePath, ".seoro-attachments", attachment.StoredFileName);
+        if (!File.Exists(filePath))
+            return string.Empty;
+
+        var bytes = File.ReadAllBytes(filePath);
+        var dataUrl = $"data:{attachment.ContentType};base64,{Convert.ToBase64String(bytes)}";
+        _imageCache[attachment.Id] = dataUrl;
+        return dataUrl;
+    }
+
+    private static string GetAttachmentIcon(FileAttachment attachment)
+    {
+        var ext = Path.GetExtension(attachment.OriginalFileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".md" or ".mdx" => Icons.Material.Filled.Description,
+            ".json" or ".yaml" or ".yml" or ".xml" or ".toml" or ".ini" or ".cfg"
+                => Icons.Material.Filled.DataObject,
+            ".cs" or ".js" or ".ts" or ".py" or ".rs" or ".go" or ".java" or ".html"
+                or ".css" or ".sql" or ".sh" or ".bash" or ".ps1"
+                => Icons.Material.Filled.Code,
+            _ => Icons.Material.Filled.InsertDriveFile
+        };
+    }
+
+    private static string FormatFileSize(long sizeBytes)
+    {
+        if (sizeBytes >= 1024 * 1024)
+            return $"{sizeBytes / (1024.0 * 1024.0):F1} MB";
+        if (sizeBytes >= 1024)
+            return $"{sizeBytes / 1024.0:F1} KB";
+        return $"{sizeBytes} B";
+    }
+
+}

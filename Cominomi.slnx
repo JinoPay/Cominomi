@@ -1,9 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Cominomi.Desktop/Cominomi.Desktop.csproj" />
-    <Project Path="src/Cominomi.Shared/Cominomi.Shared.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Cominomi.Shared.Tests/Cominomi.Shared.Tests.csproj" />
-  </Folder>
-</Solution>

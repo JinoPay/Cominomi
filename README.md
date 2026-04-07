@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src/Cominomi.Desktop/wwwroot/icon-192.png" width="120" alt="Seoro" />
+  <img src="src/Seoro.Desktop/wwwroot/icon-192.png" width="120" alt="Seoro" />
   <h1>Seoro</h1>
   <p><b>Claude Code 데스크톱 GUI 클라이언트</b></p>
   <p><sub>A cross-platform desktop GUI client for <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a> by Anthropic</sub></p>
@@ -142,13 +142,13 @@ cd Seoro
 dotnet tool restore
 
 # 빌드
-dotnet build Cominomi.slnx
+dotnet build Seoro.slnx
 
 # 테스트
 dotnet test
 
 # 실행
-dotnet run --project src/Cominomi.Desktop
+dotnet run --project src/Seoro.Desktop
 ```
 
 </details>
@@ -163,17 +163,17 @@ dotnet run --project src/Cominomi.Desktop
 <br>
 
 ```
-Cominomi.slnx                    # .NET XML 솔루션 파일
+Seoro.slnx                    # .NET XML 솔루션 파일
 src/
-  Cominomi.Desktop/               # 데스크톱 앱 진입점
+  Seoro.Desktop/               # 데스크톱 앱 진입점
     Program.cs                    #   DI 컨테이너, Photino 윈도우 초기화
     Services/                     #   플랫폼별 서비스 (파일 피커, 알림, 업데이트)
-  Cominomi.Shared/                # 공유 라이브러리 (플랫폼 독립)
+  Seoro.Shared/                # 공유 라이브러리 (플랫폼 독립)
     Models/                       #   데이터 모델 (Session, ChatMessage, StreamEvent 등)
     Services/                     #   비즈니스 로직 (ClaudeService, GitService, ChatState 등)
     Components/                   #   Blazor 컴포넌트 (Chat, Dashboard, Settings 등 98개)
 tests/
-  Cominomi.Shared.Tests/          # 유닛 테스트 (xUnit)
+  Seoro.Shared.Tests/          # 유닛 테스트 (xUnit)
 ```
 
 </details>

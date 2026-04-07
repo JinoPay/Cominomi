@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Seoro.Desktop/Seoro.Desktop.csproj" />
+    <Project Path="src/Seoro.Shared/Seoro.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Seoro.Shared.Tests/Seoro.Shared.Tests.csproj" />
+  </Folder>
+</Solution>

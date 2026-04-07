@@ -1,0 +1,595 @@
+@inherits LayoutComponentBase
+@inject IChatState ChatState
+@inject IGitService GitService
+@inject IJSRuntime JS
+@inject IThemeService ThemeService
+@inject ISettingsService SettingsService
+@inject IDependencyCheckService DependencyCheckService
+@inject IClaudeService ClaudeService
+@inject ISnackbar Snackbar
+@inject IUpdateService UpdateService
+@inject ILogger<MainLayout> Logger
+@inject IChatEventBus EventBus
+@inject IReleaseNotesService ReleaseNotesService
+@inject INotificationService NotificationService
+@inject INotificationHistoryService NotificationHistory
+@inject IWindowCloseGuardService WindowCloseGuard
+@using System.Diagnostics
+@using System.Reflection
+@using Microsoft.Extensions.Logging
+@implements IAsyncDisposable
+
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="ThemeService.Theme"/>
+<MudPopoverProvider/>
+<MudDialogProvider/>
+<MudSnackbarProvider/>
+
+<Seoro.Shared.Components.Chat.ImageLightbox/>
+
+@if (ChatState.ShowSettings)
+{
+    <SettingsPage/>
+}
+@if (ChatState.ShowNotifications)
+{
+    <NotificationHistoryView/>
+}
+
+@{
+    var anyOverlay = ChatState.ShowSettings || ChatState.ShowNotifications;
+}
+<div class="seoro-shell @(!_sidebarOpen ? "sidebar-collapsed" : "")"
+     style="@(anyOverlay ? "display:none;height:0;overflow:hidden" : "")">
+    @* === Left Panel: Sidebar === *@
+    <aside class="seoro-sidebar">
+        <SidebarToolbar SidebarOpen="_sidebarOpen"
+                        OnToggleSidebar="@(() => _sidebarOpen = !_sidebarOpen)"
+                        OnOpenNotifications="OpenNotifications"/>
+        <SessionList/>
+        <SidebarFooter OnOpenSettings="@(() => ChatState.OpenSettings())"/>
+    </aside>
+
+    @* === Sidebar ↔ Main Resizer === *@
+    @if (_sidebarOpen)
+    {
+        <PanelResizer PanelId="sidebar" CurrentSize="_sidebarWidth" MinSize="180" MaxSize="480"
+                      OnResize="HandleSidebarResize"/>
+    }
+
+    @* === Center Panel: Chat + Right Panel === *@
+    @{
+        var showRightPanel = ChatState.CurrentSession != null
+                             && ChatState.CurrentSession.Status != SessionStatus.Pending;
+    }
+    <main class="seoro-main">
+        <div class="main-left-col">
+            <MainToolbar/>
+
+            @if (ChatState.Tabs.OpenTabs.Count > 1)
+            {
+                <MainTabBar/>
+            }
+
+            <div class="main-content">
+                @{
+                    var activeType = ChatState.Tabs.ActiveTab?.Type;
+                    var isChatTab = activeType is null or MainTabType.Chat;
+                }
+
+                @* ChatView는 항상 렌더링 — 탭 전환 시에도 프로세스가 유지되도록 display로 토글 *@
+                <div
+                    style="@(isChatTab ? "flex:1;min-height:0;display:flex;flex-direction:column" : "display:none;height:0;overflow:hidden")">
+                    @Body
+                </div>
+
+                @if (activeType == MainTabType.FileContent && ChatState.Tabs.ActiveTab?.FilePath != null)
+                {
+                    @if (ChatState.Tabs.ActiveTab.ContentEvicted)
+                    {
+                        <div style="display: flex; align-items: center; justify-content: center; flex:1; opacity: 0.5;">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2"/>
+                            <span>Reloading…</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <FileContentView @key="ChatState.Tabs.ActiveTab.Id"
+                                         FilePath="@ChatState.Tabs.ActiveTab.FilePath"
+                                         Content="@(ChatState.Tabs.ActiveTab.FileContent ?? "")"/>
+                    }
+                }
+                else if (activeType == MainTabType.FileDiff && ChatState.Tabs.ActiveTab?.DiffData != null)
+                {
+                    <FileDiffView @key="ChatState.Tabs.ActiveTab.Id" Diff="ChatState.Tabs.ActiveTab.DiffData"/>
+                }
+            </div>
+        </div>
+
+        @if (showRightPanel)
+        {
+            <PanelResizer PanelId="rightpanel" CurrentSize="_rightPanelWidth"
+                          MinSize="280" MaxSize="600" Reverse="true"
+                          OnResize="HandleRightPanelResize"/>
+
+            <div class="main-right-col" style="width: @(_rightPanelWidth)px;">
+                <MergeToolbar/>
+                <EmbeddedDiffPanel/>
+            </div>
+        }
+    </main>
+
+</div>
+
+<MudMessageBox @ref="_closeConfirmBox" Title="앱 종료" CancelText="취소">
+    <MessageContent>
+        진행 중인 세션이 있습니다. 지금 종료하면 세션이 중단됩니다. 종료하시겠습니까?
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error">종료</MudButton>
+    </YesButton>
+</MudMessageBox>
+
+<SetupDialog IsOpen="_setupOpen" IsOpenChanged="OnSetupVisibleChanged"/>
+<Seoro.Shared.Components.Onboarding.OnboardingDialog IsOpen="_onboardingOpen"
+                                                        IsOpenChanged="OnOnboardingVisibleChanged"
+                                                        OnCompleted="OnOnboardingCompleted"/>
+<Seoro.Shared.Components.Onboarding.WhatsNewDialog IsOpen="_whatsNewOpen" IsOpenChanged="OnWhatsNewVisibleChanged"
+                                                      LastSeenVersion="@_lastSeenVersion"/>
+
+@code {
+    private bool _sidebarOpen = true;
+    private bool _isDarkMode = true;
+    private bool _setupOpen;
+    private bool _onboardingOpen;
+    private bool _whatsNewOpen;
+    private string _lastSeenVersion = "";
+    private int _sidebarWidth = 260;
+    private int _rightPanelWidth = 400;
+    private DotNetObjectReference<MainLayout>? _panelShortcutRef;
+    private CancellationTokenSource? _updateTimerCts;
+    private MudMessageBox _closeConfirmBox = default!;
+    private IDisposable? _closeRequestedSub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ChatState.OnChange += HandleStateChanged;
+        ThemeService.OnThemeChanged += HandleThemeChanged;
+        SettingsService.OnSettingsChanged += HandleUiScaleChanged;
+        ChatState.OnRequestShowOnboarding += HandleShowOnboarding;
+        ChatState.OnRequestShowWhatsNew += HandleShowWhatsNew;
+        _closeRequestedSub = EventBus.Subscribe<WindowCloseRequestedEvent>(_ => HandleCloseRequested());
+
+        try
+        {
+            await ThemeService.InitializeAsync();
+            _isDarkMode = ThemeService.IsDarkMode;
+
+            var deps = await DependencyCheckService.CheckAllAsync();
+            if (deps.Any(d => d.IsRequired && !d.IsInstalled))
+            {
+                _setupOpen = true;
+            }
+            else
+            {
+                await PostSetupSequenceAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "MainLayout initialization failed");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var effectiveTheme = _isDarkMode ? "dark" : "light";
+            await JS.InvokeVoidAsync("setTheme", effectiveTheme);
+
+            _panelShortcutRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("registerPanelShortcuts", _panelShortcutRef);
+
+            // Apply UI scale from persisted settings
+            var settings = await SettingsService.LoadAsync();
+            var scale = settings.UiScale;
+            if (scale == 0)
+                scale = await JS.InvokeAsync<double>("getDefaultUiScale");
+            await JS.InvokeVoidAsync("setUiScale", scale);
+        }
+    }
+
+    private void HandleSidebarResize(int newWidth)
+    {
+        _sidebarWidth = newWidth;
+    }
+
+    private void HandleRightPanelResize(int newWidth)
+    {
+        _rightPanelWidth = newWidth;
+    }
+
+    [JSInvokable]
+    public void OnToggleSidebarShortcut()
+    {
+        _sidebarOpen = !_sidebarOpen;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnToggleThemeShortcut()
+    {
+        await ThemeService.ToggleDarkModeAsync();
+    }
+
+    [JSInvokable]
+    public void OnTogglePlanModeShortcut()
+    {
+        if (ChatState.CurrentSession == null
+            || ChatState.IsStreaming
+            || ChatState.CurrentSession.Status == SessionStatus.Archived
+            || ChatState.ShowSettings
+            || ChatState.ShowNotifications)
+            return;
+        EventBus.Publish(new TogglePlanModeEvent());
+    }
+
+    [JSInvokable]
+    public void OnToggleEffortLevelShortcut()
+    {
+        if (ChatState.CurrentSession == null
+            || ChatState.IsStreaming
+            || ChatState.CurrentSession.Status == SessionStatus.Archived
+            || ChatState.ShowSettings
+            || ChatState.ShowNotifications)
+            return;
+        EventBus.Publish(new ToggleEffortLevelEvent());
+    }
+
+    [JSInvokable]
+    public void OnToggleSyncShortcut()
+    {
+        if (ChatState.CurrentSession == null
+            || ChatState.IsStreaming
+            || ChatState.CurrentSession.Status == SessionStatus.Archived
+            || ChatState.ShowSettings
+            || ChatState.ShowNotifications)
+            return;
+        EventBus.Publish(new ToggleSyncEvent());
+    }
+
+    private void HandleThemeChanged()
+    {
+        _ = InvokeAsync(() =>
+        {
+            try
+            {
+                _isDarkMode = ThemeService.IsDarkMode;
+                _ = JS.InvokeVoidAsync("setTheme", _isDarkMode ? "dark" : "light");
+                _ = JS.InvokeVoidAsync("updateAllTerminalThemes");
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"HandleThemeChanged failed: {ex}");
+            }
+        });
+    }
+
+    private void HandleUiScaleChanged(AppSettings settings)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                var scale = settings.UiScale;
+                if (scale == 0)
+                    scale = await JS.InvokeAsync<double>("getDefaultUiScale");
+                await JS.InvokeVoidAsync("setUiScale", scale);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"HandleUiScaleChanged failed: {ex}");
+            }
+        });
+    }
+
+    private async Task CheckClaudeVersionAsync()
+    {
+        try
+        {
+            var version = await ClaudeService.GetDetectedVersionAsync();
+            if (VersionComparer.IsOutdated(version, SeoroConstants.RequiredClaudeVersion))
+            {
+                await InvokeAsync(() =>
+                {
+                    Snackbar.ClaudeUpdateRequired(
+                        version ?? "알 수 없음",
+                        SeoroConstants.RequiredClaudeVersion);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Version check failed silently");
+        }
+    }
+
+    private async Task CheckAppUpdateAsync()
+    {
+        try
+        {
+            var update = await UpdateService.CheckForUpdateAsync();
+            if (update == null) return;
+
+            await InvokeAsync(() =>
+            {
+                Snackbar.AppUpdateAvailable(update.TargetVersion, async () =>
+                {
+                    try
+                    {
+                        await UpdateService.DownloadUpdateAsync();
+                        await InvokeAsync(() => { Snackbar.AppUpdateReady(() => UpdateService.ApplyUpdateAndRestart()); });
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "Update download failed");
+                    }
+                });
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "App update check failed silently");
+        }
+    }
+
+    private void StartPeriodicUpdateCheck(int intervalMinutes)
+    {
+        _updateTimerCts?.Cancel();
+        if (intervalMinutes <= 0) return;
+
+        _updateTimerCts = new CancellationTokenSource();
+        var ct = _updateTimerCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromMinutes(intervalMinutes));
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                try
+                {
+                    var update = await UpdateService.CheckForUpdateAsync();
+                    if (update == null) continue;
+
+                    NotificationHistory.Record(
+                        "업데이트 사용 가능",
+                        $"새 버전 {update.TargetVersion}이(가) 있습니다.",
+                        NotificationType.Info);
+
+                    await NotificationService.SendAsync(
+                        "Seoro 업데이트",
+                        $"새 버전 {update.TargetVersion}이(가) 사용 가능합니다.");
+
+                    await InvokeAsync(() =>
+                    {
+                        Snackbar.AppUpdateAvailable(update.TargetVersion, async () =>
+                        {
+                            try
+                            {
+                                await UpdateService.DownloadUpdateAsync();
+                                await InvokeAsync(() => { Snackbar.AppUpdateReady(() => UpdateService.ApplyUpdateAndRestart()); });
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.LogError(ex, "Update download failed");
+                            }
+                        });
+                    });
+
+                    break; // 업데이트를 찾았으면 주기적 체크 중단
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug(ex, "Periodic update check failed");
+                }
+            }
+        }, ct);
+    }
+
+    private void HandleStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            var active = ChatState.Tabs.ActiveTab;
+            if (active is { Type: MainTabType.FileContent, ContentEvicted: true })
+                await ReloadEvictedContent(active);
+        });
+    }
+
+    private void OpenNotifications()
+    {
+        ChatState.OpenNotifications();
+    }
+
+    // --- Onboarding / What's New sequencing ---
+
+    private async Task OnSetupVisibleChanged(bool visible)
+    {
+        _setupOpen = visible;
+        if (!visible)
+        {
+            await PostSetupSequenceAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task PostSetupSequenceAsync()
+    {
+        _ = CheckClaudeVersionAsync();
+        var settings = await SettingsService.LoadAsync();
+        _lastSeenVersion = settings.LastSeenVersion;
+
+        if (settings.AutoUpdateEnabled)
+        {
+            _ = CheckAppUpdateAsync();
+            StartPeriodicUpdateCheck(settings.UpdateCheckIntervalMinutes);
+        }
+
+        if (!settings.OnboardingCompleted)
+        {
+            _onboardingOpen = true;
+        }
+        else
+        {
+            await TryShowWhatsNewAsync(settings);
+        }
+    }
+
+    private async Task OnOnboardingCompleted()
+    {
+        _onboardingOpen = false;
+        var settings = await SettingsService.LoadAsync();
+        settings.OnboardingCompleted = true;
+        await SettingsService.SaveAsync(settings);
+        await TryShowWhatsNewAsync(settings);
+        StateHasChanged();
+    }
+
+    private async Task OnOnboardingVisibleChanged(bool visible)
+    {
+        _onboardingOpen = visible;
+    }
+
+    private async Task TryShowWhatsNewAsync(AppSettings settings)
+    {
+        var currentVersion = Assembly.GetEntryAssembly()
+            ?.GetName().Version?.ToString(3) ?? "";
+
+        if (string.IsNullOrEmpty(currentVersion))
+            return;
+
+        var shouldShow = string.IsNullOrEmpty(settings.LastSeenVersion)
+                         || VersionComparer.IsOutdated(settings.LastSeenVersion, currentVersion);
+
+        if (shouldShow)
+        {
+            var releases = await ReleaseNotesService.GetReleaseNotesAsync();
+            bool hasNew;
+            if (string.IsNullOrEmpty(settings.LastSeenVersion))
+            {
+                hasNew = releases.Any(r => r.Version == currentVersion) || releases.Count > 0;
+            }
+            else
+            {
+                hasNew = releases.Any(r => VersionComparer.IsOutdated(settings.LastSeenVersion, r.Version));
+            }
+
+            if (hasNew)
+            {
+                _whatsNewOpen = true;
+            }
+            else
+            {
+                await UpdateLastSeenVersionAsync(currentVersion);
+            }
+        }
+    }
+
+    private async Task OnWhatsNewVisibleChanged(bool visible)
+    {
+        _whatsNewOpen = visible;
+        if (!visible)
+        {
+            var currentVersion = Assembly.GetEntryAssembly()
+                ?.GetName().Version?.ToString(3) ?? "";
+            await UpdateLastSeenVersionAsync(currentVersion);
+        }
+    }
+
+    private async Task UpdateLastSeenVersionAsync(string version)
+    {
+        if (string.IsNullOrEmpty(version)) return;
+        var settings = await SettingsService.LoadAsync();
+        settings.LastSeenVersion = version;
+        await SettingsService.SaveAsync(settings);
+    }
+
+    private void HandleShowOnboarding()
+    {
+        _ = InvokeAsync(() =>
+        {
+            _onboardingOpen = true;
+            StateHasChanged();
+        });
+    }
+
+    private void HandleShowWhatsNew()
+    {
+        _ = InvokeAsync(() =>
+        {
+            _lastSeenVersion = "";
+            _whatsNewOpen = true;
+            StateHasChanged();
+        });
+    }
+
+    private void HandleCloseRequested()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            var confirmed = await _closeConfirmBox.ShowAsync();
+            if (confirmed == true)
+                WindowCloseGuard.ForceClose();
+        });
+    }
+
+    private readonly HashSet<string> _reloadingTabs = new();
+
+    private async Task ReloadEvictedContent(MainTab tab)
+    {
+        if (!_reloadingTabs.Add(tab.Id)) return;
+        try
+        {
+            var session = ChatState.CurrentSession;
+            if (session == null || string.IsNullOrEmpty(session.Git.WorktreePath) || tab.FilePath == null) return;
+
+            var content = await GitService.ReadFileAsync(session.Git.WorktreePath, tab.FilePath);
+            ChatState.Tabs.OpenFileContentTab(tab.FilePath, content);
+        }
+        catch (Exception ex)
+        {
+            tab.FileContent = $"Error reloading file: {ex.Message}";
+            tab.ContentEvicted = false;
+        }
+        finally
+        {
+            _reloadingTabs.Remove(tab.Id);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _updateTimerCts?.Cancel();
+        _updateTimerCts?.Dispose();
+        ChatState.OnChange -= HandleStateChanged;
+        ThemeService.OnThemeChanged -= HandleThemeChanged;
+        SettingsService.OnSettingsChanged -= HandleUiScaleChanged;
+        ChatState.OnRequestShowOnboarding -= HandleShowOnboarding;
+        ChatState.OnRequestShowWhatsNew -= HandleShowWhatsNew;
+        _closeRequestedSub?.Dispose();
+        try
+        {
+            await JS.InvokeVoidAsync("unregisterPanelShortcuts");
+        }
+        catch
+        {
+            /* May already be disposed */
+        }
+
+        _panelShortcutRef?.Dispose();
+    }
+
+}
