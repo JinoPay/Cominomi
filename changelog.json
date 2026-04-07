@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.16.17",
+    "date": "2026-04-07",
+    "changes": [
+      { "type": "feat", "description": "앱 아이콘을 그라디언트 채팅 버블 디자인으로 교체" },
+      { "type": "refactor", "description": "앱 브랜딩 명칭을 Cominomi에서 Seoro로 변경" },
+      { "type": "fix", "description": "Changes 패널에서 바이너리 파일의 줄 수 표시 숨김" },
+      { "type": "docs", "description": "GitHub 저장소 참조를 Seoro로 업데이트" }
+    ]
+  },
+  {
     "version": "1.16.16",
     "date": "2026-04-07",
     "changes": [
