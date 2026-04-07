@@ -1,6 +1,8 @@
 @using Markdig
+@using Cominomi.Shared.Helpers
 @inject IChatState ChatState
 @inject LightboxService Lightbox
+@inject IJSRuntime JS
 
 @if (Message.Role == MessageRole.System)
 {
@@ -33,7 +35,7 @@
                 </MudAvatar>
             }
         </div>
-        <div class="message-content">
+        <div class="message-content" id="msg-@(Message.Id)">
             <div class="message-header">
                 <span class="role-name">@(Message.Role == MessageRole.User ? "나" : "Claude")</span>
                 <span class="message-time">@Message.Timestamp.ToLocalTime().ToString("HH:mm")</span>
@@ -103,7 +105,7 @@
                                     @if (_thinkingExpanded.Contains(idx))
                                     {
                                         <div class="thinking-content">
-                                            @((MarkupString)Markdown.ToHtml(thinkingText, _pipeline))
+                                            @((MarkupString)Markdown.ToHtml(thinkingText, MarkdownHelper.ChatPipeline))
                                         </div>
                                     }
                                 </div>
@@ -117,7 +119,7 @@
                             {
                                 var text = group.Parts[0].Text ?? "";
                                 <div class="markdown-body">
-                                    @((MarkupString)Markdown.ToHtml(text, _pipeline))
+                                    @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.ChatPipeline))
                                 </div>
                             }
                             else if (group.Type == ContentGroupType.Text)
@@ -126,13 +128,13 @@
                                 @if (group.IsIntermediate)
                                 {
                                     <div class="intermediate-text">
-                                        @((MarkupString)Markdown.ToHtml(text, _pipeline))
+                                        @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.ChatPipeline))
                                     </div>
                                 }
                                 else
                                 {
                                     <div class="markdown-body">
-                                        @((MarkupString)Markdown.ToHtml(text, _pipeline))
+                                        @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.ChatPipeline))
                                     </div>
                                 }
                             }
@@ -169,7 +171,7 @@
                         {
                             var text = finalText.Parts[0].Text ?? "";
                             <div class="markdown-body">
-                                @((MarkupString)Markdown.ToHtml(text, _pipeline))
+                                @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.ChatPipeline))
                             </div>
                         }
                     }
@@ -189,7 +191,7 @@
                 @if (!string.IsNullOrEmpty(Message.Text))
                 {
                     <div class="markdown-body">
-                        @((MarkupString)Markdown.ToHtml(Message.Text, _pipeline))
+                        @((MarkupString)Markdown.ToHtml(Message.Text, MarkdownHelper.ChatPipeline))
                     </div>
                 }
             }
@@ -206,15 +208,19 @@
 @code {
     [Parameter][EditorRequired] public ChatMessage Message { get; set; } = default!;
 
-    private static readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .UseSoftlineBreakAsHardlineBreak()
-        .DisableHtml()
-        .Build();
-
     private readonly Dictionary<string, string> _imageCache = new();
     private readonly HashSet<int> _thinkingExpanded = [];
     private int _lastThinkingGroupCount;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Message.Role != MessageRole.Assistant) return;
+        try
+        {
+            await JS.InvokeVoidAsync("enhanceMarkdownCodeBlocks", $"msg-{Message.Id}", Message.IsStreaming);
+        }
+        catch { /* JS interop may fail during disposal */ }
+    }
 
     protected override void OnParametersSet()
     {

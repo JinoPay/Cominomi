@@ -1,4 +1,6 @@
 @using Markdig
+@using Cominomi.Shared.Helpers
+@inject IJSRuntime JS
 <div class="activity-summary @(_expanded ? "expanded" : "")">
     <div class="activity-summary-header" @onclick="Toggle">
         @if (SummaryInfo.HasErrors)
@@ -37,7 +39,7 @@
 
     @if (_expanded)
     {
-        <div class="activity-summary-body">
+        <div class="activity-summary-body" id="activity-@(_expandId)">
             @foreach (var (group, idx) in ActivityGroups.Select((g, i) => (g, i)))
             {
                 @if (group.Type == ContentGroupType.Thinking)
@@ -57,7 +59,7 @@
                         @if (_thinkingExpanded.Contains(idx))
                         {
                             <div class="thinking-content">
-                                @((MarkupString)Markdown.ToHtml(thinkingText, _pipeline))
+                                @((MarkupString)Markdown.ToHtml(thinkingText, MarkdownHelper.TrustedPipeline))
                             </div>
                         }
                     </div>
@@ -70,7 +72,7 @@
                 {
                     var text = group.Parts[0].Text ?? "";
                     <div class="intermediate-text">
-                        @((MarkupString)Markdown.ToHtml(text, _pipeline))
+                        @((MarkupString)Markdown.ToHtml(text, MarkdownHelper.TrustedPipeline))
                     </div>
                 }
             }
@@ -87,10 +89,17 @@
 
     private bool _expanded;
     private readonly HashSet<int> _thinkingExpanded = [];
+    private readonly string _expandId = Guid.NewGuid().ToString("N")[..8];
 
-    private static readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .Build();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_expanded) return;
+        try
+        {
+            await JS.InvokeVoidAsync("enhanceMarkdownCodeBlocks", $"activity-{_expandId}", false);
+        }
+        catch { }
+    }
 
     private void Toggle()
     {

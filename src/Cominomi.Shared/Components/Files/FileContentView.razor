@@ -1,4 +1,5 @@
 @using Markdig
+@using Cominomi.Shared.Helpers
 @inject IJSRuntime JS
 
 <div class="filediff-view">
@@ -74,9 +75,6 @@
     private bool _needsHighlight;
     private string? _lastFilePath;
 
-    private static readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .Build();
 
     protected override void OnParametersSet()
     {
@@ -97,7 +95,7 @@
 
         if (_viewMode == FileViewMode.Markdown && !string.IsNullOrEmpty(Content))
         {
-            _renderedHtml = Markdown.ToHtml(Content, _pipeline);
+            _renderedHtml = Markdown.ToHtml(Content, MarkdownHelper.TrustedPipeline);
         }
 
         _needsHighlight = _viewMode == FileViewMode.Code && !string.IsNullOrEmpty(Content);

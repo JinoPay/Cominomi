@@ -2147,6 +2147,88 @@ html *::after {
     padding: var(--space-2);
     overflow-x: auto;
     font-size: 12.5px;
+    margin: 0.5em 0;
+}
+
+/* When pre is inside a code-block-wrapper, reset standalone styles */
+.code-block-wrapper > pre {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Code block wrapper — injected by JS */
+.code-block-wrapper {
+    position: relative;
+    margin: 0.6em 0;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.code-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid var(--border-default);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    user-select: none;
+}
+
+.code-lang-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.code-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: var(--font-sans);
+    transition: color var(--transition), background var(--transition);
+    line-height: 1;
+}
+
+.code-copy-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.code-copy-btn.copied {
+    color: var(--color-success);
+}
+
+.code-copy-btn svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+}
+
+/* Light mode adjustments */
+[data-theme="light"] .code-block-header {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .code-block-wrapper > pre {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .markdown-body pre {
+    background: rgba(0, 0, 0, 0.04);
 }
 
 .markdown-body code {
@@ -2154,12 +2236,13 @@ html *::after {
     font-size: 12.5px;
 }
 
-.markdown-body p code {
+.markdown-body p code, .markdown-body li code {
     background: var(--accent-dim);
     color: var(--accent);
     padding: 2px 6px;
     border-radius: 4px;
     font-weight: 500;
+    font-size: 0.9em;
 }
 
 .markdown-body p {
@@ -2175,8 +2258,20 @@ html *::after {
     margin: 0.15em 0;
 }
 
+/* Task list */
+.markdown-body .task-list-item {
+    list-style: none;
+    margin-left: -1em;
+}
+
+.markdown-body .task-list-item input[type="checkbox"] {
+    margin-right: 6px;
+    accent-color: var(--accent);
+    cursor: default;
+}
+
 .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
-    margin-top: 0.7em;
+    margin-top: 0.8em;
     margin-bottom: 0.3em;
     font-weight: 600;
 }
@@ -2184,6 +2279,13 @@ html *::after {
 .markdown-body h1 { font-size: 1.4em; }
 .markdown-body h2 { font-size: 1.2em; }
 .markdown-body h3 { font-size: 1.05em; }
+
+.markdown-body hr {
+    border: none;
+    border-top: 1px solid var(--border-default);
+    margin: 0.8em 0;
+    opacity: 0.6;
+}
 
 .markdown-body table {
     border-collapse: collapse;
@@ -2211,7 +2313,9 @@ html *::after {
     border-left: 3px solid var(--accent);
     margin: 0.5em 0;
     padding: var(--space-1) var(--space-4);
-    opacity: 0.8;
+    background: var(--accent-subtle);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--text-secondary);
 }
 
 .markdown-body a {

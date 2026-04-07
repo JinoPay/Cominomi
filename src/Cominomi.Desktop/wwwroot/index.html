@@ -8,7 +8,7 @@
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="tokens.css" />
     <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="lib/highlightjs/github-dark.min.css" />
+    <link id="hljs-theme" rel="stylesheet" href="lib/highlightjs/github-dark.min.css" />
     <link rel="stylesheet" href="lib/xterm/xterm.css" />
     <link rel="stylesheet" href="Cominomi.Desktop.styles.css" />
     <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
@@ -40,7 +40,6 @@
     <script src="_framework/blazor.webview.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="lib/highlightjs/highlight.min.js"></script>
-    <script src="lib/highlightjs/csharp.min.js"></script>
     <script src="lib/xterm/xterm.js"></script>
     <script src="lib/xterm/addon-fit.js"></script>
     <script>
@@ -76,6 +75,109 @@
             }
         };
 
+        // --- Markdown code block enhancement: syntax highlight + copy button ---
+        var _mdLangNames = {
+            'csharp': 'C#', 'javascript': 'JavaScript', 'typescript': 'TypeScript',
+            'python': 'Python', 'rust': 'Rust', 'go': 'Go', 'java': 'Java',
+            'cpp': 'C++', 'c': 'C', 'ruby': 'Ruby', 'bash': 'Bash', 'sh': 'Shell',
+            'shell': 'Shell', 'powershell': 'PowerShell', 'json': 'JSON',
+            'yaml': 'YAML', 'xml': 'XML', 'html': 'HTML', 'css': 'CSS',
+            'scss': 'SCSS', 'sql': 'SQL', 'swift': 'Swift', 'kotlin': 'Kotlin',
+            'dart': 'Dart', 'php': 'PHP', 'lua': 'Lua', 'r': 'R',
+            'dockerfile': 'Dockerfile', 'makefile': 'Makefile', 'toml': 'TOML',
+            'ini': 'INI', 'graphql': 'GraphQL', 'markdown': 'Markdown',
+            'diff': 'Diff', 'plaintext': 'Text', 'text': 'Text'
+        };
+
+        var _copyIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+        var _checkIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+        window.enhanceMarkdownCodeBlocks = function(containerId, isStreaming) {
+            if (!window.hljs) return;
+            var container = document.getElementById(containerId);
+            if (!container) return;
+            var codeBlocks = container.querySelectorAll('.markdown-body pre > code');
+            var total = codeBlocks.length;
+            codeBlocks.forEach(function(codeEl, index) {
+                // During streaming, skip the last block (may be incomplete)
+                if (isStreaming && index === total - 1) return;
+                // Skip already-enhanced blocks
+                if (codeEl.dataset.enhanced === 'true') return;
+
+                var pre = codeEl.parentElement;
+                if (!pre || pre.parentElement.classList.contains('code-block-wrapper')) return;
+
+                // Detect language from class (Markdig outputs "language-xxx")
+                var lang = '';
+                var langDisplay = '';
+                codeEl.classList.forEach(function(cls) {
+                    if (cls.startsWith('language-')) {
+                        lang = cls.replace('language-', '');
+                    }
+                });
+                if (lang) {
+                    langDisplay = _mdLangNames[lang.toLowerCase()] || lang;
+                }
+
+                // Create wrapper
+                var wrapper = document.createElement('div');
+                wrapper.className = 'code-block-wrapper';
+
+                // Create header
+                var header = document.createElement('div');
+                header.className = 'code-block-header';
+
+                var langLabel = document.createElement('span');
+                langLabel.className = 'code-lang-label';
+                langLabel.textContent = langDisplay;
+
+                var copyBtn = document.createElement('button');
+                copyBtn.className = 'code-copy-btn';
+                copyBtn.innerHTML = _copyIconSvg + '<span>복사</span>';
+                copyBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    window.copyCodeToClipboard(copyBtn, codeEl.innerText);
+                });
+
+                header.appendChild(langLabel);
+                header.appendChild(copyBtn);
+
+                // Wrap pre in wrapper
+                pre.parentElement.insertBefore(wrapper, pre);
+                wrapper.appendChild(header);
+                wrapper.appendChild(pre);
+
+                // Apply syntax highlighting
+                try {
+                    if (lang && hljs.getLanguage(lang)) {
+                        hljs.highlightElement(codeEl);
+                    } else if (lang) {
+                        // Try auto-detect if language not registered
+                        hljs.highlightElement(codeEl);
+                    } else {
+                        hljs.highlightElement(codeEl);
+                    }
+                } catch(e) { /* ignore */ }
+
+                codeEl.dataset.enhanced = 'true';
+            });
+        };
+
+        window.copyCodeToClipboard = function(btn, text) {
+            navigator.clipboard.writeText(text).then(function() {
+                var span = btn.querySelector('span');
+                var origHtml = btn.innerHTML;
+                btn.innerHTML = _checkIconSvg + '<span>복사됨</span>';
+                btn.classList.add('copied');
+                setTimeout(function() {
+                    btn.innerHTML = origHtml;
+                    btn.classList.remove('copied');
+                }, 1500);
+            }).catch(function(err) {
+                console.error('[Cominomi] Copy failed:', err);
+            });
+        };
+
         window.highlightDiffBlock = function(elementId, language) {
             var el = document.getElementById(elementId);
             if (!el || !window.hljs) return;
@@ -96,6 +198,12 @@
 
         window.setTheme = function(theme) {
             document.documentElement.setAttribute('data-theme', theme);
+            var hljsThemeEl = document.getElementById('hljs-theme');
+            if (hljsThemeEl) {
+                hljsThemeEl.href = theme === 'light'
+                    ? 'lib/highlightjs/github.min.css'
+                    : 'lib/highlightjs/github-dark.min.css';
+            }
         };
 
         window.setUiScale = function(scale) {

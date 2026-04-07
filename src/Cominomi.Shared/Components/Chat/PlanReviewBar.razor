@@ -1,4 +1,6 @@
 @using Markdig
+@using Cominomi.Shared.Helpers
+@inject IJSRuntime JS
 @if (IsVisible)
 {
     <div class="plan-review-panel">
@@ -23,11 +25,11 @@
         @* Plan content markdown *@
         @if (_showPreview)
         {
-            <div class="plan-review-content">
+            <div class="plan-review-content" id="plan-review-@_planId">
                 @if (!string.IsNullOrEmpty(PlanContent))
                 {
                     <div class="markdown-body">
-                        @((MarkupString)Markdown.ToHtml(PlanContent, _pipeline))
+                        @((MarkupString)Markdown.ToHtml(PlanContent, MarkdownHelper.TrustedPipeline))
                     </div>
                 }
                 else
@@ -65,10 +67,17 @@
     [Parameter] public EventCallback<PlanReviewAction> OnAction { get; set; }
 
     private bool _showPreview = true;
+    private readonly string _planId = Guid.NewGuid().ToString("N")[..8];
 
-    private static readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder()
-        .UseAdvancedExtensions()
-        .Build();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_showPreview || string.IsNullOrEmpty(PlanContent)) return;
+        try
+        {
+            await JS.InvokeVoidAsync("enhanceMarkdownCodeBlocks", $"plan-review-{_planId}", false);
+        }
+        catch { }
+    }
 
     private void TogglePreview()
     {
