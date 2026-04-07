@@ -1,23 +1,23 @@
 <div align="center">
-  <img src="src/Cominomi.Desktop/wwwroot/icon-192.png" width="120" alt="Cominomi" />
-  <h1>Cominomi</h1>
+  <img src="src/Cominomi.Desktop/wwwroot/icon-192.png" width="120" alt="Seoro" />
+  <h1>Seoro</h1>
   <p><b>Claude Code 데스크톱 GUI 클라이언트</b></p>
   <p><sub>A cross-platform desktop GUI client for <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a> by Anthropic</sub></p>
 
   <br>
 
-  <a href="https://github.com/JinoPay/Cominomi/releases/latest"><img src="https://img.shields.io/github/v/release/JinoPay/Cominomi?style=flat-square&label=%EB%A6%B4%EB%A6%AC%EC%8A%A4&color=blue" alt="Latest Release" /></a>
+  <a href="https://github.com/JinoPay/Seoro/releases/latest"><img src="https://img.shields.io/github/v/release/JinoPay/Seoro?style=flat-square&label=%EB%A6%B4%EB%A6%AC%EC%8A%A4&color=blue" alt="Latest Release" /></a>
   <img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet&logoColor=white" alt=".NET 10.0" />
   <img src="https://img.shields.io/badge/Blazor-512BD4?style=flat-square&logo=blazor&logoColor=white" alt="Blazor" />
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&logo=windows11&logoColor=white" alt="Windows x64" />
   <img src="https://img.shields.io/badge/macOS-ARM64-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS ARM64" />
-  <a href="https://github.com/JinoPay/Cominomi/stargazers"><img src="https://img.shields.io/github/stars/JinoPay/Cominomi?style=flat-square&label=%E2%AD%90" alt="Stars" /></a>
+  <a href="https://github.com/JinoPay/Seoro/stargazers"><img src="https://img.shields.io/github/stars/JinoPay/Seoro?style=flat-square&label=%E2%AD%90" alt="Stars" /></a>
   <img src="https://img.shields.io/badge/%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4-All%20rights%20reserved-red?style=flat-square" alt="License" />
 </div>
 
 <br>
 
-> **Cominomi**는 Anthropic의 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI를 위한 크로스플랫폼 데스크톱 GUI 클라이언트입니다.
+> **Seoro**는 Anthropic의 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI를 위한 크로스플랫폼 데스크톱 GUI 클라이언트입니다.
 > 멀티세션 스트리밍 채팅, 분석 대시보드, 게이미피케이션, 내장 터미널, Git 워크플로우 통합 등 —
 > Claude Code의 모든 잠재력을 직관적인 UI에서 끌어냅니다.
 
@@ -31,7 +31,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png" />
     <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/hero-light.png" />
-    <img alt="Cominomi 스크린샷" src="docs/screenshots/hero-light.png" width="800" />
+    <img alt="Seoro 스크린샷" src="docs/screenshots/hero-light.png" width="800" />
   </picture>
   <br>
   <sub>채팅 뷰 / Chat View</sub>
@@ -69,7 +69,7 @@
 
 <br>
 
-Cominomi는 사용량에 따라 XP를 부여하고, 15단계 레벨로 성장을 추적합니다.
+Seoro는 사용량에 따라 XP를 부여하고, 15단계 레벨로 성장을 추적합니다.
 
 | 레벨 | 칭호 | 필요 XP | | 레벨 | 칭호 | 필요 XP |
 |:---:|:---|---:|:---:|:---:|:---|---:|
@@ -119,7 +119,7 @@ Cominomi는 사용량에 따라 XP를 부여하고, 15단계 레벨로 성장을
 
 ### 릴리스 다운로드 <sub>Download</sub>
 
-[**GitHub Releases**](https://github.com/JinoPay/Cominomi/releases/latest) 페이지에서 플랫폼에 맞는 설치 파일을 다운로드하세요.
+[**GitHub Releases**](https://github.com/JinoPay/Seoro/releases/latest) 페이지에서 플랫폼에 맞는 설치 파일을 다운로드하세요.
 
 | 플랫폼 | 아키텍처 | 파일 형식 |
 |:---|:---|:---|
@@ -135,8 +135,8 @@ Cominomi는 사용량에 따라 XP를 부여하고, 15단계 레벨로 성장을
 
 ```bash
 # 저장소 클론
-git clone https://github.com/JinoPay/Cominomi.git
-cd Cominomi
+git clone https://github.com/JinoPay/Seoro.git
+cd Seoro
 
 # CLI 도구 복원
 dotnet tool restore
@@ -228,6 +228,6 @@ git push origin v1.16.12
   <sub>
     Made with ❤️ by <a href="https://github.com/JinoPay">JinoPay</a>
     <br>
-    Copyright © 2026 Cominomi. All rights reserved.
+    Copyright © 2026 Seoro. All rights reserved.
   </sub>
 </div>

@@ -15,7 +15,7 @@
 - **Required CLI**: Claude CLI >= 2.1.81
 
 ## Architecture Overview
-Cominomi is a cross-platform desktop GUI client for Claude Code (Anthropic's CLI).
+Seoro is a cross-platform desktop GUI client for Claude Code (Anthropic's CLI).
 It wraps the Claude CLI process and provides a rich Blazor-based UI for chat sessions,
 git operations, file management, plugins, and more.
 
@@ -64,7 +64,7 @@ tests/
 - Max 20 active sessions per workspace
 - Token limits: context 5K, memory entry 1K, memory total 2.5K, system prompt 10K
 - Default permission mode: `bypassAll`
-- Branch prefix: `cominomi/`
+- Branch prefix: `seoro/`
 
 ## Development Workflow
 1. `dotnet tool restore` - Restore CLI tools (ilspycmd, vpk)

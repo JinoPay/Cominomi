@@ -17,7 +17,7 @@ public class UpdateService : IUpdateService
     {
         _logger = logger;
         _updateManager = new UpdateManager(
-            new GithubSource("https://github.com/JinoPay/Cominomi", null, false));
+            new GithubSource("https://github.com/JinoPay/Seoro", null, false));
     }
 
     public bool IsInstalled => _updateManager.IsInstalled;
