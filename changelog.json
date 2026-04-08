@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.17.4",
+    "date": "2026-04-08",
+    "changes": [
+      { "type": "fix", "description": "macOS에서 뷰포트 높이(100vh → 100%) 처리 수정" }
+    ]
+  },
+  {
     "version": "1.17.3",
     "date": "2026-04-08",
     "changes": [
