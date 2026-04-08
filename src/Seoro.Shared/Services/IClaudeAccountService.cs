@@ -31,6 +31,19 @@ public interface IClaudeAccountService
     Task<bool> RefreshTokenAsync(string accountId);
 
     /// <summary>
+    ///     Backs up the currently active account's live credentials, then clears
+    ///     the live credential state so CLI is in logged-out mode.
+    ///     Returns the ID of the backed-up account (for restore on cancel), or null if none was active.
+    /// </summary>
+    Task<string?> PrepareForNewLoginAsync();
+
+    /// <summary>
+    ///     Restores the previously active account's credentials from backup.
+    ///     Called when the user cancels the "add account" flow.
+    /// </summary>
+    Task RestoreAfterCancelAsync(string accountId);
+
+    /// <summary>
     ///     Compares the live ~/.claude/ state against stored accounts and updates IsActive flags.
     ///     Call on page entry to catch external logins / logouts.
     /// </summary>

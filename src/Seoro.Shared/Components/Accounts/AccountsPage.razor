@@ -14,11 +14,17 @@
             </div>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0;">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                       StartIcon="@Icons.Material.Filled.PersonAdd"
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Save"
                        OnClick="OpenAddDialog"
                        Style="text-transform: none;">
                 현재 계정 등록
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.PersonAdd"
+                       OnClick="OpenAddWizard"
+                       Style="text-transform: none;">
+                새 계정 추가
             </MudButton>
         </div>
     </div>
@@ -60,8 +66,8 @@
             <div class="accounts-how-to">
                 <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Style="opacity:.5; flex-shrink:0;"/>
                 <span class="typo-caption text-secondary">
-                    계정을 추가로 등록하려면 터미널에서 <code>claude logout</code> → <code>claude login</code>으로
-                    다른 계정으로 로그인한 뒤 "현재 계정 등록"을 누르세요.
+                    "새 계정 추가"를 누르면 현재 계정을 자동 백업하고 새 계정 로그인을 안내합니다.
+                    이미 다른 계정으로 로그인한 상태라면 "현재 계정 등록"을 사용하세요.
                 </span>
             </div>
 
@@ -112,6 +118,14 @@
         var dialog = await DialogService.ShowAsync<AddAccountDialog>(
             "",
             new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true });
+        await dialog.Result;
+    }
+
+    private async Task OpenAddWizard()
+    {
+        var dialog = await DialogService.ShowAsync<AddAccountWizard>(
+            "",
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = false });
         await dialog.Result;
     }
 

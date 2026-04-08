@@ -31,6 +31,18 @@ public interface IClaudeCredentialService
     Task DeleteBackupAsync(string accountId);
 
     /// <summary>
+    ///     Deletes live credentials — Keychain item on macOS, .credentials.json on Windows.
+    ///     After this call, Claude CLI will see no stored tokens (logged-out state).
+    /// </summary>
+    Task ClearCredentialsAsync();
+
+    /// <summary>
+    ///     Removes the oauthAccount section from ~/.claude/.claude.json,
+    ///     preserving all other settings.
+    /// </summary>
+    Task ClearConfigOAuthAsync();
+
+    /// <summary>
     ///     Extracts the emailAddress from a .claude.json string.
     ///     Falls back to parsing the JWT access_token payload if config is absent.
     /// </summary>

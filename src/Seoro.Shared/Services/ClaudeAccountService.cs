@@ -562,6 +562,90 @@ public class ClaudeAccountService(
         }
     }
 
+    // ── New-account flow ────────────────────────────────────────────────────
+
+    public async Task<string?> PrepareForNewLoginAsync()
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            var store = await LoadStoreAsync();
+            var active = store.Accounts.FirstOrDefault(a => a.IsActive);
+
+            if (active != null)
+            {
+                // Backup live credentials (captures any CLI-refreshed tokens)
+                var configJson = await credentialService.ReadCurrentConfigAsync();
+                var credentialsJson = await credentialService.ReadCurrentCredentialsAsync();
+                await credentialService.BackupAsync(active.Id, configJson, credentialsJson);
+
+                // Accumulate active time
+                if (active.LastSwitchedAt.HasValue)
+                {
+                    var elapsed = (long)(DateTime.UtcNow - active.LastSwitchedAt.Value).TotalSeconds;
+                    active.TotalActiveSeconds += elapsed;
+                }
+
+                active.IsActive = false;
+                store.ActiveAccountId = null;
+                await SaveStoreAsync(store);
+            }
+
+            // Clear live credentials → CLI sees logged-out state
+            await credentialService.ClearCredentialsAsync();
+            await credentialService.ClearConfigOAuthAsync();
+
+            logger.LogInformation("Prepared for new login (backed up {Id})", active?.Id ?? "none");
+            return active?.Id;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    public async Task RestoreAfterCancelAsync(string accountId)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            var backup = await credentialService.LoadBackupAsync(accountId);
+            if (backup == null)
+            {
+                logger.LogWarning("No backup found for account {Id} — cannot restore", accountId);
+                return;
+            }
+
+            if (backup.ConfigJson != null)
+                await credentialService.WriteConfigAsync(backup.ConfigJson);
+            if (backup.CredentialsJson != null)
+                await credentialService.WriteCredentialsAsync(backup.CredentialsJson);
+
+            // Re-activate the account
+            var store = await LoadStoreAsync();
+            var account = store.Accounts.FirstOrDefault(a => a.Id == accountId);
+            if (account != null)
+            {
+                foreach (var a in store.Accounts) a.IsActive = false;
+                account.IsActive = true;
+                account.LastSwitchedAt = DateTime.UtcNow;
+                store.ActiveAccountId = accountId;
+                await SaveStoreAsync(store);
+            }
+
+            logger.LogInformation("Restored account {Id} after cancel", accountId);
+            OnAccountsChanged?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to restore account {Id} after cancel", accountId);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
     // ── Drift detection ────────────────────────────────────────────────────
 
     public async Task SyncActiveAccountAsync()

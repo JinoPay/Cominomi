@@ -177,6 +177,74 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
     }
 
+    // ── Clear (logout) ──────────────────────────────────────────────────────
+
+    public async Task ClearCredentialsAsync()
+    {
+        if (OperatingSystem.IsMacOS())
+            await DeleteKeychainAsync();
+        else
+            DeleteCredentialsFile();
+    }
+
+    public async Task ClearConfigOAuthAsync()
+    {
+        var path = ResolveConfigFilePath();
+        if (!File.Exists(path)) return;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(path);
+            var node = JsonNode.Parse(json)?.AsObject();
+            if (node == null || !node.ContainsKey("oauthAccount")) return;
+
+            node.Remove("oauthAccount");
+            await AtomicFileWriter.WriteAsync(path, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            logger.LogDebug("Cleared oauthAccount from {Path}", path);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to clear oauthAccount from {Path}", path);
+            throw;
+        }
+    }
+
+    private async Task DeleteKeychainAsync()
+    {
+        var user = Environment.UserName;
+        var result = await processRunner.RunAsync(new ProcessRunOptions
+        {
+            FileName = "security",
+            Arguments = ["delete-generic-password", "-s", "Claude Code-credentials", "-a", user]
+        });
+
+        if (!result.Success && result.ExitCode != 44) // 44 = item not found — already cleared
+        {
+            var msg = $"Keychain delete failed (exit {result.ExitCode}): {result.Stderr}";
+            logger.LogError("Keychain delete failed (exit {Code}): {Err}", result.ExitCode, result.Stderr);
+            throw new InvalidOperationException(msg);
+        }
+
+        logger.LogDebug("Cleared credentials from macOS Keychain");
+    }
+
+    private void DeleteCredentialsFile()
+    {
+        try
+        {
+            if (File.Exists(CredentialsFilePath))
+            {
+                File.Delete(CredentialsFilePath);
+                logger.LogDebug("Deleted credentials file at {Path}", CredentialsFilePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete credentials file at {Path}", CredentialsFilePath);
+            throw;
+        }
+    }
+
     // ── Backup ─────────────────────────────────────────────────────────────
 
     public async Task BackupAsync(string accountId, string? configJson, string? credentialsJson)

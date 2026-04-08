@@ -1,0 +1,303 @@
+@inject IClaudeAccountService AccountService
+@inject IClaudeCredentialService CredentialService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@implements IDisposable
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Color="Color.Primary"/>
+            <span class="typo-subtitle1">새 계정 추가</span>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="stack gap-3" style="min-width: 380px;">
+            @switch (_step)
+            {
+                case WizardStep.Confirm:
+                    <div class="typo-caption text-secondary">
+                        현재 계정의 인증 정보를 백업한 후 로그아웃 상태로 만듭니다.
+                        새 계정으로 로그인하면 자동으로 감지됩니다.
+                    </div>
+
+                    @if (_activeEmail != null)
+                    {
+                        <div class="d-flex align-center gap-2 pa-2"
+                             style="background: var(--mud-palette-background-grey); border-radius: 8px;">
+                            <MudIcon Icon="@Icons.Material.Filled.AccountCircle" Size="Size.Small" Color="Color.Info"/>
+                            <div>
+                                <div class="typo-caption text-secondary">현재 활성 계정</div>
+                                <div class="typo-body2">@_activeEmail</div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_activeEmail == null && !_loading)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            활성 계정이 없습니다. 바로 로그인 단계로 진행합니다.
+                        </MudAlert>
+                    }
+                    break;
+
+                case WizardStep.WaitingLogin:
+                    @if (_preparing)
+                    {
+                        <div class="d-flex flex-column align-center gap-2 pa-4">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small"/>
+                            <div class="typo-caption text-secondary">백업 및 로그아웃 처리 중...</div>
+                        </div>
+                    }
+                    else if (_prepareError != null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_prepareError</MudAlert>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">
+                            이전 계정이 안전하게 백업되었습니다.
+                        </MudAlert>
+
+                        <div class="typo-caption text-secondary">
+                            터미널에서 아래 명령어를 실행하여 새 계정으로 로그인하세요.
+                        </div>
+
+                        <div class="d-flex align-center gap-2 pa-2"
+                             style="background: var(--mud-palette-background-grey); border-radius: 8px; font-family: var(--mud-typography-monospace);">
+                            <code style="flex: 1;">claude login</code>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                           Size="Size.Small" Color="Color.Default"
+                                           OnClick="CopyLoginCommand"/>
+                        </div>
+
+                        <div class="d-flex align-center gap-2 pa-2">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary"/>
+                            <span class="typo-caption text-secondary">로그인 대기 중...</span>
+                        </div>
+                    }
+                    break;
+
+                case WizardStep.Register:
+                    @if (!string.IsNullOrEmpty(_detectedEmail))
+                    {
+                        <div class="d-flex align-center gap-2 pa-2"
+                             style="background: var(--mud-palette-background-grey); border-radius: 8px;">
+                            <MudIcon Icon="@Icons.Material.Filled.AccountCircle" Size="Size.Small" Color="Color.Success"/>
+                            <div>
+                                <div class="typo-caption text-secondary">감지된 새 계정</div>
+                                <div class="typo-body2">@_detectedEmail</div>
+                            </div>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined"
+                                     Style="height: 20px; margin-left: auto;">로그인됨</MudChip>
+                        </div>
+                    }
+
+                    <MudTextField @bind-Value="_profileName" Label="프로필 이름"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Placeholder="예: 개인, 회사, 프리랜서..."
+                                  HelperText="여러 계정을 구분하는 이름"
+                                  Immediate="true" AutoFocus="true"
+                                  @onkeydown="OnKeyDown"/>
+                    break;
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        @switch (_step)
+        {
+            case WizardStep.Confirm:
+                <MudButton OnClick="Cancel" Variant="Variant.Text">취소</MudButton>
+                <MudButton OnClick="GoToWaitingLogin" Variant="Variant.Filled" Color="Color.Primary"
+                           Disabled="@_loading">
+                    계속
+                </MudButton>
+                break;
+
+            case WizardStep.WaitingLogin:
+                <MudButton OnClick="CancelWithRestore" Variant="Variant.Text"
+                           Disabled="@_preparing">취소</MudButton>
+                break;
+
+            case WizardStep.Register:
+                <MudButton OnClick="CancelWithRestore" Variant="Variant.Text">취소</MudButton>
+                <MudButton OnClick="ConfirmRegister" Variant="Variant.Filled" Color="Color.Primary"
+                           Disabled="@(!CanRegister)" StartIcon="@Icons.Material.Filled.Save">
+                    등록
+                </MudButton>
+                break;
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private enum WizardStep { Confirm, WaitingLogin, Register }
+
+    private WizardStep _step = WizardStep.Confirm;
+    private bool _loading = true;
+    private string? _activeEmail;
+    private string? _backedUpAccountId;
+    private bool _preparing;
+    private string? _prepareError;
+    private string? _detectedEmail;
+    private string _profileName = "";
+    private CancellationTokenSource? _pollCts;
+    private bool _disposed;
+
+    private bool CanRegister => !string.IsNullOrWhiteSpace(_profileName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var configJson = await CredentialService.ReadCurrentConfigAsync();
+            var credJson = await CredentialService.ReadCurrentCredentialsAsync();
+            _activeEmail = CredentialService.ExtractEmail(configJson, credJson);
+        }
+        catch { /* ignore */ }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task GoToWaitingLogin()
+    {
+        _step = WizardStep.WaitingLogin;
+        _preparing = true;
+        _prepareError = null;
+        StateHasChanged();
+
+        try
+        {
+            _backedUpAccountId = await AccountService.PrepareForNewLoginAsync();
+            _preparing = false;
+            StateHasChanged();
+
+            StartPolling();
+        }
+        catch (Exception ex)
+        {
+            _preparing = false;
+            _prepareError = $"백업 실패: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private void StartPolling()
+    {
+        _pollCts = new CancellationTokenSource();
+        var token = _pollCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+                while (await timer.WaitForNextTickAsync(token))
+                {
+                    var config = await CredentialService.ReadCurrentConfigAsync();
+                    if (config != null && ContainsOAuthAccount(config))
+                    {
+                        var creds = await CredentialService.ReadCurrentCredentialsAsync();
+                        var email = CredentialService.ExtractEmail(config, creds);
+
+                        await InvokeAsync(() =>
+                        {
+                            _detectedEmail = email;
+                            _step = WizardStep.Register;
+                            StateHasChanged();
+                        });
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { /* expected on cancel */ }
+        }, token);
+    }
+
+    private static bool ContainsOAuthAccount(string configJson)
+    {
+        try
+        {
+            var doc = System.Text.Json.JsonDocument.Parse(configJson);
+            return doc.RootElement.TryGetProperty("oauthAccount", out _);
+        }
+        catch { return false; }
+    }
+
+    private async Task ConfirmRegister()
+    {
+        if (!CanRegister) return;
+
+        try
+        {
+            var account = await AccountService.RegisterCurrentAsync(_profileName.Trim());
+            Snackbar.Add($"'{account.ProfileName}' 계정이 등록되었습니다.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(account));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"등록 실패: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task CancelWithRestore()
+    {
+        StopPolling();
+
+        if (_backedUpAccountId != null)
+        {
+            try
+            {
+                await AccountService.RestoreAfterCancelAsync(_backedUpAccountId);
+                Snackbar.Add("이전 계정이 복원되었습니다.", Severity.Info);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"계정 복원 실패: {ex.Message}", Severity.Error);
+            }
+        }
+
+        MudDialog.Cancel();
+    }
+
+    private async Task CopyLoginCommand()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", "claude login");
+        Snackbar.Add("클립보드에 복사되었습니다.", Severity.Info);
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ConfirmRegister();
+    }
+
+    private void StopPolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        StopPolling();
+
+        // If disposed during WaitingLogin/Register without completing, restore
+        if (_backedUpAccountId != null && _step != WizardStep.Confirm)
+        {
+            _ = Task.Run(async () =>
+            {
+                try { await AccountService.RestoreAfterCancelAsync(_backedUpAccountId); }
+                catch { /* best effort */ }
+            });
+        }
+    }
+}
