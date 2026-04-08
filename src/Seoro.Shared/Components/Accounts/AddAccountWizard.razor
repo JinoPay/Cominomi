@@ -250,11 +250,14 @@
     {
         StopPolling();
 
-        if (_backedUpAccountId != null)
+        var idToRestore = _backedUpAccountId;
+        _backedUpAccountId = null; // Prevent double-restore in Dispose
+
+        if (idToRestore != null)
         {
             try
             {
-                await AccountService.RestoreAfterCancelAsync(_backedUpAccountId);
+                await AccountService.RestoreAfterCancelAsync(idToRestore);
                 Snackbar.Add("이전 계정이 복원되었습니다.", Severity.Info);
             }
             catch (Exception ex)

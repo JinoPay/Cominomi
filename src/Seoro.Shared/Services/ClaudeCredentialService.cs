@@ -189,7 +189,12 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
 
     public async Task ClearConfigOAuthAsync()
     {
-        var path = ResolveConfigFilePath();
+        // Use the same path that was read before clearing — don't re-resolve
+        // because ResolveConfigFilePath skips files without oauthAccount.
+        var primary = Path.Combine(ClaudeHomeDir, ".claude.json");
+        var fallback = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude.json");
+        var path = File.Exists(primary) ? primary : File.Exists(fallback) ? fallback : primary;
         if (!File.Exists(path)) return;
 
         try
@@ -256,7 +261,19 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
             await AtomicFileWriter.WriteAsync(Path.Combine(dir, "config.json"), configJson);
 
         if (credentialsJson != null)
-            await AtomicFileWriter.WriteAsync(Path.Combine(dir, "credentials.json"), credentialsJson);
+        {
+            // Validate JSON before saving — Keychain may return non-JSON data
+            var isValid = true;
+            try { JsonDocument.Parse(credentialsJson).Dispose(); }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "Credentials for account {Id} are not valid JSON — skipping credentials backup", accountId);
+                isValid = false;
+            }
+
+            if (isValid)
+                await AtomicFileWriter.WriteAsync(Path.Combine(dir, "credentials.json"), credentialsJson);
+        }
 
         logger.LogDebug("Backed up credentials for account {Id}", accountId);
     }
