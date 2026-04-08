@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.17.2",
+    "date": "2026-04-08",
+    "changes": [
+      { "type": "feat", "description": "계정 추가 마법사로 멀티 계정 관리 흐름 간소화" },
+      { "type": "fix", "description": "자격 증명 및 백업 처리 엣지 케이스 개선" }
+    ]
+  },
+  {
     "version": "1.17.1",
     "date": "2026-04-08",
     "changes": [
