@@ -339,7 +339,9 @@ public class SessionServiceTests : IDisposable
         public Task<Workspace?> LoadWorkspaceAsync(string workspaceId) => Task.FromResult(WorkspaceToReturn);
         public Task SaveWorkspaceAsync(Workspace workspace) => Task.CompletedTask;
         public Task DeleteWorkspaceAsync(string workspaceId) => Task.CompletedTask;
-        public Task<Workspace> CreateFromUrlAsync(string url, string name, string model, IProgress<string>? progress = null, CancellationToken ct = default)
+        public Task<Workspace> CreateFromUrlAsync(string url, string name, string model, string? targetDir = null, IProgress<string>? progress = null, CancellationToken ct = default)
+            => throw new NotImplementedException();
+        public Task<string> GetDefaultClonePathAsync(string url)
             => throw new NotImplementedException();
         public Task<Workspace> CreateFromLocalAsync(string localPath, string name, string model, CancellationToken ct = default)
             => throw new NotImplementedException();

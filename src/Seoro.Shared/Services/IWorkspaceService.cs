@@ -15,6 +15,8 @@ public interface IWorkspaceService
     Task<Workspace?> LoadWorkspaceAsync(string workspaceId);
     Task<Workspace> CreateFromLocalAsync(string localPath, string name, string model, CancellationToken ct = default);
 
-    Task<Workspace> CreateFromUrlAsync(string url, string name, string model, IProgress<string>? progress = null,
-        CancellationToken ct = default);
+    Task<Workspace> CreateFromUrlAsync(string url, string name, string model, string? targetDir = null,
+        IProgress<string>? progress = null, CancellationToken ct = default);
+
+    Task<string> GetDefaultClonePathAsync(string url);
 }

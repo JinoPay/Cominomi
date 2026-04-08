@@ -162,7 +162,7 @@ public partial class WorkspaceService(
     }
 
     public async Task<Workspace> CreateFromUrlAsync(string url, string name, string model,
-        IProgress<string>? progress = null, CancellationToken ct = default)
+        string? targetDir = null, IProgress<string>? progress = null, CancellationToken ct = default)
     {
         var workspace = new Workspace
         {
@@ -191,14 +191,21 @@ public partial class WorkspaceService(
             }
             else
             {
-                var slug = ExtractRepoSlug(url);
-                var reposDir = await GetReposDirAsync();
-                repoDir = Path.Combine(reposDir, slug);
+                if (!string.IsNullOrWhiteSpace(targetDir))
+                {
+                    repoDir = targetDir;
+                }
+                else
+                {
+                    var slug = ExtractRepoSlug(url);
+                    var reposDir = await GetReposDirAsync();
+                    repoDir = Path.Combine(reposDir, slug);
 
-                // Avoid directory name collision
-                var counter = 1;
-                var originalDir = repoDir;
-                while (Directory.Exists(repoDir)) repoDir = $"{originalDir}-{counter++}";
+                    // Avoid directory name collision
+                    var counter = 1;
+                    var originalDir = repoDir;
+                    while (Directory.Exists(repoDir)) repoDir = $"{originalDir}-{counter++}";
+                }
 
                 progress?.Report("Cloning repository...");
                 var cloneResult = await gitService.CloneAsync(url, repoDir, progress, ct);
@@ -289,5 +296,12 @@ public partial class WorkspaceService(
         var dir = Path.Combine(await GetBaseDirAsync(), "repos");
         Directory.CreateDirectory(dir);
         return dir;
+    }
+
+    public async Task<string> GetDefaultClonePathAsync(string url)
+    {
+        var slug = ExtractRepoSlug(url);
+        var reposDir = await GetReposDirAsync();
+        return Path.Combine(reposDir, slug);
     }
 }
