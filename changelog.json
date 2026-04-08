@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.17.3",
+    "date": "2026-04-08",
+    "changes": [
+      { "type": "fix", "description": "사이드바 트리 레이아웃 스타일 개선" }
+    ]
+  },
+  {
     "version": "1.17.2",
     "date": "2026-04-08",
     "changes": [
