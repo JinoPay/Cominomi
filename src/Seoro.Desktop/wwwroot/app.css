@@ -1325,6 +1325,7 @@ html *::after {
     margin: 0;
     padding: var(--space-2) var(--space-3);
     overflow-x: auto;
+    overflow-y: hidden;
     background: transparent !important;
 }
 
@@ -1343,8 +1344,11 @@ html *::after {
 .filecontent-markdown {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-4) var(--space-6);
+}
+
+.filecontent-markdown-inner {
     max-width: 800px;
+    padding: var(--space-4) var(--space-6);
 }
 
 /* ===== Embedded Diff Panel ===== */
