@@ -521,21 +521,18 @@ html *::after {
     white-space: nowrap;
 }
 
-/* Local directory badge — compact "L" pill in amber/yellow */
+/* Local directory badge — amber pill */
 .local-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
+    display: inline-block;
+    padding: 0 5px;
     border-radius: 4px;
     font-size: 0.6rem;
-    font-weight: 800;
-    background: rgba(245, 158, 11, 0.2);
+    font-weight: 700;
+    background: rgba(245, 158, 11, 0.18);
     color: #f59e0b;
-    vertical-align: middle;
+    vertical-align: baseline;
     margin-right: 3px;
-    flex-shrink: 0;
+    line-height: 1.5;
 }
 
 /* Title change animation */
