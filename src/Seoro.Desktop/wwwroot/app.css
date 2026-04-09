@@ -1300,7 +1300,6 @@ html *::after {
 .filecontent-code-container {
     display: flex;
     flex: 1;
-    min-height: 0;
     overflow: auto;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
