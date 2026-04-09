@@ -1,9 +1,15 @@
 using System.Text.Json;
 using Seoro.Shared.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Seoro.Shared.Services.StreamEventHandlers;
 
-public class AssistantMessageHandler(IChatState chatState, ISessionService sessionService) : IStreamEventHandler
+public class AssistantMessageHandler(
+    IChatState chatState,
+    IChatEventBus eventBus,
+    ISessionService sessionService,
+    IGitBranchWatcherService branchWatcher,
+    ILogger<AssistantMessageHandler> logger) : IStreamEventHandler
 {
     public string EventType => "assistant";
 
@@ -14,12 +20,16 @@ public class AssistantMessageHandler(IChatState chatState, ISessionService sessi
         // Track parent context for subagent tool calls
         ctx.CurrentParentToolUseId = evt.ParentToolUseId;
 
+        var hasNewText = false;
+        var hasBashTool = false;
+
         if (evt.Message?.Content != null)
             foreach (var block in evt.Message.Content)
                 switch (block.Type)
                 {
                     case "text" when block.Text != null:
                         chatState.AppendText(ctx.AssistantMessage, block.Text);
+                        hasNewText = true;
                         break;
                     case "thinking" when (block.Thinking ?? block.Text) != null:
                         chatState.AppendThinking(ctx.AssistantMessage, block.Thinking ?? block.Text!);
@@ -45,11 +55,61 @@ public class AssistantMessageHandler(IChatState chatState, ISessionService sessi
                         chatState.SetPhase(StreamingPhase.UsingTool, block.Name, ctx.Session.Id);
                         if (block.Name == "ExitPlanMode")
                             ctx.ExitPlanModeDetected = true;
+                        if (block.Name is "Bash" or "execute_bash")
+                            hasBashTool = true;
+                        break;
+                    case "server_tool_result":
+                    case "tool_result":
+                        if (block.Name is "Bash" or "execute_bash")
+                            hasBashTool = true;
                         break;
                 }
+
+        // Detect title marker in local dir sessions (real-time, during streaming)
+        if (hasNewText && ctx.Session.Git.IsLocalDir && !ctx.Session.TitleLocked)
+            TryExtractTitleMarker(ctx);
+
+        // Refresh branch from HEAD after Bash tool (may have run git branch -m)
+        if (hasBashTool)
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(150);
+                branchWatcher.RefreshBranchFromHeadFile(ctx.Session);
+            });
 
         _ = sessionService.SaveSessionAsync(ctx.Session);
 
         return Task.CompletedTask;
+    }
+
+    private void TryExtractTitleMarker(StreamProcessingContext ctx)
+    {
+        var text = ctx.AssistantMessage.Text;
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var startIdx = text.IndexOf(SeoroConstants.TitleMarkerPrefix, StringComparison.Ordinal);
+        if (startIdx < 0)
+            return;
+
+        var titleStart = startIdx + SeoroConstants.TitleMarkerPrefix.Length;
+        var endIdx = text.IndexOf(SeoroConstants.TitleMarkerSuffix, titleStart, StringComparison.Ordinal);
+        if (endIdx < 0)
+            return;
+
+        var title = text[titleStart..endIdx].Trim();
+        if (string.IsNullOrEmpty(title) || title.Length > 30)
+        {
+            if (!string.IsNullOrEmpty(title))
+                title = title[..30];
+            else
+                return;
+        }
+
+        logger.LogWarning("[TRACE] AssistantMessageHandler: title marker detected: {Title}", title);
+        ctx.Session.Title = title;
+        ctx.Session.TitleLocked = true;
+        chatState.Tabs.UpdateChatTabTitle(title);
+        eventBus.Publish(new SessionTitleChangedEvent(ctx.Session.Id, title));
     }
 }
