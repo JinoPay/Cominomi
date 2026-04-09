@@ -131,7 +131,7 @@ public class CominomiMigrationService(ILogger<CominomiMigrationService> logger)
             }
         }
 
-        logger.LogInformation("Cominomi migration complete: {Copied} copied, {Skipped} skipped, {Failed} failed",
+        logger.LogInformation("Cominomi 마이그레이션 완료: {Copied} 복사, {Skipped} 건너뜀, {Failed} 실패",
             copied, skipped, failed);
 
         return new MigrationResult(copied, skipped, failed);
@@ -167,12 +167,12 @@ public class CominomiMigrationService(ILogger<CominomiMigrationService> logger)
                 obj["LastSeenVersion"] = "";
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 await File.WriteAllTextAsync(settingsPath, node.ToJsonString(options));
-                logger.LogInformation("Reset onboarding fields in migrated settings.json");
+                logger.LogInformation("마이그레이션된 settings.json의 온보딩 필드 초기화됨");
             }
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to reset onboarding fields in settings.json");
+            logger.LogWarning(ex, "settings.json의 온보딩 필드 초기화 실패");
         }
     }
 

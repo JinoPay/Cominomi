@@ -28,7 +28,7 @@ public class AppSettingsFactory(ILogger<AppSettingsFactory> logger) : IOptionsFa
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to load settings from {Path}, using defaults", path);
+            logger.LogWarning(ex, "{Path}에서 설정 로드 실패, 기본값 사용", path);
             return new AppSettings();
         }
     }

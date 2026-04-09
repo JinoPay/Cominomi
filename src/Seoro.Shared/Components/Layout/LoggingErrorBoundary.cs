@@ -10,7 +10,7 @@ public class LoggingErrorBoundary : ErrorBoundary
 
     protected override Task OnErrorAsync(Exception exception)
     {
-        Logger.LogError(exception, "Blazor unhandled rendering exception");
+        Logger.LogError(exception, "Blazor 처리되지 않은 렌더링 예외");
         return base.OnErrorAsync(exception);
     }
 }

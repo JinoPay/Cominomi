@@ -167,7 +167,7 @@ public class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to kill process");
+            logger.LogDebug(ex, "프로세스 종료 실패");
         }
     }
 }

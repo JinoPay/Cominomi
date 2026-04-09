@@ -69,7 +69,7 @@ public class HooksEngine(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to load hooks configuration");
+            logger.LogWarning(ex, "훅 설정 로드 실패");
             _hooks = [];
         }
     }
@@ -161,7 +161,7 @@ public class HooksEngine(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Hook '{Command}' for event {Event} failed", hook.Command, hookEvent);
+            logger.LogWarning(ex, "이벤트 {Event}의 훅 '{Command}' 실행 실패", hook.Command, hookEvent);
             return new HookExecutionResult(hook.Command, false, -1, "", ex.Message, false);
         }
     }

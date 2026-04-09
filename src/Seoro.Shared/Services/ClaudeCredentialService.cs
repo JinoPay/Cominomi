@@ -143,7 +143,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
             throw new InvalidOperationException(msg);
         }
 
-        logger.LogDebug("Wrote credentials to macOS Keychain");
+        logger.LogDebug("macOS Keychain에 자격증명 저장됨");
     }
 
     // ── Windows credentials file ───────────────────────────────────────────
@@ -230,7 +230,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
             throw new InvalidOperationException(msg);
         }
 
-        logger.LogDebug("Cleared credentials from macOS Keychain");
+        logger.LogDebug("macOS Keychain에서 자격증명 삭제됨");
     }
 
     private void DeleteCredentialsFile()
@@ -267,7 +267,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
             try { JsonDocument.Parse(credentialsJson).Dispose(); }
             catch (JsonException ex)
             {
-                logger.LogWarning(ex, "Credentials for account {Id} are not valid JSON — skipping credentials backup", accountId);
+                logger.LogWarning(ex, "계정 {Id}의 자격증명이 유효한 JSON이 아님 — 자격증명 백업 건너뜀", accountId);
                 isValid = false;
             }
 
@@ -299,7 +299,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Backup for account {Id} is corrupt or unreadable", accountId);
+            logger.LogWarning(ex, "계정 {Id}의 백업이 손상되었거나 읽을 수 없음", accountId);
             return null;
         }
     }

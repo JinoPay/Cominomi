@@ -30,7 +30,7 @@ public class SettingsService(AppSettingsChangeNotifier changeNotifier, ILogger<S
 
         if (!File.Exists(_settingsPath))
         {
-            logger.LogDebug("Settings file not found, using defaults");
+            logger.LogDebug("설정 파일을 찾을 수 없음, 기본값 사용");
             _cached = new AppSettings();
             return _cached;
         }
@@ -43,7 +43,7 @@ public class SettingsService(AppSettingsChangeNotifier changeNotifier, ILogger<S
         if (migrated && migratedJson != null)
         {
             await AtomicFileWriter.WriteAsync(_settingsPath, migratedJson);
-            logger.LogInformation("Settings migrated from disk");
+            logger.LogInformation("설정이 디스크에서 마이그레이션됨");
         }
 
         logger.LogDebug("Settings loaded from {Path}", _settingsPath);

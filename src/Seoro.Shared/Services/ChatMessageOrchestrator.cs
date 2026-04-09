@@ -44,7 +44,7 @@ public class ChatMessageOrchestrator(
         // --- Guard: session must be Ready (worktree already created on session creation) ---
         if (session.Status != SessionStatus.Ready)
         {
-            logger.LogWarning("Cannot send message: session {SessionId} status is {Status}", session.Id, session.Status);
+            logger.LogWarning("메시지 전송 불가: 세션 {SessionId}의 상태가 {Status}임", session.Id, session.Status);
             return new StreamResult();
         }
 
@@ -147,12 +147,12 @@ public class ChatMessageOrchestrator(
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             wasCancelled = true;
-            logger.LogInformation("{Mode} cancelled for session {SessionId}",
-                continueMode ? "Continue" : "Message processing", session.Id);
+            logger.LogInformation("{Mode} 세션 {SessionId}에 대해 취소됨",
+                continueMode ? "계속 진행" : "메시지 처리", session.Id);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error during {Mode} for session {SessionId}",
+            logger.LogError(ex, "세션 {SessionId}의 {Mode} 중 오류 발생",
                 continueMode ? "continue" : "message processing", session.Id);
             if (string.IsNullOrEmpty(assistantMsg.Text))
                 chatState.AppendText(assistantMsg, $"Error: {ex.Message}");
@@ -200,7 +200,7 @@ public class ChatMessageOrchestrator(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Hook fire failed for OnMessageComplete");
+                logger.LogWarning(ex, "OnMessageComplete 훅 실행 실패");
             }
         });
     }

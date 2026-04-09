@@ -16,7 +16,7 @@ public class SessionInitializer(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Fetch failed for {RepoPath}, continuing with cached branches", repoLocalPath);
+            logger.LogDebug(ex, "{RepoPath}에 대한 Fetch 실패, 캐시된 브랜치로 계속 진행", repoLocalPath);
         }
 
         var branchGroupsTask = gitService.ListAllBranchesGroupedAsync(repoLocalPath);

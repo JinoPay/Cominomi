@@ -57,7 +57,7 @@ Rules:
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, "Failed to load context for system prompt");
+                logger.LogDebug(ex, "시스템 프롬프트의 컨텍스트 로드 실패");
             }
 
         try
@@ -71,7 +71,7 @@ Rules:
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to load memory for system prompt");
+            logger.LogDebug(ex, "시스템 프롬프트의 메모리 로드 실패");
         }
 
         if (parts.Count == 0) return null;

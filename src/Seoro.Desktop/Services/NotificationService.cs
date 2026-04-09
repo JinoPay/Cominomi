@@ -43,7 +43,7 @@ public class NotificationService(ILogger<NotificationService> logger, IOptionsMo
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to set macOS bundle identifier");
+                logger.LogWarning(ex, "macOS 번들 식별자 설정 실패");
             }
 
             _nativeNotificationsAvailable = HasAppBundle();
@@ -55,15 +55,15 @@ public class NotificationService(ILogger<NotificationService> logger, IOptionsMo
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to request notification authorization");
+                    logger.LogWarning(ex, "알림 권한 요청 실패");
                 }
             else
                 logger.LogInformation(
-                    "Not running in .app bundle — skipping UNUserNotificationCenter, will use AppleScript fallback");
+                    ".app 번들에서 실행되지 않음 — UNUserNotificationCenter 건너뜀, AppleScript 폴백 사용");
         }
 
         _initialized = true;
-        logger.LogInformation("Notifications initialized");
+        logger.LogInformation("알림이 초기화됨");
         return Task.CompletedTask;
     }
 
@@ -89,7 +89,7 @@ public class NotificationService(ILogger<NotificationService> logger, IOptionsMo
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to send notification");
+            logger.LogError(ex, "알림 전송 실패");
         }
     }
 
@@ -321,7 +321,7 @@ public class NotificationService(ILogger<NotificationService> logger, IOptionsMo
             SelRegisterName("requestAuthorizationWithOptions:completionHandler:"),
             6, block);
 
-        logger.LogInformation("Requested macOS notification authorization");
+        logger.LogInformation("macOS 알림 권한 요청됨");
 
         // Check current authorization status synchronously
         // UNAuthorizationStatus: 0=notDetermined, 1=denied, 2=authorized, 3=provisional

@@ -128,14 +128,14 @@ public class PluginExecutionEngine(
                 await skillRegistry.DeleteCommandAsync(skillName, "plugin", null);
 
         plugin.Status = PluginStatus.Valid;
-        logger.LogInformation("Plugin '{Id}' unloaded", pluginId);
+        logger.LogInformation("플러그인 '{Id}' 언로드됨", pluginId);
     }
 
     public async Task<bool> LoadPluginAsync(PluginInfo plugin)
     {
         if (_loaded.ContainsKey(plugin.Id))
         {
-            logger.LogDebug("Plugin '{Id}' is already loaded", plugin.Id);
+            logger.LogDebug("플러그인 '{Id}'은 이미 로드됨", plugin.Id);
             return true;
         }
 
@@ -280,7 +280,7 @@ public class PluginExecutionEngine(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Plugin '{Id}' execution failed", pluginId);
+            logger.LogError(ex, "플러그인 '{Id}' 실행 실패", pluginId);
             return new PluginExecutionResult(false, "", ex.Message, -1);
         }
     }
@@ -332,7 +332,7 @@ public class PluginExecutionEngine(
         }
         catch (JsonException ex)
         {
-            logger.LogDebug(ex, "Plugin stdout is not valid JSON, treating as plain text");
+            logger.LogDebug(ex, "플러그인 stdout이 유효한 JSON이 아님, 순수 텍스트로 처리");
             return null;
         }
     }
