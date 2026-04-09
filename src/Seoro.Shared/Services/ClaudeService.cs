@@ -43,7 +43,7 @@ public class ClaudeService(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var agentKey = sessionId ?? DefaultAgentKey;
-        logger.LogInformation("Starting Claude process for session {AgentKey} with model {Model}", agentKey, model);
+        logger.LogInformation("세션 {AgentKey}에 대해 Claude 프로세스 시작, 모델: {Model}", agentKey, model);
 
         var settings = appSettings.CurrentValue;
         var (fileName, baseArgs) = await _cliResolver.ResolveAsync(settings.ClaudePath);
@@ -51,7 +51,7 @@ public class ClaudeService(
 
         var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
-        // Cancel any previous process for this specific session
+        // 이 특정 세션의 이전 프로세스 취소
         if (_agents.TryRemove(agentKey, out var previous)) previous.Cancel();
 
         var arguments = ClaudeArgumentBuilder.Build(baseArgs, model, permissionMode, caps, conversationId, systemPrompt,
@@ -60,17 +60,17 @@ public class ClaudeService(
         var token = cts.Token;
         var envVars = settings.EnvironmentVariables.Count > 0 ? settings.EnvironmentVariables : null;
 
-        // First attempt
+        // 첫 번째 시도
         var ctx = new StreamingContext();
         await foreach (var evt in ExecuteClaudeProcessAsync(fileName, arguments, workingDir, message, continueMode,
                            agentKey, cts, envVars, ctx, token)) yield return evt;
 
-        // Retry with --verbose if process failed before producing events
+        // 이벤트 생성 전에 프로세스가 실패한 경우 --verbose 플래그로 재시도
         if (!ctx.AnyEvents && ctx.ExitCode != 0
                            && ctx.Stderr.Contains("requires --verbose", StringComparison.OrdinalIgnoreCase)
                            && !caps.RequiresVerboseForStreamJson)
         {
-            logger.LogInformation("Retrying Claude process with --verbose flag");
+            logger.LogInformation("--verbose 플래그로 Claude 프로세스 재시도 중");
             caps.RequiresVerboseForStreamJson = true;
             caps.SupportsVerbose = true;
 
@@ -83,20 +83,20 @@ public class ClaudeService(
                                agentKey, cts, envVars, ctx, token)) yield return evt;
         }
 
-        // Emit error event for stderr errors
+        // stderr 오류에 대한 오류 이벤트 발생
         if (!string.IsNullOrEmpty(ctx.Stderr) && ctx.ExitCode != 0)
         {
-            logger.LogWarning("Claude process exited with code {ExitCode}: {Stderr}", ctx.ExitCode, ctx.Stderr);
+            logger.LogWarning("Claude 프로세스가 코드 {ExitCode}로 종료됨: {Stderr}", ctx.ExitCode, ctx.Stderr);
             yield return new StreamEvent
             {
                 Type = "error",
                 Error = JsonSerializer.SerializeToElement(ctx.Stderr)
             };
         }
-        // Crash recovery: non-zero exit with partial events but no stderr
+        // 크래시 복구: 부분 이벤트는 있지만 stderr가 없는 0이 아닌 종료
         else if (ctx.AnyEvents && ctx.ExitCode != 0)
         {
-            logger.LogWarning("Claude process terminated unexpectedly with exit code {ExitCode} after emitting events",
+            logger.LogWarning("Claude 프로세스가 이벤트 발생 후 예기치 않게 종료됨, 종료 코드: {ExitCode}",
                 ctx.ExitCode);
             yield return new StreamEvent
             {
@@ -121,7 +121,7 @@ public class ClaudeService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to detect Claude CLI");
+            logger.LogWarning(ex, "Claude CLI 감지 실패");
             return (false, "");
         }
     }
@@ -166,7 +166,7 @@ public class ClaudeService(
 
             var process = new Process { StartInfo = psi };
 
-            logger.LogDebug("GenerateCommitMessage: {FileName} {Arguments}", fileName, finalArgs);
+            logger.LogDebug("커밋 메시지 생성: {FileName} {Arguments}", fileName, finalArgs);
             process.Start();
 
             const int maxDiffLength = 8000;
@@ -203,7 +203,7 @@ public class ClaudeService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to generate commit message");
+            logger.LogWarning(ex, "커밋 메시지 생성 실패");
             return null;
         }
     }
@@ -219,7 +219,7 @@ public class ClaudeService(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Claude CLI version detection failed");
+            logger.LogDebug(ex, "Claude CLI 버전 감지 실패");
             return null;
         }
     }
@@ -227,7 +227,7 @@ public class ClaudeService(
     public void Cancel(string? sessionId = null)
     {
         var key = sessionId ?? DefaultAgentKey;
-        logger.LogInformation("Cancelling Claude process for session {AgentKey}", key);
+        logger.LogInformation("세션 {AgentKey}의 Claude 프로세스 취소 중", key);
         if (_agents.TryRemove(key, out var agent)) agent.Cancel();
     }
 
@@ -239,7 +239,7 @@ public class ClaudeService(
         foreach (var key in _agents.Keys.ToList())
             if (_agents.TryRemove(key, out var agent))
             {
-                logger.LogInformation("Shutting down Claude process for session {AgentKey}", key);
+                logger.LogInformation("세션 {AgentKey}의 Claude 프로세스 종료 중", key);
                 agent.Cancel();
                 agent.Dispose();
             }
@@ -250,9 +250,9 @@ public class ClaudeService(
     private static Process StartProcess(string fileName, string arguments, string workingDir,
         Dictionary<string, string>? envVars = null, string? loginShellPath = null)
     {
-        // cmd.exe /c strips the first and last quote characters from the argument string,
-        // which leaves special characters like parentheses (e.g. in "Bash(git branch*)")
-        // unprotected. Wrapping in an extra pair of outer quotes ensures inner quotes survive.
+        // cmd.exe /c는 인자 문자열의 첫 번째와 마지막 따옴표를 제거하므로,
+        // "Bash(git branch*)" 같은 특수 문자가 보호되지 않습니다.
+        // 외부 따옴표를 추가로 감싸면 내부 따옴표가 유지됩니다.
         if (fileName.Equals("cmd.exe", StringComparison.OrdinalIgnoreCase)
             && arguments.StartsWith("/c ", StringComparison.OrdinalIgnoreCase))
             arguments = $"/c \"{arguments[3..].TrimEnd()}\"";
@@ -274,8 +274,8 @@ public class ClaudeService(
 
         psi.Environment["NO_COLOR"] = "1";
 
-        // Inject login shell PATH so tool version managers' binaries (node, mise, etc.)
-        // are accessible even when the GUI app inherits a minimal PATH.
+        // 로그인 셸 PATH를 주입하여 도구 버전 관리자 바이너리(node, mise 등)가
+        // GUI 앱이 최소 PATH를 상속받아도 접근 가능하도록 합니다.
         if (loginShellPath != null)
             psi.Environment["PATH"] = loginShellPath;
 
@@ -340,7 +340,7 @@ public class ClaudeService(
         var agent = new AgentProcess(process, cts, logger);
         _agents[agentKey] = agent;
 
-        // In continue mode, close stdin immediately without writing a message
+        // continue 모드에서는 메시지를 작성하지 않고 stdin을 즉시 닫음
         if (!continueMode)
             await process.StandardInput.WriteAsync(message);
         process.StandardInput.Close();
@@ -367,7 +367,7 @@ public class ClaudeService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Stderr collection task failed unexpectedly");
+            logger.LogWarning(ex, "stderr 수집 작업이 예기치 않게 실패함");
         }
 
         try
@@ -409,7 +409,7 @@ public class ClaudeService(
 
             if (string.IsNullOrWhiteSpace(line)) continue;
 
-            logger.LogDebug("Claude raw line: {Line}", line);
+            logger.LogDebug("Claude 원본 라인: {Line}", line);
 
             StreamEvent? evt = null;
             try
@@ -418,7 +418,7 @@ public class ClaudeService(
             }
             catch (JsonException)
             {
-                logger.LogDebug("Skipping non-JSON line from Claude CLI");
+                logger.LogDebug("Claude CLI의 non-JSON 라인 건너뜀");
             }
 
             if (evt != null)
@@ -442,7 +442,7 @@ public class ClaudeService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Stderr collection encountered an error");
+                logger.LogWarning(ex, "stderr 수집 중 오류 발생");
             }
         }, token);
     }
@@ -466,7 +466,7 @@ public class ClaudeService(
             var help = await _cliResolver.RunSimpleCommandAsync(fileName, $"{baseArgs}--help");
             if (help != null) caps.SupportsVerbose = help.Contains("--verbose", StringComparison.OrdinalIgnoreCase);
 
-            logger.LogInformation("Claude CLI detected: version={Version}, verbose={SupportsVerbose}", caps.Version,
+            logger.LogInformation("Claude CLI 감지됨: version={Version}, verbose={SupportsVerbose}", caps.Version,
                 caps.SupportsVerbose);
             _capabilities = caps;
             return caps;
@@ -509,10 +509,10 @@ public class ClaudeService(
             try
             {
                 if (_process is { HasExited: false })
-                    // Graceful shutdown: wait briefly for process to exit on its own after CTS cancel
+                    // 우아한 종료: CTS 취소 후 프로세스가 자체 종료될 때까지 잠시 대기
                     if (!_process.WaitForExit(GracefulShutdownTimeout))
                     {
-                        _logger.LogDebug("Process did not exit gracefully, sending kill signal");
+                        _logger.LogDebug("프로세스가 우아하게 종료되지 않음, kill 신호 전송 중");
                         try
                         {
                             _process.Kill(true);
