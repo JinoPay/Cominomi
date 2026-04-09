@@ -26,6 +26,7 @@ public class AppSettings
     public string DefaultEffortLevel { get; set; } = SeoroConstants.DefaultEffortLevel;
     public string DefaultModel { get; set; } = ModelDefinitions.Default.Id;
     public string DefaultPermissionMode { get; set; } = SeoroConstants.DefaultPermissionMode;
+    public string SessionLanguage { get; set; } = "en"; // "en" or "ko" — branch names + local titles
     public string LastSeenVersion { get; set; } = "";
     public string LastSessionId { get; set; } = "";
     public string LastWorkspaceId { get; set; } = "";

@@ -10,7 +10,8 @@
 <div class="main-toolbar">
     @if (ChatState.CurrentSession != null)
     {
-        <span class="toolbar-title">@(ChatState.CurrentSession.Title ?? "새 대화")</span>
+        <span class="toolbar-title @(_titleChanged ? "title-changed" : "")"
+              @onanimationend="@(() => _titleChanged = false)">@(ChatState.CurrentSession.Title ?? "새 대화")</span>
 
         @if (!string.IsNullOrEmpty(ChatState.CurrentSession.Git.BranchName))
         {
@@ -108,6 +109,9 @@
     private IDisposable? _syncStartSub;
     private IDisposable? _syncStopSub;
     private IDisposable? _syncToggleSub;
+    private IDisposable? _branchChangedSub;
+    private string? _prevTitle;
+    private bool _titleChanged;
 
     private bool IsSynced => SyncService.IsSessionSynced(ChatState.CurrentSession?.Id ?? "");
     private bool IsSyncBlockedByOther => SyncService.IsSyncActive && !IsSynced;
@@ -141,6 +145,7 @@
             if (ShowSyncButton && !_syncBusy && !IsSyncBlockedByOther)
                 await ToggleSync();
         }));
+        _branchChangedSub = EventBus.Subscribe<BranchChangedEvent>(_ => InvokeAsync(StateHasChanged));
         _availableIdes = await Launcher.GetAvailableIdesAsync();
     }
 
@@ -205,6 +210,10 @@
 
     private void HandleStateChanged()
     {
+        var newTitle = ChatState.CurrentSession?.Title;
+        if (_prevTitle != null && _prevTitle != newTitle)
+            _titleChanged = true;
+        _prevTitle = newTitle;
         InvokeAsync(StateHasChanged);
     }
 
@@ -224,6 +233,7 @@
         _syncStartSub?.Dispose();
         _syncStopSub?.Dispose();
         _syncToggleSub?.Dispose();
+        _branchChangedSub?.Dispose();
     }
 
 }

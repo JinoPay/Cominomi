@@ -137,13 +137,13 @@ public class SessionServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SaveSessionAsync_FallbackTitle_UsesFirstUserMessage()
+    public async Task SaveSessionAsync_KeepsCityNameAsTitle()
     {
         var session = new Session
         {
             Id = "title-test",
             CityName = "Seoul",
-            Title = "Seoul" // same as CityName → triggers fallback
+            Title = "Seoul"
         };
         session.SetInitialStatus(SessionStatus.Ready);
         session.Messages.Add(new ChatMessage
@@ -154,29 +154,8 @@ public class SessionServiceTests : IDisposable
 
         await _sut.SaveSessionAsync(session);
 
-        Assert.Equal("Fix the authentication bug in the login page", session.Title);
-    }
-
-    [Fact]
-    public async Task SaveSessionAsync_LongFirstMessage_TruncatesTitle()
-    {
-        var session = new Session
-        {
-            Id = "title-trunc",
-            CityName = "Seoul",
-            Title = "Seoul"
-        };
-        session.SetInitialStatus(SessionStatus.Ready);
-        session.Messages.Add(new ChatMessage
-        {
-            Role = MessageRole.User,
-            Text = new string('x', 100)
-        });
-
-        await _sut.SaveSessionAsync(session);
-
-        Assert.Equal(53, session.Title.Length); // 50 chars + "..."
-        Assert.EndsWith("...", session.Title);
+        // Title should remain as city name — no fallback to first user message
+        Assert.Equal("Seoul", session.Title);
     }
 
     // --- Tool output truncation ---

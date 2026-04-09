@@ -35,7 +35,7 @@ public class ChatState : IChatState
             if (_pendingNotification)
             {
                 _pendingNotification = false;
-                OnChange?.Invoke();
+                try { OnChange?.Invoke(); } catch { /* subscriber error — swallow to avoid killing timer */ }
             }
         }, null, Timeout.Infinite, Timeout.Infinite); // starts disabled
 
@@ -249,7 +249,7 @@ public class ChatState : IChatState
             }
 
             _pendingNotification = false;
-            OnChange?.Invoke();
+            try { OnChange?.Invoke(); } catch { /* subscriber error — swallow to avoid breaking caller */ }
         }
     }
 

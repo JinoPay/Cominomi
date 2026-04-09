@@ -6,6 +6,7 @@ namespace Seoro.Shared.Services;
 public class SystemPromptBuilder(
     IContextService contextService,
     IMemoryService memoryService,
+    ISettingsService settingsService,
     ILogger<SystemPromptBuilder> logger)
     : ISystemPromptBuilder
 {
@@ -14,9 +15,13 @@ public class SystemPromptBuilder(
         var parts = new List<string>();
 
         if (!session.TitleLocked)
+        {
+            var settings = await settingsService.LoadAsync();
+            var lang = settings.SessionLanguage ?? "en";
             parts.Add(session.Git.IsLocalDir
-                ? SeoroConstants.SystemInstructionLocalDir
-                : SeoroConstants.SystemInstructionWorktree);
+                ? SeoroConstants.GetSystemInstructionLocalDir(lang)
+                : SeoroConstants.GetSystemInstructionWorktree(lang));
+        }
 
         if (!session.Git.IsLocalDir && !string.IsNullOrEmpty(session.Git.WorktreePath))
             parts.Add(string.Format(SeoroConstants.SystemInstructionWorktreeDir, session.Git.WorktreePath));

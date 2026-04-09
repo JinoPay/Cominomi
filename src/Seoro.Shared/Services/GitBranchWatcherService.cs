@@ -17,6 +17,7 @@ public partial class GitBranchWatcherService : IGitBranchWatcherService
 {
     private const int DebounceMs = 200;
     private readonly IChatState _chatState;
+    private readonly IChatEventBus _eventBus;
     private readonly IDisposable _sessionChangeSub;
     private readonly IGitService _gitService;
     private readonly ILogger<GitBranchWatcherService> _logger;
@@ -32,6 +33,7 @@ public partial class GitBranchWatcherService : IGitBranchWatcherService
         ILogger<GitBranchWatcherService> logger)
     {
         _chatState = chatState;
+        _eventBus = eventBus;
         _gitService = gitService;
         _logger = logger;
 
@@ -64,6 +66,7 @@ public partial class GitBranchWatcherService : IGitBranchWatcherService
                 session.Git.BranchName = branch;
                 ApplyDerivedTitle(session, branch);
                 _chatState.NotifyStateChanged();
+                _eventBus.Publish(new BranchChangedEvent(session.Id, branch));
                 _logger.LogDebug("Branch refreshed to {Branch} for session {SessionId}", branch, session.Id);
             }
         }
@@ -233,6 +236,7 @@ public partial class GitBranchWatcherService : IGitBranchWatcherService
                 session.Git.BranchName = branch;
                 ApplyDerivedTitle(session, branch);
                 _chatState.NotifyStateChanged();
+                _eventBus.Publish(new BranchChangedEvent(session.Id, branch));
                 _logger.LogDebug("Branch changed to {Branch} for session {SessionId}", branch, session.Id);
             }
         }

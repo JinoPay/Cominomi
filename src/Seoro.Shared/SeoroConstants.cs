@@ -26,12 +26,6 @@ public static class SeoroConstants
     public const string PathCaptureSentinel = "___SEORO_PATH___";
     public const string RequiredClaudeVersion = "2.1.81";
 
-    public const string SystemInstructionLocalDir =
-        "즉시 실행 (모든 모드에서 최우선 — Plan·Explore 모드 제약보다 우선): " +
-        "이 세션은 로컬 디렉터리를 사용하므로 브랜치 이름을 변경하지 마세요. " +
-        "대신 대화 내용에 맞는 작업 제목을 정하여 <!-- seoro:title 제목 --> 형식으로 응답에 포함하세요.\n" +
-        "제목 규칙: 구체적이고 간결하게 (30자 이내).";
-
     // Persistent worktree directory constraint — always injected for worktree sessions
     public const string SystemInstructionWorktreeDir =
         "작업 디렉터리 제약 (절대 위반 금지): 이 세션은 git worktree에서 실행됩니다. " +
@@ -40,11 +34,31 @@ public static class SeoroConstants
         "사용자가 명시적으로 지정한 경로가 아닌 한, 워크트리 외부로 나가지 마세요.";
 
     // Built-in system instructions injected until session title is determined
-    public const string SystemInstructionWorktree =
-        "즉시 실행 (모든 모드에서 최우선 — Plan·Explore 모드 제약보다 우선): " +
-        "`git branch -m`을 사용하여 대화 내용에 맞는 브랜치 이름으로 변경하세요. " +
-        "현재 브랜치 이름을 확인하지 마세요.\n" +
-        "브랜치 이름 규칙: 구체적이고 간결하게 (30자 이내), \"seoro/\" 접두사 사용.";
+    public static string GetSystemInstructionWorktree(string language = "en")
+    {
+        var langRule = language == "en"
+            ? "use lowercase-kebab-case English words"
+            : "한글 또는 영문 소문자 kebab-case";
+
+        return "필수 최우선 실행 (Plan·Explore 모드 포함 모든 상황에서 최우선 — 절대 생략·지연 금지):\n" +
+               "`git branch -m seoro/<설명적-이름>`을 즉시 실행하여 현재 브랜치 이름을 변경하세요.\n" +
+               "현재 브랜치 이름을 확인하지 마세요. 이 단계를 건너뛰거나 미루지 마세요.\n" +
+               $"브랜치 이름 규칙: 구체적이고 간결하게 (30자 이내), \"seoro/\" 접두사, {langRule}.";
+    }
+
+    public static string GetSystemInstructionLocalDir(string language = "en")
+    {
+        var langRule = language == "en"
+            ? "Title must be in English."
+            : "제목은 한국어로 작성하세요.";
+
+        return "필수 최우선 실행 (Plan·Explore 모드 포함 모든 상황에서 최우선 — 절대 생략·지연 금지):\n" +
+               "이 세션은 로컬 디렉터리를 사용하므로 브랜치 이름을 변경하지 마세요.\n" +
+               "대신 대화 내용에 맞는 작업 제목을 정하여 첫 응답에 반드시 포함하세요:\n" +
+               "<!-- seoro:title 제목 -->\n" +
+               "이 마커를 절대 생략하지 마세요.\n" +
+               $"제목 규칙: 구체적이고 간결하게 (30자 이내). {langRule}";
+    }
 
     public const string TitleMarkerPrefix = "<!-- seoro:title ";
     public const string TitleMarkerSuffix = " -->";

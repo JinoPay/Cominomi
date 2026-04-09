@@ -183,20 +183,10 @@ public partial class SessionService(
             logger.LogDebug("Saving session {SessionId} ({Title})", session.Id, session.Title);
             session.UpdatedAt = DateTime.UtcNow;
 
-            // Fallback title: only if title is still the initial city name (Haiku summary not yet applied)
             string metadataJson;
             List<ChatMessage> messages;
             lock (session.MessagesLock)
             {
-                if (session.Title == session.CityName && session.Messages.Count > 0)
-                {
-                    var firstMessage = session.Messages.FirstOrDefault(m => m.Role == MessageRole.User);
-                    if (firstMessage != null)
-                        session.Title = firstMessage.Text.Length > 50
-                            ? firstMessage.Text[..50] + "..."
-                            : firstMessage.Text;
-                }
-
                 // Save metadata (without messages) — swap under lock to prevent
                 // concurrent readers (e.g. Blazor renderer) from seeing an empty list
                 messages = session.Messages;

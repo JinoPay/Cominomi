@@ -23,19 +23,20 @@
     }
 
     <div class="tree-session-info">
-        <span class="tree-session-title">@Session.Title</span>
+        <span class="tree-session-title @(_titleChanged ? "title-changed" : "")"
+              @onanimationend="@(() => _titleChanged = false)">@Session.Title</span>
         <div class="tree-session-meta">
             @if (Session.Git.IsLocalDir)
             {
                 @if (!string.IsNullOrEmpty(Session.Git.BranchName))
                 {
                     <span class="tree-session-branch">
-                        <span style="opacity: 0.5;">로컬</span> @Session.Git.BranchName
+                        <span class="local-badge">로컬</span> @Session.Git.BranchName
                     </span>
                 }
                 else
                 {
-                    <span class="tree-session-branch" style="opacity: 0.5;">로컬</span>
+                    <span class="tree-session-branch"><span class="local-badge">로컬</span></span>
                 }
             }
             else if (!string.IsNullOrEmpty(Session.Git.BranchName))
@@ -138,6 +139,15 @@
     [Parameter] public string? SessionBranch { get; set; }
 
     private MudMenu? _contextMenu;
+    private string? _prevTitle;
+    private bool _titleChanged;
+
+    protected override void OnParametersSet()
+    {
+        if (_prevTitle != null && _prevTitle != Session.Title)
+            _titleChanged = true;
+        _prevTitle = Session.Title;
+    }
 
     private async Task OpenContextMenu()
     {

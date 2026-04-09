@@ -52,8 +52,13 @@ public class ContentBlockStartHandler(IChatState chatState, IGitBranchWatcherSer
                         chatState.NotifyStateChanged();
 
                         // Refresh branch from HEAD file after Bash tool completes
+                        // Delay slightly to let git finish writing HEAD file
                         if (matchingTool.Name is "Bash" or "execute_bash")
-                            branchWatcher.RefreshBranchFromHeadFile(ctx.Session);
+                            _ = Task.Run(async () =>
+                            {
+                                await Task.Delay(150);
+                                branchWatcher.RefreshBranchFromHeadFile(ctx.Session);
+                            });
                     }
                 }
 

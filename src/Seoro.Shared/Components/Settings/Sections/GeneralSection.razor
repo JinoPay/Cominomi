@@ -79,6 +79,19 @@
                        OnClick="BrowseCloneDirectory" title="찾아보기..."/>
     </div>
 
+    <div>
+        <div class="settings-field-label">세션 이름 언어</div>
+        <div class="settings-segmented">
+            <button class="settings-seg-item @(Settings.SessionLanguage == "en" ? "active" : "")"
+                    @onclick="@(() => Settings.SessionLanguage = "en")">English</button>
+            <button class="settings-seg-item @(Settings.SessionLanguage == "ko" ? "active" : "")"
+                    @onclick="@(() => Settings.SessionLanguage = "ko")">한국어</button>
+        </div>
+        <small class="typo-caption text-secondary">
+            Claude가 워크트리 브랜치 이름과 로컬 세션 타이틀을 생성할 때 사용할 언어입니다.
+        </small>
+    </div>
+
     <div class="settings-group-title mt">도움말</div>
 
     <div class="stack-row gap-2" style="flex-wrap: wrap;">
