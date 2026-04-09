@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.17.5",
+    "date": "2026-04-09",
+    "changes": [
+      { "type": "feat", "description": "세션 제목 실시간 감지 및 브랜치 변경 추적 개선" },
+      { "type": "feat", "description": "스크롤 하단 이동 버튼 우하단 배치 및 코드 뷰 레이아웃 개선" },
+      { "type": "feat", "description": "URL 클론 다이얼로그에 디렉터리 선택 기능 추가" },
+      { "type": "feat", "description": "도시 이름 데이터셋 지역별 분류 확장" },
+      { "type": "fix", "description": "브랜치 선택기 워크트리 필터링 및 로컬 배지 스타일 정리" },
+      { "type": "fix", "description": "플랜 피드백 왕복 중 이전 내용 잔류 방지" },
+      { "type": "localize", "description": "모델, 상수, 서비스 로그 메시지 및 주석 한글화" }
+    ]
+  },
+  {
     "version": "1.17.4",
     "date": "2026-04-08",
     "changes": [
