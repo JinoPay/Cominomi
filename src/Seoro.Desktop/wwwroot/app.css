@@ -5506,6 +5506,26 @@ select:focus-visible {
     background: color-mix(in srgb, var(--mud-palette-info) 12%, transparent);
 }
 
+.rn-tag--localize {
+    color: var(--mud-palette-tertiary);
+    background: color-mix(in srgb, var(--mud-palette-tertiary) 12%, transparent);
+}
+
+.rn-tag--style {
+    color: #ab47bc;
+    background: color-mix(in srgb, #ab47bc 12%, transparent);
+}
+
+.rn-tag--docs {
+    color: var(--mud-palette-text-secondary);
+    background: color-mix(in srgb, var(--mud-palette-text-secondary) 12%, transparent);
+}
+
+.rn-tag--chore {
+    color: var(--mud-palette-text-secondary);
+    background: color-mix(in srgb, var(--mud-palette-text-secondary) 12%, transparent);
+}
+
 .rn-desc {
     font-size: 0.82rem;
     color: var(--mud-palette-text-primary);
