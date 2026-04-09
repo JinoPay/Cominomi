@@ -130,8 +130,7 @@
         get
         {
             var session = ChatState.CurrentSession;
-            return session != null &&
-                   !session.Git.IsLocalDir &&
+            return session is { Git.IsLocalDir: false } &&
                    !string.IsNullOrEmpty(session.Git.WorktreePath);
         }
     }

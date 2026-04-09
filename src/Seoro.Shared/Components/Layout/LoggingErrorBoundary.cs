@@ -6,7 +6,7 @@ namespace Seoro.Shared.Components.Layout;
 
 public class LoggingErrorBoundary : ErrorBoundary
 {
-    [Inject] private ILogger<LoggingErrorBoundary> Logger { get; set; } = default!;
+    [Inject] private ILogger<LoggingErrorBoundary> Logger { get; set; } = null!;
 
     protected override Task OnErrorAsync(Exception exception)
     {

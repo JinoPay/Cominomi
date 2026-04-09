@@ -86,7 +86,7 @@
                                                ValueChanged="@(v => TogglePlugin(plugin, v))"
                                                Color="Color.Primary" Size="Size.Small"
                                                Disabled="@(plugin.Status == PluginStatus.Invalid || plugin.Status == PluginStatus.Error)"/>
-                                    @if (plugin.IsEnabled && plugin.Status == PluginStatus.Valid)
+                                    @if (plugin is { IsEnabled: true, Status: PluginStatus.Valid })
                                     {
                                         <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small"
                                                        Color="Color.Primary" title="로드"

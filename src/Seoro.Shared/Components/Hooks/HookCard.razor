@@ -33,7 +33,7 @@
 </MudPaper>
 
 @code {
-    [Parameter][EditorRequired] public ClaudeHookHandler Hook { get; set; } = default!;
+    [Parameter][EditorRequired] public ClaudeHookHandler Hook { get; set; } = null!;
     [Parameter] public string? Matcher { get; set; }
     [Parameter] public EventCallback<ClaudeHookHandler> OnChanged { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }

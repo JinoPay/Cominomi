@@ -54,7 +54,7 @@
     // 스로틀된 변경 감지를 위한 FileSystemWatcher
     private FileSystemWatcher? _watcher;
     private Timer? _debounceTimer;
-    private readonly object _debounceLock = new();
+    private readonly Lock _debounceLock = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,9 +88,9 @@
             StartWatching();
 
             // 이 세션의 초기 (축소된) 상태 저장
-            if (sessionId != null && !_sessionExpandedDirs.ContainsKey(sessionId))
+            if (sessionId != null)
             {
-                _sessionExpandedDirs[sessionId] = _expandedDirs;
+                _sessionExpandedDirs.TryAdd(sessionId, _expandedDirs);
             }
         }
     }
@@ -153,7 +153,7 @@
         _watcher.Changed += OnChange;
         _watcher.Created += OnChange;
         _watcher.Deleted += OnChange;
-        _watcher.Renamed += (s, e) => OnChange(s, e);
+        _watcher.Renamed += OnChange;
     }
 
     private void StopWatching()
@@ -315,10 +315,9 @@
             return string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
         });
 
-        foreach (var node in nodes)
+        foreach (var node in nodes.Where(node => node is { IsDirectory: true, Children.Count: > 0 }))
         {
-            if (node.IsDirectory && node.Children.Count > 0)
-                SortNodes(node.Children);
+            SortNodes(node.Children);
         }
     }
 
@@ -338,16 +337,12 @@
                 if (sessionId != null)
                 {
                     // 이 세션의 확장된 상태 복원 또는 초기화
-                    if (_sessionExpandedDirs.TryGetValue(sessionId, out var saved))
-                        _expandedDirs = saved;
-                    else
-                        _expandedDirs = new HashSet<string>();
+                    _expandedDirs = _sessionExpandedDirs.TryGetValue(sessionId, out var saved) ? saved : new HashSet<string>();
 
                     await LoadFilesAsync();
                     StartWatching();
 
-                    if (!_sessionExpandedDirs.ContainsKey(sessionId))
-                        _sessionExpandedDirs[sessionId] = _expandedDirs;
+                    _sessionExpandedDirs.TryAdd(sessionId, _expandedDirs);
                 }
                 else
                 {

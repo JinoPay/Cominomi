@@ -216,7 +216,7 @@
         _watcher.Changed += OnChange;
         _watcher.Created += OnChange;
         _watcher.Deleted += OnChange;
-        _watcher.Renamed += (s, e) => OnChange(s, e);
+        _watcher.Renamed += OnChange;
     }
 
     private void StopWatching()

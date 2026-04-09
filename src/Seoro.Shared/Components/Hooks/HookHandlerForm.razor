@@ -86,7 +86,7 @@
 </div>
 
 @code {
-    [Parameter][EditorRequired] public ClaudeHookHandler Hook { get; set; } = default!;
+    [Parameter][EditorRequired] public ClaudeHookHandler Hook { get; set; } = null!;
     [Parameter] public EventCallback<ClaudeHookHandler> HookChanged { get; set; }
 
     private async Task OnTypeChanged(ClaudeHookHandlerType type)

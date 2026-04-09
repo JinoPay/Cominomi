@@ -115,7 +115,7 @@
 </MudMenu>
 
 @code {
-    [Parameter][EditorRequired] public Session Session { get; set; } = default!;
+    [Parameter][EditorRequired] public Session Session { get; set; } = null!;
     [Parameter] public bool IsActive { get; set; }
     [Parameter] public bool IsStreaming { get; set; }
     [Parameter] public bool IsCompleted { get; set; }

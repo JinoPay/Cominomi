@@ -22,7 +22,7 @@
 </div>
 
 @code {
-    [Parameter][EditorRequired] public ToolCall Tool { get; set; } = default!;
+    [Parameter][EditorRequired] public ToolCall Tool { get; set; } = null!;
 
     private string _command = "";
     private int _lineCount;

@@ -108,8 +108,7 @@
     private string EffectiveModel => _pendingModel ?? ChatState.CurrentSession?.Model ?? Model;
 
     private bool _isCustomModel => !string.IsNullOrEmpty(EffectiveModel)
-                                   && !ModelDefinitions.All.Any(m => m.Id == EffectiveModel)
-                                   && ModelDefinitions.NormalizeModelId(EffectiveModel) == EffectiveModel;
+                                   && ModelDefinitions.All.All(m => m.Id != EffectiveModel) && ModelDefinitions.NormalizeModelId(EffectiveModel) == EffectiveModel;
 
     protected override void OnInitialized()
     {

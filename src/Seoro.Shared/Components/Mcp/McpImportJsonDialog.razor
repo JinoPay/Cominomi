@@ -62,9 +62,9 @@
         try
         {
             using var doc = System.Text.Json.JsonDocument.Parse(value);
-            if (doc.RootElement.TryGetProperty("mcpServers", out var servers))
-                foreach (var s in servers.EnumerateObject())
-                    _preview.Add(s.Name);
+            if (!doc.RootElement.TryGetProperty("mcpServers", out var servers)) return;
+            foreach (var s in servers.EnumerateObject())
+                _preview.Add(s.Name);
         }
         catch (System.Text.Json.JsonException ex)
         {

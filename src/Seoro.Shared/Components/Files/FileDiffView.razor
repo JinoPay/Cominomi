@@ -37,7 +37,7 @@
                 var hasGap = hunk.GapEndLine > hunk.GapStartLine;
 
                 @* 확장된 간격 라인 *@
-                @if (hunk.IsExpanded && hunk.ExpandedLines != null)
+                @if (hunk is { IsExpanded: true, ExpandedLines: not null })
                 {
                     @foreach (var line in hunk.ExpandedLines)
                     {
@@ -74,7 +74,7 @@
 </div>
 
 @code {
-    [Parameter][EditorRequired] public FileDiff Diff { get; set; } = default!;
+    [Parameter][EditorRequired] public FileDiff Diff { get; set; } = null!;
 
     private string _elementId = "";
     private string _language = "";

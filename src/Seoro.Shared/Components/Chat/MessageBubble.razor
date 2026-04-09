@@ -39,7 +39,7 @@
             <div class="message-header">
                 <span class="role-name">@(Message.Role == MessageRole.User ? "나" : "Claude")</span>
                 <span class="message-time">@Message.Timestamp.ToLocalTime().ToString("HH:mm")</span>
-                @if (Message.Role == MessageRole.Assistant && Message.Duration.HasValue && !HasActivitySummary())
+                @if (Message is { Role: MessageRole.Assistant, Duration: not null } && !HasActivitySummary())
                 {
                     <span class="message-duration">@FormatDuration(Message.Duration.Value)</span>
                 }
@@ -206,7 +206,7 @@
 </div>
 
 @code {
-    [Parameter][EditorRequired] public ChatMessage Message { get; set; } = default!;
+    [Parameter][EditorRequired] public ChatMessage Message { get; set; } = null!;
 
     private readonly Dictionary<string, string> _imageCache = new();
     private readonly HashSet<int> _thinkingExpanded = [];

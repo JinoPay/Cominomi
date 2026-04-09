@@ -150,7 +150,7 @@
     private int _rightPanelWidth = 400;
     private DotNetObjectReference<MainLayout>? _panelShortcutRef;
     private CancellationTokenSource? _updateTimerCts;
-    private MudMessageBox _closeConfirmBox = default!;
+    private MudMessageBox _closeConfirmBox = null!;
     private IDisposable? _closeRequestedSub;
 
     protected override async Task OnInitializedAsync()
@@ -168,7 +168,7 @@
             _isDarkMode = ThemeService.IsDarkMode;
 
             var deps = await DependencyCheckService.CheckAllAsync();
-            if (deps.Any(d => d.IsRequired && !d.IsInstalled))
+            if (deps.Any(d => d is { IsRequired: true, IsInstalled: false }))
             {
                 _setupOpen = true;
             }
@@ -641,7 +641,7 @@
 
     public async ValueTask DisposeAsync()
     {
-        _updateTimerCts?.Cancel();
+        await _updateTimerCts?.CancelAsync();
         _updateTimerCts?.Dispose();
         ChatState.OnChange -= HandleStateChanged;
         ThemeService.OnThemeChanged -= HandleThemeChanged;
