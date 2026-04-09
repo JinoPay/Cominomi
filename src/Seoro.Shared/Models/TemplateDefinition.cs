@@ -14,16 +14,16 @@ public enum TemplateCategory
 
 public class TemplateDefinition
 {
-    // Rule-specific
+    // 규칙 특화
     public List<string>? Paths { get; init; }
     public required string Description { get; init; }
     public required string Id { get; init; }
     public required string Name { get; init; }
 
-    /// <summary>Content body (skill/agent/rule markdown content).</summary>
+    /// <summary>콘텐츠 본문 (skill/agent/rule 마크다운 콘텐츠).</summary>
     public string? Content { get; init; }
 
-    // Hook-specific
+    // Hook 특화
     public string? HookEvent { get; init; }
     public string? HookType { get; init; }
     public string? HookValue { get; init; }
@@ -31,18 +31,18 @@ public class TemplateDefinition
     public string? McpArgs { get; init; }
     public string? McpCommand { get; init; }
 
-    // MCP-specific
+    // MCP 특화
     public string? McpType { get; init; }
     public string? McpUrl { get; init; }
     public required TemplateCategory Category { get; init; }
 
-    /// <summary>Properly separated MCP args list (preferred over McpArgs).</summary>
+    /// <summary>올바르게 분리된 MCP 인자 목록 (McpArgs보다 선호됨).</summary>
     public List<string>? McpArgsList { get; init; }
 
-    /// <summary>Environment variables required by this MCP server. Values are placeholder hints.</summary>
+    /// <summary>이 MCP 서버에 필요한 환경 변수. 값은 플레이스홀더 힌트입니다.</summary>
     public Dictionary<string, string>? McpEnv { get; init; }
 
-    /// <summary>Arg values that need user substitution (e.g. "/path/to/dir").</summary>
+    /// <summary>사용자 치환이 필요한 인자 값 (예: "/path/to/dir").</summary>
     public List<string>? McpPlaceholders { get; init; }
 }
 

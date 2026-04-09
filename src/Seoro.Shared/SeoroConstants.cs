@@ -1,39 +1,39 @@
 namespace Seoro.Shared;
 
 /// <summary>
-///     Shared constants used across multiple services and models.
+///     여러 서비스와 모델에서 사용되는 공유 상수들입니다.
 /// </summary>
 public static class SeoroConstants
 {
-    // Session limits
+    // 세션 제한
     public const int MaxActiveSessionsPerWorkspace = 20;
-    public const int MaxContextItemTokens = 2_000; // single note/todo/plan file
+    public const int MaxContextItemTokens = 2_000; // 단일 메모/todo/계획 파일
 
-    // System prompt size limits (token-based via TokenEstimator)
-    public const int MaxContextPromptTokens = 5_000; // notes + todos + plans combined
-    public const int MaxMemoryEntryTokens = 1_000; // single memory entry content
-    public const int MaxMemoryPromptTokens = 2_500; // all memory entries combined
-    public const int MaxSystemPromptTokens = 10_000; // overall system prompt budget
+    // 시스템 프롬프트 크기 제한 (TokenEstimator를 통한 토큰 기반)
+    public const int MaxContextPromptTokens = 5_000; // 메모 + todo + 계획 합계
+    public const int MaxMemoryEntryTokens = 1_000; // 단일 메모리 항목 콘텐츠
+    public const int MaxMemoryPromptTokens = 2_500; // 모든 메모리 항목 합계
+    public const int MaxSystemPromptTokens = 10_000; // 전체 시스템 프롬프트 예산
     public const string BranchPrefix = "seoro/";
 
     public const string DefaultEffortLevel = "auto";
 
-    // Chat input: paste text longer than this threshold is auto-converted to a file attachment
+    // 채팅 입력: 이 임계값보다 긴 붙여넣은 텍스트는 자동으로 파일 첨부로 변환됨
     public const int PasteAsFileThreshold = 500;
 
-    // Default values duplicated across AppSettings, Session, ClaudeService, etc.
+    // AppSettings, Session, ClaudeService 등에 중복되는 기본값
     public const string DefaultPermissionMode = "bypassAll";
     public const string PathCaptureSentinel = "___SEORO_PATH___";
     public const string RequiredClaudeVersion = "2.1.81";
 
-    // Persistent worktree directory constraint — always injected for worktree sessions
+    // 영구 워크트리 디렉터리 제약 — 항상 워크트리 세션에 주입됨
     public const string SystemInstructionWorktreeDir =
         "작업 디렉터리 제약 (절대 위반 금지): 이 세션은 git worktree에서 실행됩니다. " +
         "모든 파일 읽기·쓰기·검색은 반드시 워크트리 디렉터리({0}) 내에서 수행하세요. " +
         "원본 저장소 경로나 워크트리 외부 경로에서 절대 파일을 읽거나 수정하지 마세요. " +
         "사용자가 명시적으로 지정한 경로가 아닌 한, 워크트리 외부로 나가지 마세요.";
 
-    // Built-in system instructions injected until session title is determined
+    // 세션 제목이 결정될 때까지 주입되는 내장 시스템 지시사항
     public static string GetSystemInstructionWorktree(string language = "en")
     {
         var langRule = language == "en"
@@ -65,15 +65,15 @@ public static class SeoroConstants
     public const string TruncationMarker = "\n\n[...truncated, {0:N0} tokens total]";
     public static readonly TimeSpan ShellCacheTtl = TimeSpan.FromMinutes(10);
 
-    // Timeout / retry constants
+    // 타임아웃 / 재시도 상수
     public static readonly TimeSpan WhichTimeout = TimeSpan.FromSeconds(5);
 
-    // Environment variables shared by multiple process-launching services
+    // 여러 프로세스 시작 서비스에서 공유하는 환경 변수
     public static class Env
     {
         /// <summary>
-        ///     Common environment block that suppresses interactive prompts and color codes.
-        ///     Used by GitService, ClaudeCliResolver, etc.
+        ///     대화형 프롬프트와 색상 코드를 억제하는 공통 환경 블록입니다.
+        ///     GitService, ClaudeCliResolver 등에서 사용됩니다.
         /// </summary>
         public static readonly Dictionary<string, string> NoColorEnv = new()
         {

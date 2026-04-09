@@ -5,7 +5,7 @@ namespace Seoro.Shared.Models;
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum HookEvent
 {
-    // Seoro app-level events
+    // Seoro 앱 레벨 이벤트
     OnMessageComplete,
     OnSessionCreate,
     OnSessionArchive,
@@ -13,7 +13,7 @@ public enum HookEvent
     OnPrCreate,
     OnPrMerge,
 
-    // CLI standard hook events (aligned with Claude CLI hooks.md)
+    // CLI 표준 hook 이벤트 (Claude CLI hooks.md와 맞춤)
     PreToolUse,
     PostToolUse,
     NotificationSend,
@@ -34,7 +34,7 @@ public class HookDefinition
     public HookType Type { get; set; } = HookType.Command;
 
     /// <summary>
-    ///     Per-hook timeout override in seconds. Null = use AppSettings.HookTimeoutSeconds global default.
+    ///     Hook별 타임아웃 오버라이드 (초). null = AppSettings.HookTimeoutSeconds 전역 기본값 사용.
     /// </summary>
     public int? TimeoutSeconds { get; set; }
 

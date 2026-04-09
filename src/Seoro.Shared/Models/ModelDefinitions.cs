@@ -13,13 +13,13 @@ public record ModelInfo(string Id, string DisplayName)
 
     [JsonPropertyName("description")] public string? Description { get; init; }
 
-    /// <summary>1 = slow/powerful, 2 = balanced, 3 = fast</summary>
+    /// <summary>1 = 느림/강력함, 2 = 균형잡힘, 3 = 빠름</summary>
     [JsonPropertyName("speedTier")]
     public int SpeedTier { get; init; } = 2;
 
     [JsonPropertyName("isAlias")] public bool IsAlias { get; init; }
 
-    /// <summary>"standard", "extended", "hybrid", "alias"</summary>
+    /// <summary>"standard", "extended", "hybrid", "alias" 중 하나</summary>
     [JsonPropertyName("category")]
     public string? Category { get; init; }
 }

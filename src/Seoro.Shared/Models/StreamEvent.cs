@@ -37,7 +37,7 @@ public class StreamEvent
     [JsonPropertyName("usage")] public UsageInfo? Usage { get; set; }
 
     /// <summary>
-    ///     Extract error message from either a string or structured error object.
+    ///     문자열 또는 구조화된 오류 객체에서 오류 메시지를 추출합니다.
     /// </summary>
     public string? GetErrorMessage()
     {

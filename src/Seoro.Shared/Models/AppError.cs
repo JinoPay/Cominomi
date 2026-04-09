@@ -8,7 +8,7 @@ public enum ErrorCode
 {
     Unknown,
 
-    // Git operations
+    // Git 작업
     WorktreeCreationFailed,
     BranchPushRejected,
     BranchPushFailed,
@@ -18,16 +18,16 @@ public enum ErrorCode
     GitCloneFailed,
     NotAGitRepo,
 
-    // Claude / Streaming
+    // Claude / 스트리밍
     StreamingFailed,
     ClaudeProcessFailed,
 
-    // Session / Workspace
+    // 세션 / 워크스페이스
     SessionNotFound,
     WorkspaceNotFound,
     SessionFileCorrupted,
 
-    // Process
+    // 프로세스
     ProcessFailed,
     HookFailed
 }
@@ -47,8 +47,8 @@ public record AppError(
     string? Details = null)
 {
     /// <summary>
-    ///     Classify a git push error as Rejected (force-pushable) or generic failure.
-    ///     Delegates to <see cref="ProcessErrorClassifier" />.
+    ///     git push 오류를 거부됨(강제 푸시 가능) 또는 일반 실패로 분류합니다.
+    ///     <see cref="ProcessErrorClassifier" />에 위임됩니다.
     /// </summary>
     public static AppError ClassifyPushError(string errorText)
     {
@@ -60,7 +60,7 @@ public record AppError(
         return new AppError(ErrorCode.GitCloneFailed, ErrorCategory.Transient, message);
     }
 
-    // --- General ---
+    // --- 일반 ---
 
     public static AppError FromException(ErrorCode code, Exception ex)
     {
@@ -87,7 +87,7 @@ public record AppError(
         return new AppError(ErrorCode.BranchPushRejected, ErrorCategory.Transient, message);
     }
 
-    // --- Streaming ---
+    // --- 스트리밍 ---
 
     public static AppError Streaming(string message, string? details = null)
     {

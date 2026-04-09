@@ -10,8 +10,8 @@ public class ToolCall
     public string Output { get; set; } = string.Empty;
 
     /// <summary>
-    ///     When set, this tool call was invoked by a parent Agent tool.
-    ///     The value is the parent Agent's tool_use_id.
+    ///     설정된 경우, 이 도구 호출은 부모 Agent 도구에 의해 호출되었습니다.
+    ///     값은 부모 Agent의 tool_use_id입니다.
     /// </summary>
     public string? ParentToolUseId { get; init; }
 }

@@ -2,7 +2,7 @@ namespace Seoro.Shared.Models;
 
 public class UserLevel
 {
-    // 15 levels (was 10)
+    // 15 레벨 (이전: 10)
     public static readonly int[] Thresholds =
         [0, 100, 300, 600, 1000, 1500, 2500, 4000, 6000, 10000, 15000, 22000, 32000, 50000, 80000];
 

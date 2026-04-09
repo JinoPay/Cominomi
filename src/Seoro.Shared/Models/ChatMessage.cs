@@ -32,7 +32,7 @@ public class ChatMessage
         : null;
 
     /// <summary>
-    ///     Migrates old messages (Text + ToolCalls) to the Parts list for interleaved rendering.
+    ///     기존 메시지(Text + ToolCalls)를 Parts 목록으로 마이그레이션하여 인터리브된 렌더링을 가능하게 합니다.
     /// </summary>
     public void MigrateToParts()
     {

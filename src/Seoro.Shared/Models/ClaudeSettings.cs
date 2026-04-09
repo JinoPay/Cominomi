@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 namespace Seoro.Shared.Models;
 
 /// <summary>
-///     Represents the Claude CLI's native settings.json schema.
-///     Supports three scopes: Global (~/.claude/settings.json),
+///     Claude CLI의 기본 settings.json 스키마를 나타냅니다.
+///     세 가지 범위를 지원합니다: Global (~/.claude/settings.json),
 ///     Project (.claude/settings.json), Local (.claude/settings.local.json).
 /// </summary>
 public class ClaudeSettings
@@ -17,13 +17,13 @@ public class ClaudeSettings
     public ClaudeDefaultMode? DefaultMode { get; set; }
 
     /// <summary>
-    ///     MCP server configurations keyed by server name.
+    ///     서버명으로 인덱싱된 MCP 서버 설정.
     /// </summary>
     public Dictionary<string, ClaudeMcpServerConfig>? McpServers { get; set; }
 
     /// <summary>
-    ///     Claude CLI hook format: event name → list of hook event configs.
-    ///     Each config has an optional matcher and a list of handlers.
+    ///     Claude CLI hook 형식: 이벤트명 → hook 이벤트 설정 목록.
+    ///     각 설정은 선택적 matcher와 handler 목록을 포함합니다.
     /// </summary>
     public Dictionary<string, List<ClaudeHookEventConfig>>? Hooks { get; set; }
 
@@ -46,8 +46,8 @@ public class PermissionRules
 }
 
 /// <summary>
-///     A single hook event config entry. Holds an optional matcher pattern
-///     and a list of hook handlers to execute when the event fires.
+///     단일 hook 이벤트 설정 항목. 선택적 matcher 패턴과
+///     이벤트 발생 시 실행할 hook handler 목록을 포함합니다.
 /// </summary>
 public class ClaudeHookEventConfig
 {
