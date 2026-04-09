@@ -1,5 +1,16 @@
 [
   {
+    "version": "1.17.6",
+    "date": "2026-04-09",
+    "changes": [
+      { "type": "feat", "description": "드래그 앤 드롭 처리 개선 및 CodeMirror 스타일 업데이트" },
+      { "type": "feat", "description": "릴리스 노트에 localize, style, docs, chore 태그 타입 추가" },
+      { "type": "style", "description": "CodeMirror 구문 강조 테마 및 폰트 스타일 업데이트" },
+      { "type": "chore", "description": "미사용 Highlight.js 파일 제거" },
+      { "type": "localize", "description": "서비스·컴포넌트 로그 메시지 한글화 완료" }
+    ]
+  },
+  {
     "version": "1.17.5",
     "date": "2026-04-09",
     "changes": [
