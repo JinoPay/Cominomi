@@ -490,6 +490,10 @@
         if (wasPlanReviewVisible && !string.IsNullOrWhiteSpace(input.Text))
         {
             input.Text = $"플랜에 대한 피드백: {input.Text}\n\n이 피드백을 반영하여 플랜을 수정해주세요.";
+            // Reset PlanCompleted so HandleStateChanged doesn't restore stale plan review
+            // before ApplyResultAsync has a chance to set the new plan content
+            if (ChatState.CurrentSession != null)
+                ChatState.CurrentSession.PlanCompleted = false;
         }
 
         // Extract chain state from input
