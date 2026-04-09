@@ -8,7 +8,6 @@ public class AssistantMessageHandler(
     IChatState chatState,
     IChatEventBus eventBus,
     ISessionService sessionService,
-    IGitBranchWatcherService branchWatcher,
     ILogger<AssistantMessageHandler> logger) : IStreamEventHandler
 {
     public string EventType => "assistant";
@@ -21,7 +20,6 @@ public class AssistantMessageHandler(
         ctx.CurrentParentToolUseId = evt.ParentToolUseId;
 
         var hasNewText = false;
-        var hasBashTool = false;
 
         if (evt.Message?.Content != null)
             foreach (var block in evt.Message.Content)
@@ -55,27 +53,12 @@ public class AssistantMessageHandler(
                         chatState.SetPhase(StreamingPhase.UsingTool, block.Name, ctx.Session.Id);
                         if (block.Name == "ExitPlanMode")
                             ctx.ExitPlanModeDetected = true;
-                        if (block.Name is "Bash" or "execute_bash")
-                            hasBashTool = true;
-                        break;
-                    case "server_tool_result":
-                    case "tool_result":
-                        if (block.Name is "Bash" or "execute_bash")
-                            hasBashTool = true;
                         break;
                 }
 
         // Detect title marker in local dir sessions (real-time, during streaming)
         if (hasNewText && ctx.Session.Git.IsLocalDir && !ctx.Session.TitleLocked)
             TryExtractTitleMarker(ctx);
-
-        // Refresh branch from HEAD after Bash tool (may have run git branch -m)
-        if (hasBashTool)
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(150);
-                branchWatcher.RefreshBranchFromHeadFile(ctx.Session);
-            });
 
         _ = sessionService.SaveSessionAsync(ctx.Session);
 

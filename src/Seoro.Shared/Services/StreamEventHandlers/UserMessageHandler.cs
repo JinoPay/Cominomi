@@ -3,7 +3,9 @@ using Seoro.Shared.Models;
 
 namespace Seoro.Shared.Services.StreamEventHandlers;
 
-public class UserMessageHandler(IChatState chatState) : IStreamEventHandler
+public class UserMessageHandler(
+    IChatState chatState,
+    IGitBranchWatcherService branchWatcher) : IStreamEventHandler
 {
     public string EventType => "user";
 
@@ -32,6 +34,8 @@ public class UserMessageHandler(IChatState chatState) : IStreamEventHandler
             }
         }
 
+        var hasBashResult = false;
+
         foreach (var block in evt.Message.Content)
             if (block.Type is "tool_result" or "server_tool_result" && !string.IsNullOrEmpty(block.ToolUseId))
             {
@@ -42,8 +46,19 @@ public class UserMessageHandler(IChatState chatState) : IStreamEventHandler
                     if (block.Content.HasValue)
                         match.Output = StreamEventUtils.ExtractToolResultContent(block.Content.Value);
                     match.IsComplete = true;
+
+                    if (match.Name is "Bash" or "execute_bash")
+                        hasBashResult = true;
                 }
             }
+
+        // Refresh branch after Bash tool completes (git branch -m may have run)
+        if (hasBashResult && !ctx.Session.Git.IsLocalDir)
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(50);
+                branchWatcher.RefreshBranchFromHeadFile(ctx.Session);
+            });
 
         chatState.NotifyStateChanged();
 
