@@ -23,7 +23,7 @@ public partial class WorkspaceService(
         if (File.Exists(path))
         {
             File.Delete(path);
-            logger.LogInformation("Workspace {WorkspaceId} deleted", workspaceId);
+            logger.LogInformation("워크스페이스 {WorkspaceId} 삭제됨", workspaceId);
         }
 
         await Task.CompletedTask;
@@ -39,7 +39,7 @@ public partial class WorkspaceService(
         var json = MigratingJsonWriter.Write(workspace, JsonDefaults.Options);
         await AtomicFileWriter.WriteAsync(path, json);
         OnWorkspaceSaved?.Invoke(workspace);
-        logger.LogDebug("Workspace {WorkspaceId} saved: {Name}", workspace.Id, workspace.Name);
+        logger.LogDebug("워크스페이스 {WorkspaceId} 저장됨: {Name}", workspace.Id, workspace.Name);
     }
 
     public async Task<GitRepoInfo?> FindExistingRepoAsync(string remoteUrl)
@@ -63,7 +63,7 @@ public partial class WorkspaceService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to read repo info file: {File}", file);
+                logger.LogWarning(ex, "저장소 정보 파일 읽기 실패: {File}", file);
             }
 
         return null;
@@ -91,7 +91,7 @@ public partial class WorkspaceService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Skipping corrupted workspace file: {File}", file);
+                logger.LogWarning(ex, "손상된 워크스페이스 파일 건너뜀: {File}", file);
             }
 
         return workspaces.OrderByDescending(w => w.UpdatedAt).ToList();
@@ -109,7 +109,7 @@ public partial class WorkspaceService(
         var path = Path.Combine(_workspacesDir, $"{workspaceId}.json");
         if (!File.Exists(path))
         {
-            logger.LogDebug("Workspace file not found: {WorkspaceId}", workspaceId);
+            logger.LogDebug("워크스페이스 파일을 찾을 수 없음: {WorkspaceId}", workspaceId);
             return null;
         }
 
@@ -118,7 +118,7 @@ public partial class WorkspaceService(
         workspace?.MigratePreferences();
         if (migrated && migratedJson != null)
             await AtomicFileWriter.WriteAsync(path, migratedJson);
-        logger.LogDebug("Loaded workspace {WorkspaceId}: {Name}", workspace?.Id, workspace?.Name);
+        logger.LogDebug("워크스페이스 {WorkspaceId} 로드됨: {Name}", workspace?.Id, workspace?.Name);
         return workspace;
     }
 
@@ -148,12 +148,12 @@ public partial class WorkspaceService(
             workspace.Status = WorkspaceStatus.Ready;
             workspace.Error = null;
             await SaveWorkspaceAsync(workspace);
-            logger.LogInformation("Workspace {Name} created from local path {Path}", name, localPath);
+            logger.LogInformation("워크스페이스 {Name} 로컬 경로에서 생성됨 {Path}", name, localPath);
             return workspace;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create workspace from local path: {Path}", localPath);
+            logger.LogError(ex, "로컬 경로에서 워크스페이스 생성 실패: {Path}", localPath);
             workspace.Status = WorkspaceStatus.Error;
             workspace.Error = AppError.FromException(ErrorCode.Unknown, ex);
             await DeleteWorkspaceAsync(workspace.Id);
@@ -234,7 +234,7 @@ public partial class WorkspaceService(
             workspace.Error = null;
             await SaveWorkspaceAsync(workspace);
             progress?.Report("Workspace ready!");
-            logger.LogInformation("Workspace {Name} created from {Url}", name, url);
+            logger.LogInformation("워크스페이스 {Name} URL에서 생성됨 {Url}", name, url);
             return workspace;
         }
         catch (OperationCanceledException)
@@ -244,7 +244,7 @@ public partial class WorkspaceService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create workspace from URL: {Url}", url);
+            logger.LogError(ex, "URL에서 워크스페이스 생성 실패: {Url}", url);
             workspace.Status = WorkspaceStatus.Error;
             workspace.Error = AppError.FromException(ErrorCode.Unknown, ex);
             await DeleteWorkspaceAsync(workspace.Id);

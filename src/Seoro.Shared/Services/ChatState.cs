@@ -14,14 +14,14 @@ public class ChatState : IChatState
 {
     private const int DebounceMs = 50;
 
-    // Input draft storage (per-session, memory only)
+    // 입력 초안 저장소 (세션당, 메모리만)
     private readonly Dictionary<string, string> _inputDrafts = new();
     private readonly Dictionary<string, List<PendingAttachment>> _attachmentDrafts = new();
 
-    // Mediator: typed event bus
+    // 중재자: 타입화된 이벤트 버스
     private readonly IChatEventBus _eventBus;
 
-    // Debounce — single persistent timer, enabled/disabled via Change()
+    // 디바운스 — 단일 지속적 타이머, Change()를 통해 활성화/비활성화
     private readonly Timer _debounceTimer;
     private volatile bool _pendingNotification;
     private volatile bool _timerActive;
@@ -35,9 +35,9 @@ public class ChatState : IChatState
             if (_pendingNotification)
             {
                 _pendingNotification = false;
-                try { OnChange?.Invoke(); } catch { /* subscriber error — swallow to avoid killing timer */ }
+                try { OnChange?.Invoke(); } catch { /* 구독자 오류 — 타이머를 죽이지 않기 위해 무시 */ }
             }
-        }, null, Timeout.Infinite, Timeout.Infinite); // starts disabled
+        }, null, Timeout.Infinite, Timeout.Infinite); // 비활성화 상태로 시작
 
         Messages = new MessageManager(NotifyStateChanged);
         Streaming = new StreamingStateManager(NotifyStateChanged);
@@ -61,24 +61,24 @@ public class ChatState : IChatState
         return Streaming.IsSessionCompleted(sessionId);
     }
 
-    // --- Streaming delegation (backward compatible) ---
-    // Streaming methods delegate to StreamingStateManager which calls _notifyChanged
-    // (the debounced path). No separate typed events — streaming is high-frequency.
+    // --- Streaming 위임 (하위 호환성) ---
+    // Streaming 메서드는 _notifyChanged를 호출하는 StreamingStateManager에 위임합니다
+    // (디바운스된 경로). 별도의 타입화된 이벤트 없음 — streaming은 고주파입니다.
 
     public bool IsSessionStreaming(string sessionId)
     {
         return Streaming.IsSessionStreaming(sessionId);
     }
 
-    // --- Current session streaming shortcuts (backward compatible) ---
+    // --- 현재 세션 스트리밍 단축키 (하위 호환성) ---
 
     public bool IsStreaming => CurrentSession != null && Streaming.IsSessionStreaming(CurrentSession.Id);
 
-    // --- Overlay state (Notifications) ---
+    // --- 오버레이 상태 (알림) ---
 
     public bool ShowNotifications { get; private set; }
 
-    // --- Settings delegation (backward compatible) ---
+    // --- 설정 위임 (하위 호환성) ---
 
     public bool ShowSettings => Settings.ShowSettings;
 
@@ -133,8 +133,8 @@ public class ChatState : IChatState
     public string? ActiveToolName => CurrentSession != null ? Streaming.GetSessionToolName(CurrentSession.Id) : null;
 
     /// <summary>
-    ///     Atomically reads and clears the pending message.
-    ///     Thread-safe: concurrent calls will never return the same message twice.
+    ///     대기 중인 메시지를 원자적으로 읽고 지웁니다.
+    ///     스레드 안전: 동시성 호출은 같은 메시지를 두 번 반환하지 않습니다.
     /// </summary>
     public string? ConsumePendingMessage()
     {
@@ -147,7 +147,7 @@ public class ChatState : IChatState
     }
 
     /// <summary>
-    ///     Peeks at the pending message without consuming it.
+    ///     대기 중인 메시지를 소비하지 않고 훑어봅니다.
     /// </summary>
     public string? PeekPendingMessage()
     {

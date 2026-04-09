@@ -16,7 +16,7 @@ public class TerminalService(IShellService shellService, ILogger<TerminalService
         foreach (var key in keys)
             await StopAsync(key);
         if (keys.Count > 0)
-            logger.LogDebug("All terminal sessions disposed ({Count} sessions)", keys.Count);
+            logger.LogDebug("모든 터미널 세션 해제됨 ({Count} 세션)", keys.Count);
     }
 
     public event Action<string, int>? OnExited;
@@ -36,13 +36,13 @@ public class TerminalService(IShellService shellService, ILogger<TerminalService
         // Validate working directory exists — fall back to current directory
         if (!Directory.Exists(workingDirectory))
         {
-            logger.LogWarning("Terminal CWD does not exist: {Dir}, falling back to current directory",
+            logger.LogWarning("터미널 CWD가 존재하지 않음: {Dir}, 현재 디렉토리로 대체",
                 workingDirectory);
             workingDirectory = Environment.CurrentDirectory;
         }
 
         shell ??= await shellService.GetTerminalShellAsync();
-        logger.LogInformation("Starting PTY terminal for session {Key} with {Shell} in {Dir}",
+        logger.LogInformation("세션 {Key}에 대한 PTY 터미널 시작 (셸: {Shell}, 디렉토리: {Dir})",
             sessionKey, shell.Type, workingDirectory);
 
         var args = new List<string>();
@@ -82,7 +82,7 @@ public class TerminalService(IShellService shellService, ILogger<TerminalService
 
         ptyConnection.ProcessExited += (_, e) =>
         {
-            logger.LogInformation("PTY process exited for session {Key} with code {Code}",
+            logger.LogInformation("세션 {Key}의 PTY 프로세스 종료 (코드: {Code})",
                 sessionKey, e.ExitCode);
             session.MarkExited();
             OnExited?.Invoke(sessionKey, e.ExitCode);
@@ -104,7 +104,7 @@ public class TerminalService(IShellService shellService, ILogger<TerminalService
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to kill PTY process for session {Key}", sessionKey);
+            logger.LogDebug(ex, "세션 {Key}의 PTY 프로세스 종료 실패", sessionKey);
         }
 
         try
@@ -113,7 +113,7 @@ public class TerminalService(IShellService shellService, ILogger<TerminalService
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to dispose PTY for session {Key}", sessionKey);
+            logger.LogDebug(ex, "세션 {Key}의 PTY 해제 실패", sessionKey);
         }
 
         session.Cts.Dispose();
@@ -132,7 +132,7 @@ public class TerminalService(IShellService shellService, ILogger<TerminalService
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to write to PTY for session {Key}", sessionKey);
+            logger.LogDebug(ex, "세션 {Key}의 PTY에 쓰기 실패", sessionKey);
         }
     }
 
@@ -147,7 +147,7 @@ public class TerminalService(IShellService shellService, ILogger<TerminalService
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to resize PTY for session {Key}", sessionKey);
+            logger.LogDebug(ex, "세션 {Key}의 PTY 크기 조정 실패", sessionKey);
         }
     }
 
@@ -180,7 +180,7 @@ public class TerminalService(IShellService shellService, ILogger<TerminalService
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "PTY output read error for session {Key}", sessionKey);
+            logger.LogDebug(ex, "세션 {Key}의 PTY 출력 읽기 오류", sessionKey);
         }
     }
 

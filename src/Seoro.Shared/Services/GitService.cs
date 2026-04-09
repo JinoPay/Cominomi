@@ -15,8 +15,8 @@ public class GitService(
     : IGitService
 {
     /// <summary>
-    ///     Maximum stdout bytes for git commands that may produce large output (diff, ls-files, log).
-    ///     1 MB — large enough for practical use, prevents unbounded memory growth.
+    ///     큰 출력을 생성할 수 있는 git 명령어(diff, ls-files, log)의 최대 stdout 바이트 수.
+    ///     1 MB — 실용적인 사용에 충분하고, 무제한 메모리 증가를 방지합니다.
     /// </summary>
     private const int LargeOutputMaxBytes = 1 * 1024 * 1024;
 
@@ -27,15 +27,15 @@ public class GitService(
     private readonly ConcurrentDictionary<string, (List<BranchGroup> Groups, DateTime LoadedAt)> _branchGroupCache =
         new();
 
-    // Cache: ListBranches changes more often → 30 sec TTL
+    // 캐시: ListBranches는 자주 변경됨 → 30초 TTL
     private readonly ConcurrentDictionary<string, (List<string> Branches, DateTime LoadedAt)> _branchListCache = new();
 
-    // Cache: DetectDefaultBranch rarely changes → 5 min TTL
+    // 캐시: DetectDefaultBranch는 거의 변경되지 않음 → 5분 TTL
     private readonly ConcurrentDictionary<string, (string? Branch, DateTime LoadedAt)> _defaultBranchCache = new();
     private readonly SemaphoreSlim _gitPathLock = new(1, 1);
     private DateTime _gitPathResolvedAt;
 
-    // Resolved git path cache
+    // 해결된 git 경로 캐시
     private string? _resolvedGitPath;
 
     public async Task<(int Additions, int Deletions)> GetDiffStatAsync(string workingDir, string baseBranch,
@@ -45,7 +45,7 @@ public class GitService(
         if (!result.Success || string.IsNullOrWhiteSpace(result.Output))
             return (0, 0);
 
-        // Parse output like: " 3 files changed, 36 insertions(+), 16 deletions(-)"
+        // 출력을 파싱: " 3 files changed, 36 insertions(+), 16 deletions(-)"
         int additions = 0, deletions = 0;
         var parts = result.Output.Split(',');
         foreach (var part in parts)
@@ -92,28 +92,28 @@ public class GitService(
     public async Task<DiffSummary> GetDiffSummaryAsync(string workingDir, string baseBranch,
         CancellationToken ct = default)
     {
-        // If baseBranch (e.g. "HEAD") is not a valid ref (no commits yet), fall back to empty tree
+        // baseBranch(예: "HEAD")가 유효한 ref가 아닌 경우(아직 커밋 없음), 빈 트리로 폴백
         var verifyResult = await RunGitAsync(workingDir, ct, "rev-parse", "--verify", "--quiet", baseBranch);
         if (!verifyResult.Success)
         {
-            // 4b825dc... is git's well-known empty tree hash
+            // 4b825dc... git의 잘 알려진 빈 트리 해시
             baseBranch = "4b825dc642cb6eb9a060e54bf899d69f82e20891";
 
-            // Verify the empty tree hash is usable (may fail in some environments)
+            // 빈 트리 해시가 사용 가능한지 확인 (일부 환경에서는 실패할 수 있음)
             var emptyTreeCheck = await RunGitAsync(workingDir, ct, "cat-file", "-e", baseBranch);
             if (!emptyTreeCheck.Success)
             {
-                logger.LogDebug("Empty tree hash unavailable, returning untracked-only summary");
+                logger.LogDebug("빈 트리 해시를 사용할 수 없음, 추적되지 않은 파일만 요약을 반환함");
                 return await BuildUntrackedOnlySummaryAsync(workingDir, ct);
             }
         }
 
-        // Fetch name-status, untracked files, and stream diff in parallel
+        // name-status, 추적되지 않은 파일, 및 diff 스트림을 병렬로 가져오기
         var nameStatusTask = GetNameStatusAsync(workingDir, baseBranch, ct);
         var untrackedTask = GetUntrackedFilesAsync(workingDir, ct);
 
         var gitPath = await ResolveGitPathAsync();
-        logger.LogDebug("git diff {BaseBranch} (streaming)", baseBranch);
+        logger.LogDebug("git diff {BaseBranch} (스트리밍)", baseBranch);
         var streamingTask = processRunner.RunStreamingAsync(new ProcessRunOptions
         {
             FileName = gitPath,
@@ -126,11 +126,11 @@ public class GitService(
         var untrackedFiles = await untrackedTask;
         var streaming = await streamingTask;
 
-        // Parse name-status into file map
+        // name-status를 파일 맵으로 파싱
         var summary = new DiffSummary();
         var fileMap = ParseNameStatusIntoFileMap(nameStatus, summary);
 
-        // Stream unified diff and parse incrementally (never loads full diff into memory)
+        // 통합 diff를 스트림으로 받아 증분으로 파싱 (전체 diff를 메모리에 로드하지 않음)
         await using (streaming)
         {
             string? currentFile = null;
@@ -154,7 +154,7 @@ public class GitService(
 
                 if (!inDiffBlock) continue;
 
-                // Fall back to +++ line for renames or ambiguous headers
+                // 이름 변경 또는 모호한 헤더에 대해 +++ 라인으로 폴백
                 if (currentFile == null && line.StartsWith("+++ b/"))
                     currentFile = line[6..];
 
@@ -166,15 +166,15 @@ public class GitService(
                     deletions++;
             }
 
-            // Flush last file
+            // 마지막 파일 플러시
             FlushFileDiff(fileMap, currentFile, currentDiff, additions, deletions);
 
             var (exitCode, stderr) = await streaming.WaitForExitAsync(ct);
             if (exitCode != 0)
-                logger.LogWarning("git diff exited with {ExitCode}: {Stderr}", exitCode, stderr);
+                logger.LogWarning("git diff가 {ExitCode} 코드로 종료됨: {Stderr}", exitCode, stderr);
         }
 
-        // Append untracked files as Added
+        // 추적되지 않은 파일을 Added로 추가
         foreach (var relPath in untrackedFiles)
             try
             {
@@ -198,7 +198,7 @@ public class GitService(
                 var lines = content.Split('\n');
                 var addCount = lines.Length;
 
-                // Build synthetic unified diff
+                // 합성 통합 diff 작성
                 var diffBuilder = new StringBuilder();
                 diffBuilder.AppendLine("--- /dev/null");
                 diffBuilder.AppendLine($"+++ b/{relPath}");
@@ -217,7 +217,7 @@ public class GitService(
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, "Failed to read untracked file: {Path}", relPath);
+                logger.LogDebug(ex, "추적되지 않은 파일 읽기 실패: {Path}", relPath);
             }
 
         return summary;
@@ -230,7 +230,7 @@ public class GitService(
         if (parentDir != null)
             Directory.CreateDirectory(parentDir);
 
-        // Check if branch already exists
+        // 브랜치가 이미 존재하는지 확인
         GitResult result;
         if (await BranchExistsAsync(repoDir, branchName))
             result = await RunGitAsync(repoDir, ct, "worktree", "add", worktreePath, branchName);
@@ -238,9 +238,9 @@ public class GitService(
             result = await RunGitAsync(repoDir, ct, "worktree", "add", "-b", branchName, worktreePath, baseBranch);
 
         if (result.Success)
-            logger.LogInformation("Worktree added at {WorktreePath} on branch {BranchName}", worktreePath, branchName);
+            logger.LogInformation("워크트리가 {WorktreePath}에 추가됨, 브랜치: {BranchName}", worktreePath, branchName);
         else
-            logger.LogWarning("Failed to add worktree at {WorktreePath}: {Error}", worktreePath, result.Error);
+            logger.LogWarning("워크트리 추가 실패 {WorktreePath}: {Error}", worktreePath, result.Error);
 
         return result;
     }
@@ -265,7 +265,7 @@ public class GitService(
             Directory.CreateDirectory(parentDir);
 
         var gitPath = await ResolveGitPathAsync();
-        logger.LogDebug("git clone --progress {Url} -> {TargetDir}", url, targetDir);
+        logger.LogDebug("git clone --progress {Url} -> {TargetDir} 실행 중", url, targetDir);
         var process = CreateStreamingGitProcess(gitPath, ["clone", "--progress", url, targetDir], parentDir ?? ".");
         process.Start();
 
@@ -279,7 +279,7 @@ public class GitService(
             }
         }, ct);
 
-        // Git clone writes progress to stderr
+        // Git clone은 진행 상황을 stderr에 씀
         var stderrBuilder = new StringBuilder();
         var stderrTask = Task.Run(async () =>
         {
@@ -301,7 +301,7 @@ public class GitService(
                     var text = new string(buffer, 0, read);
                     stderrBuilder.Append(text);
 
-                    // Extract progress lines (end with \r or \n)
+                    // 진행 상황 라인 추출 (\r 또는 \n으로 끝남)
                     var lines = text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
                     foreach (var line in lines)
                     {
@@ -327,7 +327,7 @@ public class GitService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogDebug(ex, "Failed to kill git clone process");
+                    logger.LogDebug(ex, "git clone 프로세스 종료 실패");
                 }
 
             throw;
@@ -345,7 +345,7 @@ public class GitService(
     {
         var result = await RunGitAsync(workingDir, ct, "commit", "-m", message);
         if (result.Success)
-            logger.LogInformation("Committed in {WorkingDir}: {Message}", workingDir,
+            logger.LogInformation("{WorkingDir}에 커밋됨: {Message}", workingDir,
                 message.Length > 80 ? message[..80] + "..." : message);
         return result;
     }
@@ -354,9 +354,9 @@ public class GitService(
     {
         var result = await RunGitAsync(repoDir, ct, "branch", "-D", branchName);
         if (result.Success)
-            logger.LogInformation("Branch deleted: {BranchName}", branchName);
+            logger.LogInformation("브랜치 삭제됨: {BranchName}", branchName);
         else
-            logger.LogWarning("Branch delete failed: {BranchName}: {Error}", branchName, result.Error);
+            logger.LogWarning("브랜치 삭제 실패: {BranchName}: {Error}", branchName, result.Error);
         return result;
     }
 
@@ -366,7 +366,7 @@ public class GitService(
         if (result.Success)
         {
             InvalidateBranchCaches(repoDir);
-            logger.LogDebug("Fetch all completed for {RepoDir}", repoDir);
+            logger.LogDebug("모든 fetch 완료 {RepoDir}", repoDir);
         }
 
         return result;
@@ -378,7 +378,7 @@ public class GitService(
         if (result.Success)
         {
             InvalidateBranchCaches(repoDir);
-            logger.LogDebug("Fetch completed for {RepoDir}", repoDir);
+            logger.LogDebug("fetch 완료 {RepoDir}", repoDir);
         }
 
         return result;
@@ -388,9 +388,9 @@ public class GitService(
     {
         var result = await RunGitAsync(path, ct, "init");
         if (result.Success)
-            logger.LogInformation("Initialized git repository at {Path}", path);
+            logger.LogInformation("Git 저장소 초기화됨 {Path}", path);
         else
-            logger.LogWarning("Failed to initialize git repository at {Path}: {Error}", path, result.Error);
+            logger.LogWarning("Git 저장소 초기화 실패 {Path}: {Error}", path, result.Error);
         return result;
     }
 
@@ -399,7 +399,7 @@ public class GitService(
     {
         var result = await RunGitAsync(repoDir, ct, "worktree", "remove", worktreePath, "--force");
 
-        // Clean up directory if it still exists
+        // 디렉토리가 여전히 존재하면 정리
         if (Directory.Exists(worktreePath))
             try
             {
@@ -407,14 +407,14 @@ public class GitService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to clean up worktree directory: {Path}", worktreePath);
+                logger.LogWarning(ex, "워크트리 디렉토리 정리 실패: {Path}", worktreePath);
             }
 
-        // Prune stale worktree entries
+        // 오래된 워크트리 항목 정리
         await RunGitAsync(repoDir, ct, "worktree", "prune");
 
         if (result.Success)
-            logger.LogInformation("Worktree removed: {WorktreePath}", worktreePath);
+            logger.LogInformation("워크트리 제거됨: {WorktreePath}", worktreePath);
 
         return result;
     }
@@ -817,7 +817,7 @@ public class GitService(
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, "Failed to read untracked file: {Path}", relPath);
+                logger.LogDebug(ex, "추적되지 않은 파일 읽기 실패: {Path}", relPath);
             }
 
         return summary;

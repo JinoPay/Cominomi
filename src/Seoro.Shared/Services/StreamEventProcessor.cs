@@ -29,7 +29,7 @@ public class StreamEventProcessor : IStreamEventProcessor
             ctx.Session.TotalInputTokens += ctx.AccInputTokens;
             ctx.Session.TotalOutputTokens += ctx.AccOutputTokens;
             ctx.UsageRecorded = true;
-            _logger.LogDebug("Session {SessionId}: usage {InputTokens}in/{OutputTokens}out tokens",
+            _logger.LogDebug("세션 {SessionId}: 사용량 {InputTokens}in/{OutputTokens}out 토큰",
                 ctx.Session.Id, ctx.AccInputTokens, ctx.AccOutputTokens);
         }
 
@@ -80,7 +80,7 @@ public class StreamEventProcessor : IStreamEventProcessor
                 ctx.Session.PlanCompleted = true;
                 ctx.Session.PlanFilePath = ctx.PlanFilePath;
                 ctx.PlanReviewVisible = true;
-                _logger.LogInformation("Plan completed for session {SessionId}, plan file: {PlanFile}",
+                _logger.LogInformation("세션 {SessionId}의 플랜 완료, 플랜 파일: {PlanFile}",
                     ctx.Session.Id, ctx.PlanFilePath);
                 ctx.QuickResponseVisible = false;
                 ctx.QuickResponseOptions = [];
@@ -129,7 +129,7 @@ public class StreamEventProcessor : IStreamEventProcessor
         if (evt.Type != null && _handlers.TryGetValue(evt.Type, out var handler))
             await handler.HandleAsync(evt, ctx);
         else
-            _logger.LogDebug("Unhandled Claude event type: {Type}", evt.Type);
+            _logger.LogDebug("처리되지 않은 Claude 이벤트 타입: {Type}", evt.Type);
     }
 
     private static bool HasAskUserQuestionToolCall(StreamProcessingContext ctx)
@@ -192,7 +192,7 @@ public class StreamEventProcessor : IStreamEventProcessor
         {
             ctx.PlanFilePath = planFile;
             ctx.PlanContent = await File.ReadAllTextAsync(planFile);
-            _logger.LogDebug("Plan file resolved from filesystem scan: {PlanFilePath}", planFile);
+            _logger.LogDebug("파일시스템 스캔에서 플랜 파일 확인됨: {PlanFilePath}", planFile);
         }
     }
 
@@ -226,7 +226,7 @@ public class StreamEventProcessor : IStreamEventProcessor
                         if (normalized.Contains(".claude/plans/") && normalized.EndsWith(".md"))
                         {
                             ctx.DetectedPlanFilePath = path;
-                            _logger.LogDebug("Plan file detected from tool call: {PlanFilePath}", path);
+                            _logger.LogDebug("도구 호출에서 플랜 파일 감지됨: {PlanFilePath}", path);
                             return;
                         }
                     }
@@ -234,7 +234,7 @@ public class StreamEventProcessor : IStreamEventProcessor
             }
             catch (JsonException ex)
             {
-                _logger.LogDebug(ex, "Failed to parse tool call input for plan detection");
+                _logger.LogDebug(ex, "플랜 감지를 위한 도구 호출 입력 파싱 실패");
             }
         }
     }

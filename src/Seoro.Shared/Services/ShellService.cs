@@ -56,7 +56,7 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
 
             _cached = await ResolveShellAsync();
             _cachedAt = DateTime.UtcNow;
-            logger.LogInformation("Resolved shell: {Type} at {Path}", _cached.Type, _cached.FileName);
+            logger.LogInformation("셸 확인됨: {Type} at {Path}", _cached.Type, _cached.FileName);
             return _cached;
         }
         finally
@@ -94,9 +94,9 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
             _loginPathCachedAt = DateTime.UtcNow;
 
             if (_cachedLoginPath != null)
-                logger.LogInformation("Captured login shell PATH ({Length} chars)", _cachedLoginPath.Length);
+                logger.LogInformation("로그인 셸 PATH 캡처됨 ({Length} 글자)", _cachedLoginPath.Length);
             else
-                logger.LogWarning("Failed to capture login shell PATH, falling back to process PATH");
+                logger.LogWarning("로그인 셸 PATH 캡처 실패, 프로세스 PATH로 대체");
 
             return _cachedLoginPath;
         }
@@ -112,7 +112,7 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
 
         if (!IsValidExecutableName(executableName))
         {
-            logger.LogWarning("Invalid executable name rejected: {Name}", executableName);
+            logger.LogWarning("유효하지 않은 실행파일 이름 거부됨: {Name}", executableName);
             return null;
         }
 
@@ -165,12 +165,12 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
         }
         catch (OperationCanceledException)
         {
-            logger.LogWarning("WhichAsync timed out for: {Name} (timeout={Timeout}s)", executableName,
+            logger.LogWarning("WhichAsync 타임아웃: {Name} (타임아웃={Timeout}초)", executableName,
                 SeoroConstants.WhichTimeout.TotalSeconds);
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "WhichAsync failed for: {Name}", executableName);
+            logger.LogDebug(ex, "WhichAsync 실패: {Name}", executableName);
         }
 
         // Fallback for macOS: GUI apps launched from Launchpad/Finder inherit a minimal
@@ -193,7 +193,7 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
             foreach (var candidate in wellKnownPaths)
                 if (File.Exists(candidate))
                 {
-                    logger.LogDebug("WhichAsync: found {Name} via well-known path fallback: {Path}",
+                    logger.LogDebug("WhichAsync: 잘알려진 경로 대체를 통해 {Name} 발견: {Path}",
                         executableName, candidate);
                     return candidate;
                 }
@@ -315,15 +315,15 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
                         return path;
                 }
 
-            logger.LogDebug("PATH capture: sentinel not found in shell output");
+            logger.LogDebug("PATH 캡처: 셸 출력에서 센티널을 찾을 수 없음");
         }
         catch (OperationCanceledException)
         {
-            logger.LogWarning("Login shell PATH capture timed out");
+            logger.LogWarning("로그인 셸 PATH 캡처 타임아웃");
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Login shell PATH capture failed");
+            logger.LogDebug(ex, "로그인 셸 PATH 캡처 실패");
         }
 
         return null;
@@ -355,7 +355,7 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
                         var bashCandidate = Path.Combine(gitRoot, "bin", "bash.exe");
                         if (File.Exists(bashCandidate))
                         {
-                            logger.LogDebug("Found Git Bash via git path: {Path}", bashCandidate);
+                            logger.LogDebug("git 경로를 통해 Git Bash 발견: {Path}", bashCandidate);
                             return bashCandidate;
                         }
                     }
@@ -364,7 +364,7 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to find git via where.exe");
+            logger.LogDebug(ex, "where.exe를 통해 git 찾기 실패");
         }
 
         // Strategy 2: Check well-known installation paths
@@ -380,11 +380,11 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
         foreach (var path in wellKnownPaths)
             if (File.Exists(path))
             {
-                logger.LogDebug("Found Git Bash at well-known path: {Path}", path);
+                logger.LogDebug("잘 알려진 경로에서 Git Bash 발견: {Path}", path);
                 return path;
             }
 
-        logger.LogDebug("Git Bash not found, will fall back to cmd.exe");
+        logger.LogDebug("Git Bash를 찾을 수 없음, cmd.exe로 대체할 예정");
         return null;
     }
 
@@ -417,7 +417,7 @@ public class ShellService(ILogger<ShellService> logger, IProcessRunner processRu
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "PowerShell detection via where.exe failed");
+            logger.LogDebug(ex, "where.exe를 통한 PowerShell 감지 실패");
         }
 
         // Fallback to Windows PowerShell 5.1

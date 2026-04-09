@@ -47,7 +47,7 @@ public partial class SessionService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to auto-unsync session {SessionId} during cleanup", sessionId);
+                logger.LogWarning(ex, "정리 중 세션 {SessionId} 자동 동기해제 실패", sessionId);
             }
 
         var session = await LoadSessionAsync(sessionId);
@@ -58,7 +58,7 @@ public partial class SessionService(
         if (workspace == null)
             return;
 
-        // Archive .context/ before removing worktree
+        // 워크트리 제거 전 .context/ 보관
         if (!string.IsNullOrEmpty(session.Git.WorktreePath) && Directory.Exists(session.Git.WorktreePath))
             try
             {
@@ -70,13 +70,13 @@ public partial class SessionService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to archive context for session {SessionId}", sessionId);
+                logger.LogWarning(ex, "세션 {SessionId}의 컨텍스트 보관 실패", sessionId);
             }
 
-        // Skip worktree/branch cleanup for local-dir sessions (the directory is the user's real repo)
+        // 로컬 디렉토리 세션의 워크트리/브랜치 정리 건너뛰기 (디렉토리는 사용자의 실제 저장소)
         if (!session.Git.IsLocalDir)
         {
-            // Remove worktree
+            // 워크트리 제거
             if (!string.IsNullOrEmpty(session.Git.WorktreePath))
                 try
                 {
@@ -85,10 +85,10 @@ public partial class SessionService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to remove worktree for session {SessionId}", sessionId);
+                    logger.LogWarning(ex, "세션 {SessionId}의 워크트리 제거 실패", sessionId);
                 }
 
-            // Delete branch
+            // 브랜치 삭제
             if (!string.IsNullOrEmpty(session.Git.BranchName))
                 try
                 {
@@ -96,7 +96,7 @@ public partial class SessionService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to delete branch {Branch} for session {SessionId}",
+                    logger.LogWarning(ex, "세션 {SessionId}의 브랜치 {Branch} 삭제 실패",
                         session.Git.BranchName, sessionId);
                 }
         }
@@ -104,7 +104,7 @@ public partial class SessionService(
         session.TransitionStatus(SessionStatus.Archived);
         await SaveSessionAsync(session);
         _sessionCache.TryRemove(sessionId, out _);
-        logger.LogInformation("Session {SessionId} archived", sessionId);
+        logger.LogInformation("세션 {SessionId} 보관됨", sessionId);
 
         await hooksEngine.FireAsync(HookEvent.OnSessionArchive, new Dictionary<string, string>
         {
@@ -124,7 +124,7 @@ public partial class SessionService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Cleanup failed during session delete: {SessionId}", sessionId);
+                logger.LogWarning(ex, "세션 삭제 중 정리 실패: {SessionId}", sessionId);
             }
 
         try
@@ -146,7 +146,7 @@ public partial class SessionService(
             _worktreeInitLocks.TryRemove(sessionId, out _);
         }
 
-        logger.LogInformation("Session {SessionId} deleted", sessionId);
+        logger.LogInformation("세션 {SessionId} 삭제됨", sessionId);
     }
 
     public async Task RenameBranchAsync(string sessionId, string newBranchName)
@@ -164,12 +164,12 @@ public partial class SessionService(
         {
             session.Git.BranchName = newBranchName;
             await SaveSessionAsync(session);
-            logger.LogInformation("Session {SessionId} branch renamed: {OldBranch} -> {NewBranch}", sessionId,
+            logger.LogInformation("세션 {SessionId} 브랜치 이름 변경: {OldBranch} -> {NewBranch}", sessionId,
                 oldBranch, newBranchName);
         }
         else
         {
-            logger.LogWarning("Failed to rename branch for session {SessionId}: {OldBranch} -> {NewBranch}: {Error}",
+            logger.LogWarning("세션 {SessionId}의 브랜치 이름 변경 실패: {OldBranch} -> {NewBranch}: {Error}",
                 sessionId, oldBranch, newBranchName, result.Error);
         }
     }
@@ -180,7 +180,7 @@ public partial class SessionService(
         await semaphore.WaitAsync();
         try
         {
-            logger.LogDebug("Saving session {SessionId} ({Title})", session.Id, session.Title);
+            logger.LogDebug("세션 {SessionId} ({Title}) 저장 중", session.Id, session.Title);
             session.UpdatedAt = DateTime.UtcNow;
 
             string metadataJson;
@@ -218,11 +218,11 @@ public partial class SessionService(
                 await AtomicFileWriter.WriteAsync(messagesPath, messagesJson);
             }
 
-            logger.LogDebug("Session {SessionId} saved: {MessageCount} messages", session.Id, messages.Count);
+            logger.LogDebug("세션 {SessionId} 저장됨: {MessageCount} 메시지", session.Id, messages.Count);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to save session {SessionId}", session.Id);
+            logger.LogError(ex, "세션 {SessionId} 저장 실패", session.Id);
             throw;
         }
         finally
@@ -265,7 +265,7 @@ public partial class SessionService(
         var path = Path.Combine(_sessionsDir, $"{sessionId}.json");
         if (!File.Exists(path))
         {
-            logger.LogDebug("Session file not found: {SessionId}", sessionId);
+            logger.LogDebug("세션 파일을 찾을 수 없음: {SessionId}", sessionId);
             return null;
         }
 
@@ -307,7 +307,7 @@ public partial class SessionService(
 
         _sessionCache[sessionId] = (session, DateTime.UtcNow);
         EnforceSessionCacheCapacity();
-        logger.LogDebug("Loaded session {SessionId}: {Title}", sessionId, session.Title);
+        logger.LogDebug("세션 {SessionId} 로드됨: {Title}", sessionId, session.Title);
         return session;
     }
 
@@ -336,7 +336,7 @@ public partial class SessionService(
         session.TransitionStatus(SessionStatus.Ready);
 
         await SaveSessionAsync(session);
-        logger.LogInformation("Created local-dir session {SessionId} ({CityName}) in workspace {WorkspaceId}",
+        logger.LogInformation("로컬 디렉토리 세션 {SessionId} ({CityName}) 생성됨 (워크스페이스: {WorkspaceId})",
             session.Id, cityName, workspaceId);
 
         await hooksEngine.FireAsync(HookEvent.OnSessionCreate, new Dictionary<string, string>
@@ -374,7 +374,7 @@ public partial class SessionService(
         session.TransitionStatus(SessionStatus.Pending);
 
         await SaveSessionAsync(session);
-        logger.LogInformation("Created session {SessionId} ({CityName}) in workspace {WorkspaceId}", session.Id,
+        logger.LogInformation("세션 {SessionId} ({CityName}) 생성됨 (워크스페이스: {WorkspaceId})", session.Id,
             cityName, workspaceId);
 
         await hooksEngine.FireAsync(HookEvent.OnSessionCreate, new Dictionary<string, string>
@@ -434,7 +434,7 @@ public partial class SessionService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create session worktree for workspace {WorkspaceId}", workspaceId);
+            logger.LogError(ex, "워크스페이스 {WorkspaceId}의 세션 워크트리 생성 실패", workspaceId);
             session.TransitionStatus(SessionStatus.Error);
             session.Error = AppError.FromException(ErrorCode.WorktreeCreationFailed, ex);
         }
@@ -461,7 +461,7 @@ public partial class SessionService(
             // Guard: if another call already initialized this session, return as-is
             if (session.Status != SessionStatus.Pending)
             {
-                logger.LogDebug("Skipping worktree init for session {SessionId}: status is {Status}", sessionId,
+                logger.LogDebug("세션 {SessionId}의 워크트리 초기화 건너뜀: 상태는 {Status}", sessionId,
                     session.Status);
                 return session;
             }
@@ -495,13 +495,13 @@ public partial class SessionService(
                     session.TransitionStatus(SessionStatus.Ready);
                     // Initialize .context/ directory for collaboration
                     await contextService.EnsureContextDirectoryAsync(session.Git.WorktreePath);
-                    logger.LogInformation("Worktree initialized for session {SessionId} on branch {Branch}", sessionId,
+                    logger.LogInformation("세션 {SessionId}의 워크트리 초기화됨 (브랜치: {Branch})", sessionId,
                         branchName);
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to initialize worktree for session {SessionId}", sessionId);
+                logger.LogError(ex, "세션 {SessionId}의 워크트리 초기화 실패", sessionId);
                 session.TransitionStatus(SessionStatus.Error);
                 session.Error = AppError.FromException(ErrorCode.WorktreeCreationFailed, ex);
             }
@@ -532,7 +532,7 @@ public partial class SessionService(
 
             if (session.Status != SessionStatus.Ready)
             {
-                logger.LogDebug("Skipping worktree rebase for session {SessionId}: status is {Status}", sessionId,
+                logger.LogDebug("세션 {SessionId}의 워크트리 리베이스 건너뜀: 상태는 {Status}", sessionId,
                     session.Status);
                 return session;
             }
@@ -578,12 +578,12 @@ public partial class SessionService(
                         await gitService.ResolveCommitHashAsync(workspace.RepoLocalPath, newBaseBranch) ?? "";
                     await contextService.EnsureContextDirectoryAsync(session.Git.WorktreePath);
                     logger.LogInformation(
-                        "Worktree rebased for session {SessionId} to branch {BaseBranch}", sessionId, newBaseBranch);
+                        "세션 {SessionId}의 워크트리 리베이스됨 (브랜치: {BaseBranch})", sessionId, newBaseBranch);
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to rebase worktree for session {SessionId}", sessionId);
+                logger.LogError(ex, "세션 {SessionId}의 워크트리 리베이스 실패", sessionId);
                 session.TransitionStatus(SessionStatus.Error);
                 session.Error = AppError.FromException(ErrorCode.WorktreeCreationFailed, ex);
             }
@@ -662,7 +662,7 @@ public partial class SessionService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to check schema upgrade for session JSON");
+            logger.LogWarning(ex, "세션 JSON 스키마 업그레이드 확인 실패");
             return false;
         }
     }
@@ -708,7 +708,7 @@ public partial class SessionService(
                         && !session.Git.IsLocalDir
                         && !Directory.Exists(session.Git.WorktreePath))
                     {
-                        logger.LogWarning("Clearing stale WorktreePath for session {Id}: {Path}", session.Id,
+                        logger.LogWarning("세션 {Id}의 손상된 WorktreePath 제거: {Path}", session.Id,
                             session.Git.WorktreePath);
                         session.Git.WorktreePath = string.Empty;
                         needsMigration = true;
@@ -726,7 +726,7 @@ public partial class SessionService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Skipping corrupted session file: {File}", file);
+                logger.LogWarning(ex, "손상된 세션 파일 건너뜀: {File}", file);
             }
 
             return null;
@@ -738,7 +738,7 @@ public partial class SessionService(
                 _metadataCache[session.Id] = session;
 
         _cacheInitialized = true;
-        logger.LogDebug("Session metadata cache initialized: {Count} sessions loaded", _metadataCache.Count);
+        logger.LogDebug("세션 메타데이터 캐시 초기화됨: {Count}개 세션 로드됨", _metadataCache.Count);
     }
 
     private void EnforceSessionCacheCapacity()
@@ -755,7 +755,7 @@ public partial class SessionService(
         foreach (var key in toEvict)
             _sessionCache.TryRemove(key, out _);
 
-        logger.LogDebug("Session cache capacity enforced: evicted {Count}, limit {Max}", toEvict.Count,
+        logger.LogDebug("세션 캐시 용량 제한 실행: {Count}개 제거됨, 한계 {Max}", toEvict.Count,
             MaxSessionCacheEntries);
     }
 
@@ -773,7 +773,7 @@ public partial class SessionService(
                     removed++;
 
         if (removed > 0)
-            logger.LogDebug("Session cache scavenged: removed {Removed}, {Remaining} entries remaining", removed,
+            logger.LogDebug("세션 캐시 정소 완료: {Removed}개 제거됨, {Remaining}개 항목 남음", removed,
                 _sessionCache.Count);
     }
 }
