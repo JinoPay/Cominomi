@@ -124,6 +124,9 @@ const baseThemeDark = EditorView.theme({
   '.cm-content': {
     caretColor: '#f0f0f0',
     padding: '8px 0',
+    fontFamily: "'JetBrains Mono', var(--font-mono)",
+    fontSize: '13px',
+    fontWeight: '500',
   },
   '.cm-gutters': {
     backgroundColor: 'transparent',
@@ -161,6 +164,9 @@ const baseThemeLight = EditorView.theme({
   '.cm-content': {
     caretColor: '#202020',
     padding: '8px 0',
+    fontFamily: "'JetBrains Mono', var(--font-mono)",
+    fontSize: '13px',
+    fontWeight: '500',
   },
   '.cm-gutters': {
     backgroundColor: 'transparent',
