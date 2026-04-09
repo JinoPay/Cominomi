@@ -116,17 +116,18 @@ const themeCompartments = new Map<string, Compartment>();
 const baseThemeDark = EditorView.theme({
   '&': {
     backgroundColor: 'transparent',
-    color: 'var(--text-primary, #c9d1d9)',
+    color: '#d0d0d0',
     fontSize: '13px',
     fontFamily: 'var(--font-mono)',
+    fontWeight: '500',
   },
   '.cm-content': {
-    caretColor: 'var(--text-primary, #c9d1d9)',
+    caretColor: '#f0f0f0',
     padding: '8px 0',
   },
   '.cm-gutters': {
     backgroundColor: 'transparent',
-    color: 'var(--text-tertiary, #484f58)',
+    color: '#808080',
     border: 'none',
     minWidth: '40px',
   },
@@ -152,12 +153,13 @@ const baseThemeDark = EditorView.theme({
 const baseThemeLight = EditorView.theme({
   '&': {
     backgroundColor: 'transparent',
-    color: 'var(--text-primary, #1f2328)',
+    color: '#000000',
     fontSize: '13px',
     fontFamily: 'var(--font-mono)',
+    fontWeight: '500',
   },
   '.cm-content': {
-    caretColor: 'var(--text-primary, #1f2328)',
+    caretColor: '#000000',
     padding: '8px 0',
   },
   '.cm-gutters': {
