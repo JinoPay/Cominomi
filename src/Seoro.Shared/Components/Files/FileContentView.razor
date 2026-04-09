@@ -1,5 +1,6 @@
 @using Markdig
 @using Seoro.Shared.Helpers
+@implements IAsyncDisposable
 @inject IJSRuntime JS
 
 <div class="filediff-view">
@@ -28,15 +29,7 @@
     }
     else if (_viewMode == FileViewMode.Code)
     {
-        <div id="@_elementId" class="filecontent-code-container">
-            <div class="filecontent-gutter" aria-hidden="true">
-                @for (var i = 1; i <= _lineCount; i++)
-                {
-                    <div class="filecontent-gutter-line">@i</div>
-                }
-            </div>
-            <pre class="filecontent-pre"><code class="@_langClass">@Content</code></pre>
-        </div>
+        <div id="@_elementId" class="cm-host"></div>
     }
     else
     {
@@ -70,10 +63,9 @@
     }
 
     private FileViewMode _viewMode;
-    private string _langClass = "";
+    private string _language = "";
     private string _elementId = "";
     private string _renderedHtml = "";
-    private int _lineCount;
     private bool _needsHighlight;
     private string? _lastFilePath;
 
@@ -91,9 +83,8 @@
         }
 
         _viewMode = GetViewMode(FilePath);
-        _langClass = GetLanguageClass(FilePath);
-        _elementId = $"hljs-{FilePath.GetHashCode():x8}";
-        _lineCount = string.IsNullOrEmpty(Content) ? 0 : Content.Split('\n').Length;
+        _language = GetLanguage(FilePath);
+        _elementId = $"cm-{FilePath.GetHashCode():x8}";
 
         if (_viewMode == FileViewMode.Markdown && !string.IsNullOrEmpty(Content))
         {
@@ -113,7 +104,22 @@
                 if (_viewMode == FileViewMode.Markdown)
                     await JS.InvokeVoidAsync("enhanceMarkdownCodeBlocks", _elementId, false);
                 else
-                    await JS.InvokeVoidAsync("highlightCodeBlock", _elementId);
+                    await JS.InvokeVoidAsync("createCodeMirrorView", _elementId, Content, _language, true);
+            }
+            catch
+            {
+                // JS interop may fail during disposal
+            }
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_viewMode == FileViewMode.Code && !string.IsNullOrEmpty(_elementId))
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("destroyCodeMirrorView", _elementId);
             }
             catch
             {
@@ -141,40 +147,40 @@
         };
     }
 
-    private static string GetLanguageClass(string filePath)
+    private static string GetLanguage(string filePath)
     {
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
         return ext switch
         {
-            ".cs" => "language-csharp",
-            ".js" or ".jsx" => "language-javascript",
-            ".ts" or ".tsx" => "language-typescript",
-            ".py" => "language-python",
-            ".rs" => "language-rust",
-            ".go" => "language-go",
-            ".java" => "language-java",
-            ".html" or ".razor" => "language-xml",
-            ".css" or ".scss" => "language-css",
-            ".json" => "language-json",
-            ".yaml" or ".yml" => "language-yaml",
-            ".xml" or ".csproj" or ".sln" => "language-xml",
-            ".sh" or ".bash" or ".zsh" => "language-bash",
-            ".sql" => "language-sql",
-            ".rb" => "language-ruby",
-            ".swift" => "language-swift",
-            ".kt" => "language-kotlin",
-            ".dart" => "language-dart",
-            ".php" => "language-php",
-            ".dockerfile" => "language-dockerfile",
-            ".toml" or ".ini" or ".cfg" => "language-ini",
-            ".c" or ".cpp" or ".h" or ".hpp" => "language-cpp",
-            ".m" or ".mm" => "language-objectivec",
-            ".r" => "language-r",
-            ".lua" => "language-lua",
-            ".pl" => "language-perl",
-            ".makefile" => "language-makefile",
-            ".graphql" => "language-graphql",
-            ".proto" => "language-protobuf",
+            ".cs" => "csharp",
+            ".js" or ".jsx" => "javascript",
+            ".ts" or ".tsx" => "typescript",
+            ".py" => "python",
+            ".rs" => "rust",
+            ".go" => "go",
+            ".java" => "java",
+            ".html" or ".razor" => "xml",
+            ".css" or ".scss" => "css",
+            ".json" => "json",
+            ".yaml" or ".yml" => "yaml",
+            ".xml" or ".csproj" or ".sln" => "xml",
+            ".sh" or ".bash" or ".zsh" => "bash",
+            ".sql" => "sql",
+            ".rb" => "ruby",
+            ".swift" => "swift",
+            ".kt" => "kotlin",
+            ".dart" => "dart",
+            ".php" => "php",
+            ".dockerfile" => "dockerfile",
+            ".toml" or ".ini" or ".cfg" => "ini",
+            ".c" or ".cpp" or ".h" or ".hpp" => "cpp",
+            ".m" or ".mm" => "objectivec",
+            ".r" => "r",
+            ".lua" => "lua",
+            ".pl" => "perl",
+            ".makefile" => "makefile",
+            ".graphql" => "graphql",
+            ".proto" => "protobuf",
             _ => ""
         };
     }

@@ -1372,10 +1372,90 @@ html *::after {
     background: transparent !important;
 }
 
-.filecontent-code-container .hljs {
-    padding: 0 !important;
-    background: transparent;
+/* ===== CodeMirror Host ===== */
+.cm-host {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
 }
+
+.cm-host .cm-editor {
+    height: 100%;
+}
+
+.cm-host .cm-scroller {
+    overflow: auto;
+}
+
+/* ===== CodeMirror Syntax Token Colors (Dark) ===== */
+.tok-keyword { color: #ff7b72; }
+.tok-string, .tok-string2 { color: #a5d6ff; }
+.tok-comment { color: #8b949e; font-style: italic; }
+.tok-number { color: #79c0ff; }
+.tok-typeName { color: #ffa657; }
+.tok-function { color: #d2a8ff; }
+.tok-variableName { color: #c9d1d9; }
+.tok-variableName2 { color: #ffa657; }
+.tok-operator { color: #ff7b72; }
+.tok-propertyName { color: #79c0ff; }
+.tok-punctuation { color: #c9d1d9; }
+.tok-meta { color: #ffa657; }
+.tok-tagName { color: #7ee787; }
+.tok-attributeName { color: #79c0ff; }
+.tok-attributeValue { color: #a5d6ff; }
+.tok-bool { color: #79c0ff; }
+.tok-definition { color: #d2a8ff; }
+.tok-className { color: #ffa657; }
+.tok-labelName { color: #79c0ff; }
+.tok-namespace { color: #ffa657; }
+.tok-macroName { color: #d2a8ff; }
+.tok-literal { color: #79c0ff; }
+.tok-separator { color: #c9d1d9; }
+.tok-angleBracket { color: #8b949e; }
+.tok-squareBracket { color: #c9d1d9; }
+.tok-paren { color: #c9d1d9; }
+.tok-brace { color: #c9d1d9; }
+.tok-content { color: #c9d1d9; }
+.tok-heading { color: #79c0ff; font-weight: bold; }
+.tok-link { color: #a5d6ff; text-decoration: underline; }
+.tok-emphasis { font-style: italic; }
+.tok-strong { font-weight: bold; }
+.tok-invalid { color: #f85149; }
+
+/* ===== CodeMirror Syntax Token Colors (Light) ===== */
+[data-theme="light"] .tok-keyword { color: #cf222e; }
+[data-theme="light"] .tok-string, [data-theme="light"] .tok-string2 { color: #0a3069; }
+[data-theme="light"] .tok-comment { color: #6e7781; font-style: italic; }
+[data-theme="light"] .tok-number { color: #0550ae; }
+[data-theme="light"] .tok-typeName { color: #953800; }
+[data-theme="light"] .tok-function { color: #8250df; }
+[data-theme="light"] .tok-variableName { color: #1f2328; }
+[data-theme="light"] .tok-variableName2 { color: #953800; }
+[data-theme="light"] .tok-operator { color: #cf222e; }
+[data-theme="light"] .tok-propertyName { color: #0550ae; }
+[data-theme="light"] .tok-punctuation { color: #1f2328; }
+[data-theme="light"] .tok-meta { color: #953800; }
+[data-theme="light"] .tok-tagName { color: #116329; }
+[data-theme="light"] .tok-attributeName { color: #0550ae; }
+[data-theme="light"] .tok-attributeValue { color: #0a3069; }
+[data-theme="light"] .tok-bool { color: #0550ae; }
+[data-theme="light"] .tok-definition { color: #8250df; }
+[data-theme="light"] .tok-className { color: #953800; }
+[data-theme="light"] .tok-labelName { color: #0550ae; }
+[data-theme="light"] .tok-namespace { color: #953800; }
+[data-theme="light"] .tok-macroName { color: #8250df; }
+[data-theme="light"] .tok-literal { color: #0550ae; }
+[data-theme="light"] .tok-separator { color: #1f2328; }
+[data-theme="light"] .tok-angleBracket { color: #6e7781; }
+[data-theme="light"] .tok-squareBracket { color: #1f2328; }
+[data-theme="light"] .tok-paren { color: #1f2328; }
+[data-theme="light"] .tok-brace { color: #1f2328; }
+[data-theme="light"] .tok-content { color: #1f2328; }
+[data-theme="light"] .tok-heading { color: #0550ae; font-weight: bold; }
+[data-theme="light"] .tok-link { color: #0a3069; text-decoration: underline; }
+[data-theme="light"] .tok-emphasis { font-style: italic; }
+[data-theme="light"] .tok-strong { font-weight: bold; }
+[data-theme="light"] .tok-invalid { color: #cf222e; }
 
 /* ===== Markdown File View ===== */
 .filecontent-markdown {

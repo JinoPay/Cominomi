@@ -15,6 +15,12 @@
     <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Build CodeMirror interop bundle if not present -->
+  <Target Name="BuildCodemirror" BeforeTargets="Build"
+          Condition="!Exists('wwwroot/lib/codemirror/codemirror-interop.js')">
+    <Exec Command="npm ci &amp;&amp; node esbuild.mjs" WorkingDirectory="wwwroot/js" />
+  </Target>
+
   <ItemGroup>
     <EmbeddedResource Include="../../changelog.json" LogicalName="changelog.json" />
   </ItemGroup>

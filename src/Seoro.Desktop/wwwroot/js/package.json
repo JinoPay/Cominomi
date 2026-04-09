@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "dependencies": {
+    "@codemirror/state": "^6",
+    "@codemirror/view": "^6",
+    "@codemirror/language": "^6",
+    "@codemirror/commands": "^6",
+    "@lezer/highlight": "^1",
+    "@codemirror/lang-javascript": "^6",
+    "@codemirror/lang-python": "^6",
+    "@codemirror/lang-rust": "^6",
+    "@codemirror/lang-java": "^6",
+    "@codemirror/lang-html": "^6",
+    "@codemirror/lang-css": "^6",
+    "@codemirror/lang-json": "^6",
+    "@codemirror/lang-xml": "^6",
+    "@codemirror/lang-sql": "^6",
+    "@codemirror/lang-php": "^6",
+    "@codemirror/lang-cpp": "^6",
+    "@codemirror/lang-markdown": "^6",
+    "@codemirror/lang-yaml": "^6",
+    "@codemirror/lang-go": "^6"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25"
+  }
+}

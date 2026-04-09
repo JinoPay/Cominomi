@@ -38,3 +38,7 @@ bld/
 
 .seoro-attachments/
 .cominomi-attachments/
+
+## CodeMirror build artifacts
+src/Seoro.Desktop/wwwroot/js/node_modules/
+src/Seoro.Desktop/wwwroot/lib/codemirror/
