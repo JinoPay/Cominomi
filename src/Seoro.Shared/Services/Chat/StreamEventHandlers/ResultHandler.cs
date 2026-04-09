@@ -15,10 +15,10 @@ public class ResultHandler(IChatState chatState, ILogger<ResultHandler> logger) 
 
         var resultUsage = evt.Usage ?? evt.Message?.Usage ?? StreamEventUtils.TryExtractUsageFromExtensionData(evt);
 
-        logger.LogDebug("Result event: Usage={HasUsage}, AccIn={AccIn}, AccOut={AccOut}",
+        logger.LogDebug("결과 이벤트: Usage={HasUsage}, AccIn={AccIn}, AccOut={AccOut}",
             evt.Usage != null, ctx.AccInputTokens, ctx.AccOutputTokens);
 
-        // Accumulate session-level token counts (for in-session display)
+        // 세션 수준의 토큰 수 누적 (세션 내 표시용)
         if (resultUsage != null && !ctx.UsageRecorded)
         {
             session.TotalInputTokens += resultUsage.InputTokens;
@@ -30,15 +30,15 @@ public class ResultHandler(IChatState chatState, ILogger<ResultHandler> logger) 
             session.TotalInputTokens += ctx.AccInputTokens;
             session.TotalOutputTokens += ctx.AccOutputTokens;
             ctx.UsageRecorded = true;
-            logger.LogDebug("Usage from accumulated deltas. In={In}, Out={Out}",
+            logger.LogDebug("누적된 델타에서 사용량. In={In}, Out={Out}",
                 ctx.AccInputTokens, ctx.AccOutputTokens);
         }
 
-        // Clear pending tokens — committed values are now reflected in TotalInputTokens/TotalOutputTokens
+        // 대기 중인 토큰 정리 — 커밋된 값은 이제 TotalInputTokens/TotalOutputTokens에 반영됨
         session.PendingInputTokens = 0;
         session.PendingOutputTokens = 0;
 
-        // Fallback: populate Parts from result content if empty
+        // 폴백: Parts가 비어있으면 결과 콘텐츠에서 채우기
         if (ctx.AssistantMessage.Parts.Count == 0)
         {
             if (evt.Message?.Content != null)
@@ -55,7 +55,7 @@ public class ResultHandler(IChatState chatState, ILogger<ResultHandler> logger) 
         }
         else
         {
-            // Still check for ExitPlanMode even if Parts exist
+            // Parts가 있어도 ExitPlanMode 확인
             if (evt.Message?.Content != null)
                 foreach (var block in evt.Message.Content)
                     if (block.Type == "tool_use" && block.Name == "ExitPlanMode")

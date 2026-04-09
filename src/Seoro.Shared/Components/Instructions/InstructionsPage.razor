@@ -122,27 +122,27 @@
     private static string RenderMarkdownToHtml(string markdown)
     {
         if (string.IsNullOrWhiteSpace(markdown)) return "<p class='text-secondary'>내용이 없습니다.</p>";
-        // Basic markdown rendering (headings, lists, code, bold, italic)
+        // 기본 마크다운 렌더링 (제목, 목록, 코드, 굵게, 기울임)
         var html = markdown
             .Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 
-        // Headings
+        // 제목
         html = Regex.Replace(html, @"^### (.+)$",
             "<h3>$1</h3>", RegexOptions.Multiline);
         html = Regex.Replace(html, @"^## (.+)$",
             "<h2>$1</h2>", RegexOptions.Multiline);
         html = Regex.Replace(html, @"^# (.+)$",
             "<h1>$1</h1>", RegexOptions.Multiline);
-        // Bold and italic
+        // 굵게 및 기울임
         html = Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
         html = Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>");
-        // Inline code
+        // 인라인 코드
         html = Regex.Replace(html, @"`(.+?)`",
             "<code style='background: var(--mud-palette-background); padding: 2px 4px; border-radius: 3px;'>$1</code>");
-        // List items
+        // 목록 항목
         html = Regex.Replace(html, @"^- (.+)$",
             "<li>$1</li>", RegexOptions.Multiline);
-        // Paragraphs
+        // 단락
         html = Regex.Replace(html, @"\n\n", "</p><p>");
         html = $"<div class='instructions-md-content'><p>{html}</p></div>";
 

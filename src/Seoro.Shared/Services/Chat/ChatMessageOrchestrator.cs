@@ -40,7 +40,7 @@ public class ChatMessageOrchestrator(
         Workspace? workspace,
         CancellationToken ct = default)
     {
-        // --- Guard: session must be Ready (worktree already created on session creation) ---
+        // --- 보호: 세션은 Ready 상태여야 (워크트리는 세션 생성 시 미리 생성됨) ---
         if (session.Status != SessionStatus.Ready)
         {
             logger.LogWarning("메시지 전송 불가: 세션 {SessionId}의 상태가 {Status}임", session.Id, session.Status);
@@ -49,7 +49,7 @@ public class ChatMessageOrchestrator(
 
         ct.ThrowIfCancellationRequested();
 
-        // --- Attachment handling ---
+        // --- 첨부파일 처리 ---
         var fileAttachments = new List<FileAttachment>();
         foreach (var pending in input.Attachments)
         {
@@ -65,7 +65,7 @@ public class ChatMessageOrchestrator(
 
         var messageForClaude = attachmentService.BuildMessageWithAttachments(input.Text, fileAttachments);
 
-        // --- User message ---
+        // --- 사용자 메시지 ---
         if (fileAttachments.Count > 0)
             chatState.AddUserMessage(session, input.Text, fileAttachments);
         else
@@ -74,12 +74,12 @@ public class ChatMessageOrchestrator(
         await sessionService.SaveSessionAsync(session);
         activeSessionRegistry.Register(session);
 
-        // --- Streaming setup ---
+        // --- 스트리밍 설정 ---
         chatState.SetStreaming(true, session.Id);
         chatState.SetPhase(StreamingPhase.Sending, sessionId: session.Id);
         var assistantMsg = chatState.StartAssistantMessage(session);
 
-        // --- Stream + finalize ---
+        // --- 스트림 + 완료 ---
         var conversationId = session.ConversationId;
         var systemPrompt = await systemPromptBuilder.BuildAsync(session, workspace);
 
@@ -87,14 +87,14 @@ public class ChatMessageOrchestrator(
             session, assistantMsg, systemPrompt, messageForClaude,
             conversationId, false, ct, input.ModelOverride);
 
-        // --- Post-stream: hooks ---
+        // --- 스트림 후: 훅 ---
         FireHooksInBackground(session);
 
         return result;
     }
 
     // ──────────────────────────────────────────────
-    //  Private: shared streaming core
+    //  비공개: 공유 스트리밍 핵심
     // ──────────────────────────────────────────────
 
     private async Task<StreamResult> RunStreamingLoopAsync(
@@ -152,14 +152,14 @@ public class ChatMessageOrchestrator(
         catch (Exception ex)
         {
             logger.LogError(ex, "세션 {SessionId}의 {Mode} 중 오류 발생",
-                continueMode ? "continue" : "message processing", session.Id);
+                continueMode ? "계속 진행" : "메시지 처리", session.Id);
             if (string.IsNullOrEmpty(assistantMsg.Text))
                 chatState.AppendText(assistantMsg, $"Error: {ex.Message}");
             errorMessage = ex.Message;
         }
         finally
         {
-            // Ensure pending tokens are cleared even on cancellation or error
+            // 취소 또는 오류 발생 시에도 대기 중인 토큰 정리
             session.PendingInputTokens = 0;
             session.PendingOutputTokens = 0;
 

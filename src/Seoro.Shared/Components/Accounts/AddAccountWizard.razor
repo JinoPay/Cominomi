@@ -251,7 +251,7 @@
         StopPolling();
 
         var idToRestore = _backedUpAccountId;
-        _backedUpAccountId = null; // Prevent double-restore in Dispose
+        _backedUpAccountId = null; // Dispose에서 이중 복원 방지
 
         if (idToRestore != null)
         {
@@ -293,7 +293,7 @@
         _disposed = true;
         StopPolling();
 
-        // If disposed during WaitingLogin/Register without completing, restore
+        // 완료하지 않고 WaitingLogin/Register 중에 폐기된 경우 복원
         if (_backedUpAccountId != null && _step != WizardStep.Confirm)
         {
             _ = Task.Run(async () =>

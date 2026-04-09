@@ -78,7 +78,7 @@ public class CominomiMigrationService(ILogger<CominomiMigrationService> logger)
                 var content = await File.ReadAllBytesAsync(src);
                 await File.WriteAllBytesAsync(dest, content);
                 copied++;
-                logger.LogInformation("Migrated root file: {File}", fileName);
+                logger.LogInformation("루트 파일이 마이그레이션됨: {File}", fileName);
 
                 // Reset onboarding fields so Seoro shows its own onboarding/WhatsNew
                 if (fileName == "settings.json")
@@ -145,7 +145,7 @@ public class CominomiMigrationService(ILogger<CominomiMigrationService> logger)
         try
         {
             Directory.Delete(CominomiBaseDir, recursive: true);
-            logger.LogInformation("Deleted Cominomi data folder: {Path}", CominomiBaseDir);
+            logger.LogInformation("Cominomi 데이터 폴더가 삭제됨: {Path}", CominomiBaseDir);
             return true;
         }
         catch (Exception ex)

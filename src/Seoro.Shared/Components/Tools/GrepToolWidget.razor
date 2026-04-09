@@ -81,7 +81,7 @@
         }
         catch (JsonException)
         {
-            /* malformed tool input — render empty */
+            /* 잘못된 도구 입력 — 빈 상태로 렌더링 */
         }
     }
 
@@ -96,7 +96,7 @@
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
 
-            // Try to parse "file:line:content" format
+            // "file:line:content" 형식 파싱 시도
             var colonIdx = line.IndexOf(':');
             if (colonIdx > 0)
             {
@@ -115,7 +115,7 @@
                 }
             }
 
-            // Fallback: treat as file path or plain result
+            // 폴백: 파일 경로 또는 일반 결과로 처리
             if (!line.Contains(':') && !line.StartsWith(' '))
             {
                 currentFile = line.Trim();

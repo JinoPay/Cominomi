@@ -26,7 +26,7 @@
 
     private const double CircumferenceValue = 2 * Math.PI * 9; // ~56.549
 
-    // Committed tokens + in-progress pending tokens for real-time display during streaming
+    // 커밋된 토큰 + 진행 중인 대기 토큰으로 스트리밍 중 실시간 표시
     private long EffectiveInputTokens =>
         (CurrentSession?.TotalInputTokens ?? 0) + (CurrentSession?.PendingInputTokens ?? 0);
 

@@ -36,7 +36,7 @@
     [Parameter] public RenderFragment? ExtraActions { get; set; }
 
     private string _scopeStr => Scope.ToString();
-    private bool NeedsProjectAndNone => false; // Local/Project tabs always enabled; empty state shown instead
+    private bool NeedsProjectAndNone => false; // Local/Project 탭은 항상 활성화됨; 빈 상태를 대신 표시
 
     private async Task OnScopeChanged(string value)
     {

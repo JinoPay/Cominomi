@@ -114,7 +114,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Parallel: refresh stats cache if stale + ensure session index loaded
+        // 병렬: 통계 캐시가 만료되었으면 새로 고침 + 세션 인덱스 로드 확인
         var t1 = StatsCacheService.RefreshIfStaleAsync();
         var t2 = ReplayService.RefreshSessionIndexAsync();
         await Task.WhenAll(t1, t2);

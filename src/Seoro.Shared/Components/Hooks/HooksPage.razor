@@ -157,7 +157,7 @@
         if (!_settings.Hooks.ContainsKey(_selectedEvent))
             _settings.Hooks[_selectedEvent] = [];
 
-        // Add a new config with one empty command handler
+        // 하나의 빈 명령 핸들러가 있는 새로운 구성 추가
         _settings.Hooks[_selectedEvent].Add(new ClaudeHookEventConfig
         {
             Hooks = [new ClaudeHookHandler { Type = ClaudeHookHandlerType.Command }]
@@ -181,11 +181,11 @@
         if (handlerIdx < config.Hooks.Count)
             config.Hooks.RemoveAt(handlerIdx);
 
-        // Remove config entry if empty
+        // 비어있으면 구성 항목 제거
         if (config.Hooks.Count == 0)
             configs.RemoveAt(configIdx);
 
-        // Remove event key if no configs left
+        // 구성이 없으면 이벤트 키 제거
         if (configs.Count == 0)
             _settings.Hooks?.Remove(_selectedEvent);
     }

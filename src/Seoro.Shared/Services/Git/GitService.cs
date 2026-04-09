@@ -423,9 +423,9 @@ public class GitService(
     {
         var result = await RunGitAsync(workingDir, ct, "branch", "-m", oldName, newName);
         if (result.Success)
-            logger.LogInformation("Branch renamed: {OldName} -> {NewName}", oldName, newName);
+            logger.LogInformation("브랜치 이름 변경됨: {OldName} -> {NewName}", oldName, newName);
         else
-            logger.LogWarning("Branch rename failed: {OldName} -> {NewName}: {Error}", oldName, newName, result.Error);
+            logger.LogWarning("브랜치 이름 변경 실패: {OldName} -> {NewName}: {Error}", oldName, newName, result.Error);
         return result;
     }
 
@@ -433,7 +433,7 @@ public class GitService(
     {
         var result = await RunGitAsync(workingDir, ct, "add", "-A");
         if (result.Success)
-            logger.LogDebug("Staged all changes in {WorkingDir}", workingDir);
+            logger.LogDebug("{WorkingDir}의 모든 변경사항이 준비됨", workingDir);
         return result;
     }
 
@@ -446,7 +446,7 @@ public class GitService(
 
         var groups = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
-        // Get remote branches
+        // 원격 브랜치 가져오기
         var remoteResult = await RunGitAsync(repoDir, default, "branch", "-r", "--format=%(refname:short)");
         if (remoteResult.Success)
             foreach (var line in remoteResult.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -457,7 +457,7 @@ public class GitService(
                 var slashIdx = branch.IndexOf('/');
                 if (slashIdx <= 0) continue;
 
-                // Skip seoro/ worktree branches (e.g. origin/seoro/20260409-132932)
+                // seoro/ 워크트리 브랜치 건너뛰기 (예: origin/seoro/20260409-132932)
                 var branchName = branch[(slashIdx + 1)..];
                 if (branchName.StartsWith(SeoroConstants.BranchPrefix, StringComparison.OrdinalIgnoreCase))
                     continue;

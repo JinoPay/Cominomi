@@ -71,7 +71,7 @@ public class DependencyCheckService(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to find executable: {Command}", command);
+            logger.LogDebug(ex, "실행 파일을 찾을 수 없음: {Command}", command);
         }
 
         return null;
@@ -96,7 +96,7 @@ public class DependencyCheckService(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Failed to get version for: {Path}", executablePath);
+            logger.LogDebug(ex, "버전을 가져올 수 없음: {Path}", executablePath);
             return null;
         }
     }

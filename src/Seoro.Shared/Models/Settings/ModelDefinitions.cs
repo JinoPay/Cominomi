@@ -78,7 +78,7 @@ public static class ModelDefinitions
         var model = All.FirstOrDefault(m => m.Id == normalized);
         if (model?.Pricing != null) return model.Pricing;
 
-        // Fallback
+        // 폴백
         return All.FirstOrDefault(m => m.Id == PricingFallbackId)?.Pricing;
     }
 
@@ -87,22 +87,22 @@ public static class ModelDefinitions
         if (string.IsNullOrEmpty(modelId)) return Default.Id;
         if (All.Any(m => m.Id == modelId)) return modelId;
 
-        // Keyword-based normalization
+        // 키워드 기반 정규화
         foreach (var model in All)
         foreach (var keyword in model.Keywords)
             if (modelId.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 return model.Id;
 
-        // Custom API model IDs (e.g. "claude-...") are kept as-is
+        // 사용자 정의 API 모델 ID (예: "claude-...")는 있는 그대로 유지
         if (modelId.StartsWith("claude-", StringComparison.OrdinalIgnoreCase))
             return modelId;
 
-        // Unknown short strings (e.g. "Model") — normalize to default
+        // 알 수 없는 짧은 문자열 (예: "Model") — 기본값으로 정규화
         return Default.Id;
     }
 
     /// <summary>
-    ///     Load models from a JSON file. Falls back to built-in defaults if the file is missing or invalid.
+    ///     JSON 파일에서 모델을 로드합니다. 파일이 없거나 유효하지 않은 경우 내장 기본값으로 폴백합니다.
     /// </summary>
     public static async Task LoadFromFileAsync(string path)
     {
@@ -119,16 +119,15 @@ public static class ModelDefinitions
         }
         catch
         {
-            // keep built-in defaults
+            // 내장 기본값 유지
         }
     }
 
     /// <summary>
-    ///     Calculates the estimated cost using tiered pricing where applicable.
-    ///     For extended context models (e.g. opus[1m]), sessions with input tokens
-    ///     exceeding the threshold (200K) are split: the first 200K tokens use standard
-    ///     rates and the remainder use extended rates. This approximates Anthropic's
-    ///     per-request all-or-nothing billing at the session level.
+    ///     적용 가능한 경우 계층형 가격 책정을 사용하여 예상 비용을 계산합니다.
+    ///     확장 컨텍스트 모델(예: opus[1m])의 경우 입력 토큰이 임계값(200K)을 초과하는 세션은
+    ///     분할됩니다: 처음 200K 토큰은 표준 요금을 사용하고 나머지는 확장 요금을 사용합니다.
+    ///     이는 Anthropic의 요청당 전부 또는 무 요금 청구를 세션 수준에서 근사합니다.
     /// </summary>
     public static decimal CalculateTieredCost(
         ModelPricing pricing,
@@ -139,19 +138,19 @@ public static class ModelDefinitions
     {
         if (pricing.ExtendedInput == null || inputTokens <= pricing.ExtendedThreshold)
         {
-            // Flat rate: standard models, or extended models still under threshold
+            // 정액 요금: 표준 모델 또는 임계값 이하인 확장 모델
             return (inputTokens * pricing.Input
                     + outputTokens * pricing.Output
                     + cacheCreationTokens * pricing.CacheWrite
                     + cacheReadTokens * pricing.CacheRead) / 1_000_000m;
         }
 
-        // Tiered: split input at threshold
+        // 계층형: 임계값에서 입력 분할
         var stdInputTokens = (decimal)pricing.ExtendedThreshold;
         var extInputTokens = (decimal)(inputTokens - pricing.ExtendedThreshold);
         var totalInput = (decimal)inputTokens;
 
-        // Output/cache split is proportional to the fraction of input that is extended
+        // 출력/캐시 분할은 확장된 입력의 비율에 비례
         var extRatio = extInputTokens / totalInput;
         var stdRatio = 1m - extRatio;
 
@@ -169,7 +168,7 @@ public static class ModelDefinitions
                 + cacheReadTokens * extRatio * extCacheRead) / 1_000_000m;
     }
 
-    /// <summary>Helper to retrieve only "real" (non-alias) models for popover display grouping.</summary>
+    /// <summary>팝오버 표시 그룹화를 위해 "실제" (별칭 제외) 모델만 검색하는 헬퍼.</summary>
     public static IEnumerable<IGrouping<string?, ModelInfo>> GetGroupedModels()
     {
         return All.GroupBy(m => m.Category);
@@ -183,7 +182,7 @@ public static class ModelDefinitions
             DefaultPricingFallbackId = "sonnet",
             Models =
             [
-                // ── Standard ──
+                // ── 표준 ──
                 new ModelInfo("opus", "Claude Opus 4.6")
                 {
                     Keywords = ["opus"],
@@ -211,10 +210,10 @@ public static class ModelDefinitions
                     SpeedTier = 3,
                     Category = "standard"
                 },
-                // ── Extended Context (1M) ──
-                // Extended pricing per Anthropic pricing docs:
-                // Input >200K: 2x standard. Output >200K: 1.5x standard.
-                // Cache multipliers (1.25x write, 0.1x read) apply on top of extended base.
+                // ── 확장 컨텍스트 (1M) ──
+                // Anthropic 가격 책정 문서의 확장 가격:
+                // 입력 >200K: 2배 표준. 출력 >200K: 1.5배 표준.
+                // 캐시 배수 (1.25배 쓰기, 0.1배 읽기)는 확장 기본 위에 적용.
                 new ModelInfo("opus[1m]", "Opus (Extended 1M)")
                 {
                     Keywords = ["opus[1m]"],
@@ -237,7 +236,7 @@ public static class ModelDefinitions
                     SpeedTier = 2,
                     Category = "extended"
                 },
-                // ── Hybrid / Alias ──
+                // ── 하이브리드 / 별칭 ──
                 new ModelInfo("opusplan", "Opus Plan")
                 {
                     Keywords = ["opusplan"],

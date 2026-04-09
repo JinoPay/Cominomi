@@ -215,8 +215,8 @@
                     var currentId = ChatState.CurrentSession?.Id;
                     foreach (var session in SessionListDataService.FilterSessions(sessions, _filterText))
                     {
-                        // Use the live session instance for the active session —
-                        // the cache entry is a stale clone from the last disk save
+                        // 활성 세션의 라이브 세션 인스턴스 사용 —
+                        // 캐시 항목은 마지막 디스크 저장의 오래된 복제본입니다
                         var liveSession = (currentId == session.Id && ChatState.CurrentSession != null)
                             ? ChatState.CurrentSession
                             : session;
@@ -279,7 +279,7 @@
                     DataService.Workspaces, DataService.SessionCache);
 
                 ChatState.SetWorkspace(ws);
-                // Load custom skills for the initial workspace
+                // 초기 워크스페이스의 사용자 정의 스킬 로드
                 await SkillRegistry.LoadCustomCommandsAsync(ws.RepoLocalPath);
 
                 if (lastSession != null)
@@ -361,7 +361,7 @@
 
     private static string GetShortcutLabel(int index)
     {
-        // Use platform-appropriate modifier
+        // 플랫폼 적절한 수정자 사용
         return OperatingSystem.IsMacCatalyst() || OperatingSystem.IsMacOS()
             ? $"\u2318{index + 1}"
             : $"Ctrl+{index + 1}";
@@ -425,13 +425,12 @@
 
     private async Task ToggleProject(string projectName)
     {
-        if (_expandedProjects.Contains(projectName))
+        if (!_expandedProjects.Add(projectName))
         {
             _expandedProjects.Remove(projectName);
         }
         else
         {
-            _expandedProjects.Add(projectName);
             await DataService.LoadSessionsForProjectAsync(projectName);
         }
 
@@ -441,7 +440,7 @@
     private async Task ReloadWorkspaces()
     {
         var invalidProjects = _expandedProjects
-            .Where(p => !DataService.Workspaces.Any(w => SessionListDataService.GetProjectName(w) == p))
+            .Where(p => DataService.Workspaces.All(w => SessionListDataService.GetProjectName(w) != p))
             .ToList();
         foreach (var p in invalidProjects) _expandedProjects.Remove(p);
 
@@ -510,7 +509,7 @@
             var currentId = ChatState.CurrentSession?.Id;
             var hasStreaming = ChatState.HasAnyStreaming();
 
-            // Compute a hash of streaming phases to detect phase changes
+            // 스트리밍 단계 변경을 감지하기 위해 스트리밍 단계의 해시 계산
             var streamingHash = 0;
             foreach (var sid in ChatState.GetStreamingSessionIds())
             {
@@ -519,7 +518,7 @@
                                  ^ (ChatState.GetSessionToolName(sid)?.GetHashCode() ?? 0);
             }
 
-            // Compute a hash of completed sessions
+            // 완료된 세션의 해시 계산
             var completedHash = 0;
             foreach (var row in _flatRows)
             {
@@ -527,8 +526,8 @@
                     completedHash ^= row.Session.Id.GetHashCode();
             }
 
-            // Compute a hash of all visible sessions' titles and branch names
-            // to detect changes in any session, not just the current one
+            // 모든 보이는 세션의 제목 및 브랜치 이름의 해시 계산
+            // 현재 세션뿐만 아니라 모든 세션의 변경 감지
             var sessionTitleHash = 0;
             foreach (var row in _flatRows)
             {
@@ -544,15 +543,15 @@
                 && completedHash == _lastCompletedHash)
                 return;
 
-            // Rebuild flat rows when streaming state or session title/branch changes
-            // Forces Virtualize to re-render items with updated data
+            // 스트리밍 상태 또는 세션 제목/브랜치가 변경될 때 플랫 행 재구성
+            // Virtualize를 강제로 업데이트된 데이터로 항목을 다시 렌더링하도록 함
             if (hasStreaming != _lastHasStreaming || streamingHash != _lastStreamingHash
                 || sessionTitleHash != _lastSessionTitleHash)
             {
                 RebuildFlatRows();
             }
 
-            // If a session stopped streaming, refresh its diff stats
+            // 세션이 스트리밍을 중지한 경우 diff 통계 새로 고침
             if (_lastHasStreaming && !hasStreaming)
             {
                 foreach (var ordered in DataService.OrderedSessions)

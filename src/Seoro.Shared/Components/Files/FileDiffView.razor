@@ -26,7 +26,7 @@
             {
                 <div class="filediff-empty">
                     <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Style="opacity: 0.3;"/>
-                    <span>No diff available</span>
+                    <span>사용 가능한 diff가 없습니다</span>
                 </div>
             }
         }
@@ -36,7 +36,7 @@
             {
                 var hasGap = hunk.GapEndLine > hunk.GapStartLine;
 
-                @* Expanded gap lines *@
+                @* 확장된 간격 라인 *@
                 @if (hunk.IsExpanded && hunk.ExpandedLines != null)
                 {
                     @foreach (var line in hunk.ExpandedLines)
@@ -46,7 +46,7 @@
                     }
                 }
 
-                @* Hunk header *@
+                @* Hunk 헤더 *@
                 @if (hasGap)
                 {
                     <div class="diff-line hunk expandable" @onclick="() => ToggleHunkAsync(hunk)">
@@ -61,7 +61,7 @@
                     </div>
                 }
 
-                @* Diff lines in this hunk *@
+                @* 이 hunk의 diff 라인 *@
                 @foreach (var line in hunk.Lines)
                 {
                     var cls = GetLineClass(line.Type);
@@ -105,7 +105,7 @@
             }
             catch
             {
-                // JS interop may fail during disposal
+                // JS interop이 처리 중에 실패할 수 있습니다
             }
         }
     }
@@ -153,7 +153,7 @@
         }
         catch
         {
-            // File may not exist or be inaccessible
+            // 파일이 존재하지 않거나 접근할 수 없을 수 있습니다
         }
     }
 

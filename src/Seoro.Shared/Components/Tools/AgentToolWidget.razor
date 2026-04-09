@@ -33,7 +33,7 @@
         }
     </div>
 
-    @* Child tool calls from the agent *@
+    @* 에이전트의 자식 도구 호출 *@
     @if (_childTools.Count > 0)
     {
         <div class="agent-children">
@@ -134,7 +134,7 @@
             ParseOutput();
         }
 
-        // Refresh child tools when message parts change
+        // 메시지 부분이 변경될 때 자식 도구 새로 고침
         var partsCount = MessageParts?.Count ?? 0;
         if (partsCount != _lastPartsCount)
         {
@@ -157,7 +157,7 @@
             .Select(p => p.ToolCall!)
             .ToList();
 
-        // Track when the first child tool appeared (for elapsed time during streaming)
+        // 첫 자식 도구가 나타난 시간을 추적하기 (스트리밍 중 경과 시간)
         if (_childTools.Count > 0 && _firstChildSeen == null)
             _firstChildSeen = DateTime.UtcNow;
     }
@@ -193,7 +193,7 @@
         }
         catch (JsonException)
         {
-            /* malformed input — keep defaults */
+            /* 잘못된 입력 — 기본값 유지 */
         }
     }
 
@@ -208,7 +208,7 @@
 
         var text = Tool.Output;
 
-        // Extract <usage>...</usage> metadata block
+        // <usage>...</usage> 메타데이터 블록 추출
         var usageMatch = Regex.Match(text, @"<usage>(.*?)</usage>", RegexOptions.Singleline);
         if (usageMatch.Success)
         {
@@ -221,7 +221,7 @@
             text = text[..usageMatch.Index] + text[(usageMatch.Index + usageMatch.Length)..];
         }
 
-        // Remove agentId line
+        // agentId 줄 제거
         text = Regex.Replace(text, @"^agentId:\s+\S+.*$", "", RegexOptions.Multiline);
 
         _resultText = text.Trim();

@@ -193,7 +193,7 @@
             _panelShortcutRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("registerPanelShortcuts", _panelShortcutRef);
 
-            // Apply UI scale from persisted settings
+            // 저장된 설정에서 UI 스케일 적용
             var settings = await SettingsService.LoadAsync();
             var scale = settings.UiScale;
             if (scale == 0)

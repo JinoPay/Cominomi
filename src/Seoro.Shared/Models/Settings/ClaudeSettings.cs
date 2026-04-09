@@ -105,16 +105,16 @@ public enum ClaudeSettingsScope
     /// <summary>~/.claude/settings.json</summary>
     Global,
 
-    /// <summary>.claude/settings.json (git-tracked)</summary>
+    /// <summary>.claude/settings.json (깃-추적)</summary>
     Project,
 
-    /// <summary>.claude/settings.local.json (gitignored)</summary>
+    /// <summary>.claude/settings.local.json (깃무시)</summary>
     Local
 }
 
 /// <summary>
-///     MCP server config in Claude CLI settings.json format.
-///     Supports stdio (command+args) and sse (url+headers) transports.
+///     Claude CLI settings.json 형식의 MCP 서버 설정.
+///     stdio (command+args)와 sse (url+headers) 전송을 지원합니다.
 /// </summary>
 public class ClaudeMcpServerConfig
 {
@@ -132,7 +132,7 @@ public class ClaudeMcpServerConfig
 }
 
 /// <summary>
-///     All 22 Claude CLI hook events.
+///     모든 22개의 Claude CLI 훅 이벤트.
 /// </summary>
 public static class ClaudeHookEvents
 {

@@ -78,14 +78,13 @@
     private bool _suppressInputUpdates;
     private string? _trackedSessionId;
 
-    // Local copies of toolbar state — updated both from parent parameters AND from
-    // user clicks (optimistic update). This decouples toolbar rendering from the
-    // parent re-render cycle, preventing ShouldRender from swallowing updates.
+    // 로컬 도구 모음 상태 복사본 — 부모 파라미터와 사용자 클릭 모두에서 업데이트됨 (낙관적 업데이트)
+    // 도구 모음 렌더링을 부모 리렌더 사이클과 분리하여 ShouldRender가 업데이트를 무시하지 않도록 함
     private string _currentPermissionMode = "bypassAll";
     private string _currentEffortLevel = "auto";
     private string _currentModel = string.Empty;
 
-    // Parameter tracking to prevent unnecessary re-renders (cursor jumping fix)
+    // 불필요한 리렌더를 방지하기 위한 파라미터 추적 (커서 이동 수정)
     private bool _prevIsStreaming;
     private bool _lastDropDisabled;
     private bool _prevDisabled;
@@ -99,14 +98,14 @@
     private bool _isComposing;
     private readonly string _shortcutHint = OperatingSystem.IsMacOS() ? "⌘⇧L" : "Ctrl+Shift+L";
 
-    // Slash command autocomplete state
+    // 슬래시 명령 자동 완성 상태
     private bool _slashPopupOpen;
     private IReadOnlyList<SkillDefinition> _filteredCommands = Array.Empty<SkillDefinition>();
     private int _slashSelectedIndex;
 
     protected override void OnParametersSet()
     {
-        // Save/restore input draft on session change
+        // 세션 변경 시 입력 초안 저장/복원
         var newSessionId = CurrentSession?.Id;
         if (_trackedSessionId != newSessionId)
         {
@@ -132,7 +131,7 @@
             _forceRender = true;
         }
 
-        // Sync local copies from parent parameters
+        // 부모 파라미터에서 로컬 복사본 동기화
         if (_prevPermissionMode != PermissionMode)
             _currentPermissionMode = PermissionMode;
         if (_prevModel != Model)
@@ -194,7 +193,7 @@
     {
         _currentModel = model;
 
-        // Auto-adjust: clamp effort to the new model's ceiling
+        // 자동 조정: 노력도를 새 모델의 최대값으로 제한
         var maxLevel = ModelDefinitions.GetMaxEffortLevel(model);
         if (_currentEffortLevel != "auto" && _currentEffortLevel != maxLevel)
         {
@@ -488,7 +487,7 @@
         var text = _inputText.Trim();
         List<SkillChainStep>? pendingChain = null;
 
-        // Try skill chaining first (pipe syntax or definition chain)
+        // 스킬 체이닝 먼저 시도 (파이프 문법 또는 정의 체인)
         if (CurrentSession != null && SkillRegistry.TryParseSkillChain(text, CurrentSession, out var chainSteps))
         {
             text = chainSteps[0].ExpandedText;
@@ -496,7 +495,7 @@
         }
         else
         {
-            // Single slash command (no chain)
+            // 단일 슬래시 명령어 (체인 없음)
             var skillName = SkillRegistry.TryParseSkillCommand(text, out var skillArgs);
             if (skillName != null)
             {
@@ -511,11 +510,11 @@
         var input = new ChatInputMessage
         {
             Text = text,
-            Attachments = new List<PendingAttachment>(_pendingAttachments),
+            Attachments = [.._pendingAttachments],
             PendingChain = pendingChain
         };
 
-        _suppressInputUpdates = true; // Block oninput from reinserting newline
+        _suppressInputUpdates = true; // oninput가 개행을 다시 삽입하는 것 차단
         _inputText = string.Empty;
         if (_trackedSessionId != null)
         {
@@ -526,7 +525,7 @@
         StateHasChanged();
         await OnSend.InvokeAsync(input);
 
-        // JS safety net: clear textarea DOM directly
+        // JS 안전장치: textarea DOM을 직접 지우기
         try
         {
             await JSRuntime.InvokeVoidAsync("clearInputArea", "input-area");
@@ -536,7 +535,7 @@
             /* expected during circuit disposal */
         }
 
-        _suppressInputUpdates = false; // Unblock
+        _suppressInputUpdates = false; // 차단 해제
     }
 
     public async ValueTask DisposeAsync()

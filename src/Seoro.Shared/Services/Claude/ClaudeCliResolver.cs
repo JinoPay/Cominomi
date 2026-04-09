@@ -47,7 +47,7 @@ public class ClaudeCliResolver(IShellService shellService, IProcessRunner proces
 
     public async Task<string?> RunSimpleCommandAsync(string fileName, string arguments)
     {
-        logger.LogDebug("Executing: {FileName} {Arguments}", fileName, arguments);
+        logger.LogDebug("실행 중: {FileName} {Arguments}", fileName, arguments);
         try
         {
             // arguments may contain a baseArgs prefix (e.g., '/c "claude.exe" ') followed by the flag.

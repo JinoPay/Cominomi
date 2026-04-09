@@ -74,7 +74,7 @@
         var activityMap = DailyActivity.ToDictionary(d => d.Date);
         var today = DateTime.Today;
 
-        // Start from 52 weeks ago, aligned to Sunday
+        // 52주 전부터 시작하며, 일요일로 정렬
         var start = today.AddDays(-52 * 7 - (int)today.DayOfWeek);
         var totalDays = (today - start).Days + 1;
 
@@ -106,7 +106,7 @@
             });
         }
 
-        // Pad & add final week
+        // 마지막 주를 채우고 추가
         while (currentWeek.Count < 7)
             currentWeek.Add(new DayCell { Empty = true });
         if (currentWeek.Count > 0)

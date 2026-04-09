@@ -15,7 +15,7 @@
         <div class="filecontent-body">
             <div class="filediff-empty">
                 <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Style="opacity: 0.3;"/>
-                <span>Empty file</span>
+                <span>빈 파일</span>
             </div>
         </div>
     }
@@ -75,7 +75,7 @@
         if (_lastFilePath == FilePath) return;
         _lastFilePath = FilePath;
 
-        // Large files fall back to plain text to avoid UI freeze
+        // UI 멈춤을 피하기 위해 큰 파일은 일반 텍스트로 폴백합니다
         if (Content.Length > 500_000)
         {
             _viewMode = FileViewMode.PlainText;
@@ -108,7 +108,7 @@
             }
             catch
             {
-                // JS interop may fail during disposal
+                // JS interop이 처리 중에 실패할 수 있습니다
             }
         }
     }
@@ -123,7 +123,7 @@
             }
             catch
             {
-                // JS interop may fail during disposal
+                // 폐기 중에 JS interop이 실패할 수 있습니다
             }
         }
     }

@@ -80,7 +80,7 @@
 
                     @if (Message.IsStreaming)
                     {
-                        @* === STREAMING: show live updates === *@
+                        @* === 스트리밍: 라이브 업데이트 표시 === *@
                         var lastToolGroupIndex = groups.FindLastIndex(g => g.Type == ContentGroupType.ToolGroup);
 
                         @foreach (var (group, idx) in groups.Select((g, i) => (g, i)))
@@ -142,11 +142,11 @@
                     }
                     else
                     {
-                        @* === COMPLETED: collapsed activity summary + final text === *@
+                        @* === 완료됨: 축소된 활동 요약 + 최종 텍스트 === *@
                         var activityGroups = groups.Where(g => g.Type != ContentGroupType.FinalText).ToList();
                         var finalText = groups.FirstOrDefault(g => g.Type == ContentGroupType.FinalText);
 
-                        @* Safeguard: if no FinalText exists, promote the last text group *@
+                        @* 안전장치: FinalText가 없으면 마지막 텍스트 그룹 승격 *@
                         if (finalText == null)
                         {
                             var lastTextInActivity = activityGroups.LastOrDefault(g => g.Type == ContentGroupType.Text);
@@ -179,7 +179,7 @@
             }
             else
             {
-                @* Fallback for old messages without Parts *@
+                @* Parts가 없는 기존 메시지의 폴백 *@
                 @if (Message.ToolCalls.Count > 0)
                 {
                     @foreach (var tool in Message.ToolCalls)
@@ -219,7 +219,7 @@
         {
             await JS.InvokeVoidAsync("enhanceMarkdownCodeBlocks", $"msg-{Message.Id}", Message.IsStreaming);
         }
-        catch { /* JS interop may fail during disposal */ }
+        catch { /* JS interop이 처리 중에 실패할 수 있습니다 */ }
     }
 
     protected override void OnParametersSet()
@@ -280,7 +280,7 @@
             return;
         }
 
-        // Only open text-based files in tab
+        // 텍스트 기반 파일만 탭에서 열기
         if (!TextContentTypes.Contains(attachment.ContentType)
             && !attachment.OriginalFileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
             && !attachment.OriginalFileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)

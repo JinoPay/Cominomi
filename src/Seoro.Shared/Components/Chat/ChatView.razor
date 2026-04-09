@@ -21,7 +21,7 @@
         var session = ChatState.CurrentSession;
 
         <div class="chat-container">
-            @* Message area *@
+            @* 메시지 영역 *@
             <CascadingValue Value="_askUserResponseCallback" Name="OnAskUserResponse">
                 <div class="message-area" id="message-list">
                     @if (session == null)
@@ -36,7 +36,7 @@
                             <span class="welcome-title">무엇을 도와드릴까요?</span>
                             @if (!session.Git.IsLocalDir &&
                                  (session.Status is SessionStatus.Pending or SessionStatus.Initializing ||
-                                  (session.Status == SessionStatus.Ready && session.Messages.Count == 0)))
+                                  session is { Status: SessionStatus.Ready, Messages.Count: 0 }))
                             {
                                 <BranchSelector BranchGroups="_branchGroups"
                                                 SelectedBranch="@_selectedBranch"
@@ -64,23 +64,23 @@
                 }
             </CascadingValue>
 
-            @* Quick response bar *@
+            @* 빠른 응답 막대 *@
             <QuickResponseBar IsVisible="@(_quickResponseVisible && !_planReviewVisible && !_askUserBarVisible)"
                               Options="_quickResponseOptions"
                               OnResponse="HandleQuickResponse"/>
 
-            @* AskUserQuestion bar *@
+            @* 사용자 질문 막대 *@
             <AskUserQuestionBar IsVisible="@(_askUserBarVisible && !_planReviewVisible)"
                                 QuestionInput="@_askUserQuestionInput"
                                 OnResponse="HandleAskUserBarResponse"/>
 
-            @* Plan review bar *@
+            @* 플랜 리뷰 막대 *@
             <PlanReviewBar IsVisible="_planReviewVisible"
                            PlanContent="@_planContent"
                            PlanFilePath="@_planFilePath"
                            OnAction="HandlePlanReviewAction"/>
 
-            @* Input area *@
+            @* 입력 영역 *@
             @if (session != null)
             {
                 <InputArea OnSend="HandleSend" OnCancel="HandleCancel"
@@ -163,10 +163,7 @@
             try
             {
                 var cs = ChatState.CurrentSession;
-                var needsBranches = cs != null
-                                    && !cs.Git.IsLocalDir
-                                    && cs.Messages.Count == 0
-                                    && cs.Status is SessionStatus.Pending or SessionStatus.Initializing or SessionStatus.Ready
+                var needsBranches = cs is { Git.IsLocalDir: false, Messages.Count: 0, Status: SessionStatus.Pending or SessionStatus.Initializing or SessionStatus.Ready }
                                     && cs.Id != _branchesForSessionId
                                     && !_isLoadingBranches;
 
@@ -178,19 +175,19 @@
                     return;
                 }
 
-                // Restore AskUserQuestion bar state from session (survives session switches)
+                // 세션에서 사용자 질문 막대 상태 복원 (세션 전환 중에도 유지됨)
                 var currentId = ChatState.CurrentSession?.Id;
                 var pendingAskInput = ChatState.CurrentSession?.PendingAskUserQuestionInput;
                 if (!ChatState.IsStreaming && pendingAskInput != null)
                 {
                     _askUserBarVisible = true;
                     _askUserQuestionInput = pendingAskInput;
-                    // AskUserQuestion supersedes plan review
+                    // 사용자 질문이 플랜 리뷰를 대체함
                     _planReviewVisible = false;
                 }
                 else
                 {
-                    // Only clear bar if session switched (not just any state change)
+                    // 세션 전환 시에만 막대 지우기 (모든 상태 변경이 아님)
                     if (pendingAskInput == null)
                     {
                         _askUserBarVisible = false;
@@ -198,14 +195,14 @@
                     }
                 }
 
-                // Restore plan review state scoped to the current session (only if no AskUserQuestion)
+                // 현재 세션의 플랜 리뷰 상태 복원 (사용자 질문이 없는 경우만)
                 if (!_askUserBarVisible
                     && ChatState.CurrentSession is { PlanCompleted: true, PermissionMode: "plan" }
                     && !ChatState.IsStreaming)
                 {
                     _planReviewVisible = true;
 
-                    // Only restore content if we don't already have content for THIS session
+                    // 이 세션의 콘텐츠가 없을 때만 콘텐츠 복원
                     if (_planSessionId != currentId || _planContent == null)
                     {
                         _planSessionId = currentId;
@@ -226,7 +223,7 @@
                         _planFilePath = null;
                         _planSessionId = currentId;
 
-                        // Restore viewer button if this session previously had a plan file
+                        // 이 세션이 이전에 플랜 파일을 가지고 있었다면 뷰어 버튼 복원
                         if (!string.IsNullOrEmpty(ChatState.CurrentSession?.PlanFilePath)
                             && !string.IsNullOrEmpty(ChatState.CurrentSession?.Git.WorktreePath))
                         {
@@ -277,7 +274,7 @@
 
     private async Task RestorePlanContentAsync(string worktreePath, string? savedPlanFilePath = null)
     {
-        // Capture session ID at call time to detect switches during async I/O
+        // 비동기 I/O 중 스위치 감지를 위해 호출 시점의 세션 ID 캡처
         var targetSessionId = ChatState.CurrentSession?.Id;
 
         string? filePath = null;
@@ -290,7 +287,7 @@
         }
         else
         {
-            // Check both ~/.claude/plans/ (where CLI saves) and worktree .claude/plans/
+            // ~/.claude/plans/(CLI가 저장하는 위치)와 worktree .claude/plans/ 모두 확인
             var dirs = new List<string>();
 
             var homePlansDir = Path.Combine(
@@ -305,7 +302,7 @@
 
             var planFile = dirs
                 .SelectMany(d => Directory.GetFiles(d, "*.md"))
-                .OrderByDescending(f => File.GetLastWriteTimeUtc(f))
+                .OrderByDescending(File.GetLastWriteTimeUtc)
                 .FirstOrDefault();
             if (planFile != null)
             {
@@ -314,7 +311,7 @@
             }
         }
 
-        // Guard: only apply if user hasn't switched sessions during async read
+        // 보호: 비동기 읽기 중 사용자가 세션을 전환하지 않은 경우에만 적용
         if (content != null && ChatState.CurrentSession?.Id == targetSessionId)
         {
             _planFilePath = filePath;
@@ -336,7 +333,7 @@
             var (groups, defaultBranch) = await SessionInitializer.LoadBranchesAsync(ws.RepoLocalPath);
             _branchGroups = groups;
 
-            // If the session already has a base branch (from eager worktree init), use it
+            // 세션이 이미 기본 브랜치를 가지고 있으면(eager worktree init에서) 사용
             var sessionBaseBranch = ChatState.CurrentSession?.Git.BaseBranch;
             _selectedBranch = !string.IsNullOrEmpty(sessionBaseBranch) ? sessionBaseBranch : defaultBranch;
 
@@ -430,7 +427,7 @@
     {
         _askUserBarVisible = false;
         _askUserQuestionInput = null;
-        // Clear persisted state so bar doesn't reappear on session switch
+        // 세션 전환 시 표시줄이 다시 나타나지 않도록 보관된 상태 지우기
         if (ChatState.CurrentSession != null)
             ChatState.CurrentSession.PendingAskUserQuestionInput = null;
         return HandleSend(new ChatInputMessage { Text = response });
@@ -474,7 +471,7 @@
                                              || (string.IsNullOrWhiteSpace(input.Text) && input.Attachments.Count == 0))
             return Task.CompletedTask;
 
-        // Capture plan review state before clearing
+        // 지우기 전에 플랜 리뷰 상태 캡처
         var wasPlanReviewVisible = _planReviewVisible;
 
         _quickResponseVisible = false;
@@ -482,21 +479,20 @@
         _askUserBarVisible = false;
         _askUserQuestionInput = null;
         _planReviewVisible = false;
-        // Clear persisted AskUserQuestion state
+        // 보관된 AskUserQuestion 상태 지우기
         if (ChatState.CurrentSession != null)
             ChatState.CurrentSession.PendingAskUserQuestionInput = null;
 
-        // If plan review was visible, treat user input as plan feedback
+        // 플랜 리뷰가 표시된 경우 사용자 입력을 플랜 피드백으로 취급
         if (wasPlanReviewVisible && !string.IsNullOrWhiteSpace(input.Text))
         {
             input.Text = $"플랜에 대한 피드백: {input.Text}\n\n이 피드백을 반영하여 플랜을 수정해주세요.";
-            // Reset PlanCompleted so HandleStateChanged doesn't restore stale plan review
-            // before ApplyResultAsync has a chance to set the new plan content
+            // HandleStateChanged가 ApplyResultAsync가 새로운 플랜 콘텐츠를 설정할 기회를 가지기 전에 만료된 플랜 리뷰를 복원하지 않도록 PlanCompleted 재설정
             if (ChatState.CurrentSession != null)
                 ChatState.CurrentSession.PlanCompleted = false;
         }
 
-        // Extract chain state from input
+        // 입력에서 체인 상태 추출
         if (input.PendingChain is { Count: > 0 })
         {
             _pendingChain = input.PendingChain;
@@ -508,7 +504,7 @@
         var branch = _selectedBranch;
         var sessionId = session.Id;
 
-        // Cancel previous task only for the SAME session
+        // 같은 세션에 대해서만 이전 작업 취소
         if (_sessionTasks.TryGetValue(sessionId, out var prev))
         {
             prev.Cts.Cancel();
@@ -537,7 +533,7 @@
             {
                 _sessionTasks.Remove(sessionId);
             }
-        });
+        }, ct);
 
         _sessionTasks[sessionId] = (cts, task);
         return Task.CompletedTask;
@@ -589,11 +585,7 @@
 
         // Skill chaining: auto-send next step if not cancelled/errored/paused
         if (_pendingChain is { Count: > 0 }
-            && !result.WasCancelled
-            && result.ErrorMessage == null
-            && !result.PlanReviewVisible
-            && !result.QuickResponseVisible
-            && result.AskUserQuestionInput == null)
+            && result is { WasCancelled: false, ErrorMessage: null, PlanReviewVisible: false, QuickResponseVisible: false, AskUserQuestionInput: null })
         {
             var nextStep = _pendingChain[0];
             _pendingChain.RemoveAt(0);

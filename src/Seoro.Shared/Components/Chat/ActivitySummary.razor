@@ -83,7 +83,7 @@
 @code {
     [Parameter][EditorRequired] public List<ContentGroup> ActivityGroups { get; set; } = [];
 
-    [Parameter][EditorRequired] public ActivitySummaryInfo SummaryInfo { get; set; } = default!;
+    [Parameter][EditorRequired] public ActivitySummaryInfo SummaryInfo { get; set; } = null!;
 
     [Parameter] public TimeSpan? Duration { get; set; }
 

@@ -333,7 +333,7 @@ public class ClaudeService(
         Dictionary<string, string>? envVars, StreamingContext ctx,
         [EnumeratorCancellation] CancellationToken token)
     {
-        logger.LogDebug("Executing: {FileName} {Arguments}", fileName, arguments);
+        logger.LogDebug("실행 중: {FileName} {Arguments}", fileName, arguments);
         var loginPath = await shellService.GetLoginShellPathAsync();
         var process = StartProcess(fileName, arguments, workingDir, envVars, loginPath);
         var agent = new AgentProcess(process, cts, logger);

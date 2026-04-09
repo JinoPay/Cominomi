@@ -25,7 +25,7 @@
     {
         <div class="sidebar-explorer-empty">
             <MudIcon Icon="@Icons.Material.Filled.FolderOff" Size="Size.Large" Style="opacity: 0.15;"/>
-            <span>No files found</span>
+            <span>파일을 찾을 수 없습니다</span>
         </div>
     }
     else
@@ -47,11 +47,11 @@
     private DiffSummary? _diff;
     private string? _lastSessionId;
 
-    // Per-session expanded dirs state
+    // 세션별 확장된 디렉터리 상태
     private readonly Dictionary<string, HashSet<string>> _sessionExpandedDirs = new();
     private HashSet<string> _expandedDirs = new();
 
-    // FileSystemWatcher for throttled change detection
+    // 스로틀된 변경 감지를 위한 FileSystemWatcher
     private FileSystemWatcher? _watcher;
     private Timer? _debounceTimer;
     private readonly object _debounceLock = new();
@@ -68,13 +68,13 @@
         var sessionId = ChatState.CurrentSession?.Id;
         if (sessionId != _lastSessionId)
         {
-            // Save current session's expanded state
+            // 현재 세션의 확장된 상태 저장
             if (_lastSessionId != null)
                 _sessionExpandedDirs[_lastSessionId] = _expandedDirs;
 
             _lastSessionId = sessionId;
 
-            // Restore or initialize expanded state for this session
+            // 이 세션의 확장된 상태 복원 또는 초기화
             if (sessionId != null && _sessionExpandedDirs.TryGetValue(sessionId, out var saved))
             {
                 _expandedDirs = saved;
@@ -87,7 +87,7 @@
             await LoadFilesAsync();
             StartWatching();
 
-            // Save initial (collapsed) state for this session
+            // 이 세션의 초기 (축소된) 상태 저장
             if (sessionId != null && !_sessionExpandedDirs.ContainsKey(sessionId))
             {
                 _sessionExpandedDirs[sessionId] = _expandedDirs;
@@ -121,7 +121,7 @@
                     await LoadFilesAsync(true);
                     var newDiffFiles = _diff?.Files.Select(f => f.FilePath).ToHashSet() ?? new HashSet<string>();
 
-                    // Auto-expand directories of newly changed files
+                    // 새로 변경된 파일의 디렉터리 자동 확장
                     var newlyChanged = newDiffFiles.Except(prevDiffFiles).ToList();
                     if (newlyChanged.Count > 0)
                     {
@@ -133,7 +133,7 @@
             }
             catch
             {
-                /* component may be disposed */
+                /* 컴포넌트가 폐기되었을 수 있음 */
             }
         };
 
@@ -197,9 +197,9 @@
 
             _tree = BuildTree(files);
 
-            // No auto-expand: tree starts collapsed by default
+            // 자동 확장 없음: 트리는 기본적으로 축소된 상태로 시작합니다
 
-            // Always ensure diff file parents are expanded
+            // 항상 diff 파일 부모 확장 확인
             if (_diff != null)
             {
                 foreach (var file in _diff.Files)
@@ -217,7 +217,7 @@
         }
     }
 
-    // Parameterless overload for button click
+    // 버튼 클릭용 매개변수 없는 오버로드
     private Task LoadFilesAsync()
     {
         return LoadFilesAsync(false);
@@ -235,7 +235,7 @@
         }
         catch (Exception ex)
         {
-            ChatState.Tabs.OpenFileContentTab(filePath, $"Error reading file: {ex.Message}");
+            ChatState.Tabs.OpenFileContentTab(filePath, $"파일 읽기 오류: {ex.Message}");
         }
     }
 
@@ -329,7 +329,7 @@
             var sessionId = ChatState.CurrentSession?.Id;
             if (sessionId != _lastSessionId)
             {
-                // Save current session's expanded state
+                // 현재 세션의 확장된 상태 저장
                 if (_lastSessionId != null)
                     _sessionExpandedDirs[_lastSessionId] = _expandedDirs;
 
@@ -337,7 +337,7 @@
 
                 if (sessionId != null)
                 {
-                    // Restore or initialize expanded state for this session
+                    // 이 세션의 확장된 상태 복원 또는 초기화
                     if (_sessionExpandedDirs.TryGetValue(sessionId, out var saved))
                         _expandedDirs = saved;
                     else
@@ -371,7 +371,7 @@
         ChatState.OnChange -= HandleStateChanged;
         StopWatching();
 
-        // Save current session state before dispose
+        // 폐기 전에 현재 세션 상태 저장
         if (_lastSessionId != null)
             _sessionExpandedDirs[_lastSessionId] = _expandedDirs;
     }

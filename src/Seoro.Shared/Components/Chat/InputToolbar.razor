@@ -89,7 +89,7 @@
     [Parameter] public EventCallback OnViewPlan { get; set; }
 
     private static readonly string[] PermissionModes = ["bypassAll", "plan"];
-    // EffortLevels removed — toggle targets are now model-dependent via GetMaxEffortLevel
+    // EffortLevels 제거 — 토글 대상이 이제 GetMaxEffortLevel을 통해 모델 종속
 
     private string GetPermissionModeTooltip()
     {

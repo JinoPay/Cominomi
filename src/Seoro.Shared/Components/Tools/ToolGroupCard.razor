@@ -55,7 +55,7 @@
 
     protected override void OnParametersSet()
     {
-        // Auto-expand when active (streaming), auto-collapse when done
+        // 활성 상태일 때 자동 확장 (스트리밍), 완료 시 자동 축소
         if (IsActive && !_wasActive)
             _expanded = true;
         else if (!IsActive && _wasActive)

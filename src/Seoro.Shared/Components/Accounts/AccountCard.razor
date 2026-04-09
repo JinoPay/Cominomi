@@ -157,7 +157,6 @@
     private bool _backupMissing;
     private string _editName = "";
     private AccountUsageInfo? _usage;
-    private string? _usageError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -183,21 +182,18 @@
     private async Task FetchUsage()
     {
         _fetchingUsage = true;
-        _usageError = null;
         StateHasChanged();
         try
         {
             _usage = await AccountService.FetchUsageAsync(Account.Id);
             if (_usage == null)
             {
-                _usageError = "failed";
                 if (!AutoFetch)
                     Snackbar.Add("사용량 정보를 불러올 수 없습니다.", Severity.Warning);
             }
         }
         catch (Exception ex)
         {
-            _usageError = ex.Message;
             if (!AutoFetch)
                 Snackbar.Add($"사용량 조회 오류: {ex.Message}", Severity.Error);
         }
@@ -279,7 +275,7 @@
 
         var diff = resetsAt.Value - DateTimeOffset.UtcNow;
 
-        if (diff.TotalSeconds > 0 && diff.TotalHours < 24)
+        if (diff is { TotalSeconds: > 0, TotalHours: < 24 })
         {
             if (diff.TotalMinutes < 1) return "곧 재설정";
             if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}분 후 재설정";

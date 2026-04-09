@@ -2,8 +2,8 @@
 namespace Seoro.Shared.Services.Infrastructure;
 
 /// <summary>
-///     Unified stderr/error text classifier for external processes (git, gh, claude).
-///     Replaces ad-hoc Contains() checks scattered across GitService, GhService, ClaudeService.
+///     외부 프로세스(git, gh, claude)의 stderr/오류 텍스트를 분류합니다.
+///     GitService, GhService, ClaudeService에 산재된 임시 Contains() 검사를 대체합니다.
 /// </summary>
 public static class ProcessErrorClassifier
 {
@@ -14,7 +14,7 @@ public static class ProcessErrorClassifier
         new(["authentication", "unauthorized", "invalid api key"], ErrorCode.ClaudeProcessFailed,
             ErrorCategory.Permanent)
     ];
-    // ─── Pattern definitions ────────────────────────────────────────
+    // ─── 패턴 정의 ────────────────────────────────────────
 
     private static readonly ErrorPattern[] GitPatterns =
     [
@@ -24,7 +24,7 @@ public static class ProcessErrorClassifier
     ];
 
     /// <summary>
-    ///     Classify a Claude CLI error.
+    ///     Claude CLI 오류를 분류합니다.
     /// </summary>
     public static AppError ClassifyClaudeError(string stderr, string? stdout = null)
     {
@@ -33,10 +33,10 @@ public static class ProcessErrorClassifier
                ?? new AppError(ErrorCode.ClaudeProcessFailed, ErrorCategory.Unknown, stderr);
     }
 
-    // ─── Public API ─────────────────────────────────────────────────
+    // ─── 공개 API ─────────────────────────────────────────────────
 
     /// <summary>
-    ///     Classify a git process error.
+    ///     git 프로세스 오류를 분류합니다.
     /// </summary>
     public static AppError ClassifyGitError(string stderr, string? stdout = null)
     {
@@ -46,7 +46,7 @@ public static class ProcessErrorClassifier
     }
 
     /// <summary>
-    ///     Classify a push error specifically (backward compatible with AppError.ClassifyPushError).
+    ///     push 오류를 분류합니다 (AppError.ClassifyPushError와 하위 호환).
     /// </summary>
     public static AppError ClassifyPushError(string errorText)
     {
@@ -63,7 +63,7 @@ public static class ProcessErrorClassifier
         return null;
     }
 
-    // ─── Internals ──────────────────────────────────────────────────
+    // ─── 내부 ──────────────────────────────────────────────────
 
     private static string CombineText(string stderr, string? stdout)
     {

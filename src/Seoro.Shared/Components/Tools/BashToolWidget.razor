@@ -55,14 +55,14 @@
             if (doc.RootElement.TryGetProperty("command", out var cmd))
             {
                 var text = cmd.GetString() ?? "";
-                // Show first line only for multi-line commands
+                // 여러 줄 명령에 대해 첫 줄만 표시
                 var firstLine = text.Split('\n')[0];
                 return firstLine.Length > 80 ? firstLine[..80] + "..." : firstLine;
             }
         }
         catch (JsonException)
         {
-            /* malformed tool input — render empty */
+            /* 잘못된 도구 입력 — 빈 상태로 렌더링 */
         }
 
         return "";
@@ -70,7 +70,7 @@
 
     private static string StripAnsi(string text)
     {
-        // Remove ANSI escape sequences
+        // ANSI 이스케이프 시퀀스 제거
         return Regex.Replace(text, @"\x1B\[[0-9;]*[a-zA-Z]", "");
     }
 

@@ -449,7 +449,7 @@
     private bool _exporting;
     private string _selectedRange = "30";
 
-    // Model colors for visual distinction
+    // 시각적 구분을 위한 모델 색상
     private static readonly string[] _modelColors =
     [
         "var(--mud-palette-primary)",
@@ -464,10 +464,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Scan ALL sessions on computer (same source as dashboard)
+        // 컴퓨터의 모든 세션 스캔 (대시보드와 동일한 출처)
         _dashStats = await GamificationService.GetDashboardStatsAsync();
 
-        // Refresh stats cache from session files if stale (lastComputedDate != today)
+        // 만료된 경우 세션 파일에서 통계 캐시 새로 고침 (lastComputedDate != today)
         await StatsCacheService.RefreshIfStaleAsync();
 
         await LoadStats();

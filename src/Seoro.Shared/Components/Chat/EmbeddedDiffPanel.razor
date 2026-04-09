@@ -3,7 +3,7 @@
 @implements IAsyncDisposable
 
 <div class="embedded-diff-panel">
-    @* === Top Section: Explorer / Changes === *@
+    @* === 상단 섹션: Explorer / Changes === *@
     <div class="right-panel-top" style="height: @(_topPanelStyle);">
         <div class="embedded-diff-toolbar">
             <div class="embedded-diff-tabs">
@@ -33,11 +33,11 @@
         </div>
     </div>
 
-    @* === Vertical Resizer === *@
+    @* === 수직 리사이저 === *@
     <VerticalPanelResizer CurrentSize="_topPanelHeight ?? 0" MinSize="120" MaxSize="800"
                           OnResize="HandleVerticalResize"/>
 
-    @* === Bottom Section: Terminal === *@
+    @* === 하단 섹션: Terminal === *@
     <div class="right-panel-bottom">
         <TerminalPanel @ref="_terminalPanel"/>
     </div>
@@ -78,7 +78,7 @@
         _topPanelHeight = newHeight;
         _topPanelStyle = $"{newHeight}px";
 
-        // Re-fit xterm.js after resize
+        // 리사이즈 후 xterm.js 다시 맞춤
         if (_terminalPanel != null)
             await _terminalPanel.FitAsync();
     }

@@ -130,7 +130,7 @@
     private readonly HashSet<FileChangeType> _collapsedGroups = [];
     private (int Ahead, int Behind)? _aheadBehind;
 
-    // Commit fields
+    // 커밋 필드
     private string _commitMessage = "";
     private bool _committing;
     private bool _generating;
@@ -199,7 +199,7 @@
             }
             catch
             {
-                /* component may be disposed */
+                /* 컴포넌트가 폐기되었을 수 있음 */
             }
         };
 
@@ -246,7 +246,7 @@
             return;
         }
 
-        // Only show loading UI on initial load to prevent flickering
+        // 초기 로드 시에만 로딩 UI를 표시하여 깜빡임 방지
         if (!_initialLoaded)
         {
             _loading = true;

@@ -52,7 +52,7 @@ public static partial class ContentGrouper
 
             if (part.Type == ContentPartType.ToolCall && part.ToolCall != null)
             {
-                // Skip child tool calls — they render inside their parent Agent widget
+                // 자식 도구 호출 건너뛰기 — 부모 Agent 위젯 내에서 렌더링됨
                 if (part.ToolCall.ParentToolUseId != null)
                     continue;
 
@@ -61,7 +61,7 @@ public static partial class ContentGrouper
             }
             else if (part.Type == ContentPartType.Thinking && !string.IsNullOrEmpty(part.Text))
             {
-                // Flush any pending tool group
+                // 대기 중인 도구 그룹 플러시
                 if (currentToolGroup != null)
                 {
                     currentToolGroup.Summary = BuildToolSummary(currentToolGroup.Parts);
@@ -77,7 +77,7 @@ public static partial class ContentGrouper
             }
             else if (part.Type == ContentPartType.Text && !string.IsNullOrEmpty(part.Text))
             {
-                // Flush any pending tool group
+                // 대기 중인 도구 그룹 플러시
                 if (currentToolGroup != null)
                 {
                     currentToolGroup.Summary = BuildToolSummary(currentToolGroup.Parts);
@@ -93,14 +93,14 @@ public static partial class ContentGrouper
             }
         }
 
-        // Flush final tool group
+        // 최종 도구 그룹 플러시
         if (currentToolGroup != null)
         {
             currentToolGroup.Summary = BuildToolSummary(currentToolGroup.Parts);
             groups.Add(currentToolGroup);
         }
 
-        // Post-process: mark intermediate text and final text
+        // 후처리: 중간 텍스트와 최종 텍스트 표시
         ClassifyTextGroups(groups, isStreaming);
 
         return groups;
@@ -108,31 +108,31 @@ public static partial class ContentGrouper
 
     private static bool IsIntermediateText(string text)
     {
-        // Language-agnostic structural heuristic:
-        // Text containing code, markdown formatting, or links is substantive
+        // 언어 중립적인 구조적 휴리스틱:
+        // 코드, 마크다운 형식 또는 링크가 포함된 텍스트는 실질적임
         if (text.Contains('`') || text.Contains("](") || text.Contains("**") || text.Contains("## "))
             return false;
 
-        // Multi-paragraph text likely contains substance
+        // 여러 단락의 텍스트는 실질적인 내용을 포함할 가능성이 높음
         if (text.Contains("\n\n"))
             return false;
 
-        // Short, unformatted, single-block text is likely transitional
+        // 짧고 형식이 없는 단일 블록 텍스트는 과도기적일 가능성이 높음
         return true;
     }
 
     private static bool IsLikelyVerboseText(string text)
     {
-        // Very long text is likely verbose planning/description
+        // 매우 긴 텍스트는 장황한 계획/설명일 가능성이 높음
         if (text.Length > 400) return true;
 
-        // Numbered lists with 3+ items
+        // 3개 이상의 항목이 있는 번호 매김 목록
         if (NumberedListRegex().Count(text) >= 3) return true;
 
-        // Bullet lists with 3+ items
+        // 3개 이상의 항목이 있는 글머리 목록
         if (BulletListRegex().Count(text) >= 3) return true;
 
-        // Many lines suggest planning/instruction text
+        // 많은 줄은 계획/명령 텍스트를 의미함
         if (text.Split('\n').Length >= 6) return true;
 
         return false;
@@ -151,7 +151,7 @@ public static partial class ContentGrouper
 
     private static void ClassifyTextGroups(List<ContentGroup> groups, bool isStreaming)
     {
-        // Find the last text group index
+        // 마지막 텍스트 그룹 인덱스 찾기
         var lastTextIndex = -1;
         for (var i = groups.Count - 1; i >= 0; i--)
             if (groups[i].Type == ContentGroupType.Text)
@@ -174,7 +174,7 @@ public static partial class ContentGrouper
             {
                 if (hasNextTool)
                 {
-                    // More tool calls follow — only collapse if clearly filler
+                    // 더 많은 도구 호출이 이어짐 — 명확한 채우기인 경우에만 축소
                     if (text.Length <= 80 && IsIntermediateText(text))
                         group.IsIntermediate = true;
                     else
@@ -182,14 +182,14 @@ public static partial class ContentGrouper
                 }
                 else
                 {
-                    // Final text after all tools — always show
+                    // 모든 도구 후 최종 텍스트 — 항상 표시
                     group.Type = ContentGroupType.FinalText;
                 }
 
                 continue;
             }
 
-            // Non-last text: check if intermediate (between tool groups or short/filler)
+            // 마지막이 아닌 텍스트: 중간 여부 확인 (도구 그룹 사이 또는 짧음/채우기)
             if (hasPrevTool || hasNextTool)
                 if (text.Length <= 150 || IsIntermediateText(text) || IsLikelyVerboseText(text))
                     group.IsIntermediate = true;
@@ -218,7 +218,7 @@ public static partial class ContentGrouper
         }
         catch
         {
-            /* input may not be valid JSON */
+            /* 입력이 유효한 JSON이 아닐 수 있음 */
         }
     }
 }

@@ -1,14 +1,14 @@
 namespace Seoro.Shared.Services.Infrastructure;
 
 /// <summary>
-///     Writes files atomically: write to temp file first, then rename to target.
-///     Prevents data corruption from crashes or concurrent writes mid-write.
+///     파일을 원자적으로 씁니다: 먼저 임시 파일에 작성한 후 대상으로 이름을 변경합니다.
+///     충돌이나 동시 쓰기 중간에 발생하는 데이터 손상을 방지합니다.
 /// </summary>
 public static class AtomicFileWriter
 {
     /// <summary>
-    ///     Atomically appends content to a file by reading existing content, appending, then writing atomically.
-    ///     Creates the file if it doesn't exist.
+    ///     기존 콘텐츠를 읽은 후 추가한 다음 원자적으로 작성하여 파일에 콘텐츠를 원자적으로 추가합니다.
+    ///     파일이 없으면 생성합니다.
     /// </summary>
     public static async Task AppendAsync(string targetPath, string content)
     {
@@ -30,14 +30,14 @@ public static class AtomicFileWriter
         }
         finally
         {
-            // Clean up temp file if move failed
+            // 이동 실패 시 임시 파일 정리
             try
             {
                 if (File.Exists(tmpPath)) File.Delete(tmpPath);
             }
             catch
             {
-                /* best-effort: temp file cleanup is non-critical */
+                /* 최선의 노력: 임시 파일 정리는 필수가 아님 */
             }
         }
     }

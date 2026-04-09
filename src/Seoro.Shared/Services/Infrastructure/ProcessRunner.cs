@@ -10,7 +10,7 @@ public class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner
 
     public async Task<ProcessResult> RunAsync(ProcessRunOptions options, CancellationToken ct = default)
     {
-        logger.LogDebug("Running: {FileName} {Args}", options.FileName, string.Join(" ", options.Arguments));
+        logger.LogDebug("실행 중: {FileName} {Args}", options.FileName, string.Join(" ", options.Arguments));
 
         var psi = CreateProcessStartInfo(options);
         using var process = new Process { StartInfo = psi };
@@ -23,7 +23,7 @@ public class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner
         {
             process.Start();
 
-            // Write stdin if provided, then close the stream
+            // 표준 입력이 제공되면 작성한 후 스트림 닫기
             if (options.StandardInput != null)
             {
                 await process.StandardInput.WriteAsync(options.StandardInput);
@@ -40,22 +40,22 @@ public class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner
             await process.WaitForExitAsync(timeoutCts.Token);
 
             if (truncated)
-                logger.LogDebug("{FileName} stdout truncated at {MaxBytes} bytes", options.FileName,
+                logger.LogDebug("{FileName} 표준 출력이 {MaxBytes} 바이트에서 잘림", options.FileName,
                     options.MaxOutputBytes);
 
-            logger.LogDebug("{FileName} exited with code {ExitCode}", options.FileName, process.ExitCode);
+            logger.LogDebug("{FileName} 종료 코드 {ExitCode}로 종료됨", options.FileName, process.ExitCode);
             return new ProcessResult(process.ExitCode == 0, stdout.Trim(), stderr.Trim(), process.ExitCode, truncated);
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
         {
-            // Timeout — not caller cancellation
+            // 시간 초과 — 호출자 취소 아님
             KillProcess(process, options.KillEntireProcessTree);
-            logger.LogWarning("{FileName} timed out after {Timeout}s", options.FileName, timeout.TotalSeconds);
-            return new ProcessResult(false, "", $"Process timed out after {timeout.TotalSeconds}s", -1);
+            logger.LogWarning("{FileName}이(가) {Timeout}초 후 시간 초과됨", options.FileName, timeout.TotalSeconds);
+            return new ProcessResult(false, "", $"프로세스가 {timeout.TotalSeconds}초 후 시간 초과됨", -1);
         }
         catch (OperationCanceledException)
         {
-            // Caller cancelled
+            // 호출자가 취소함
             KillProcess(process, options.KillEntireProcessTree);
             throw;
         }
@@ -63,7 +63,7 @@ public class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner
 
     public Task<StreamingProcess> RunStreamingAsync(ProcessRunOptions options, CancellationToken ct = default)
     {
-        logger.LogDebug("Running (streaming): {FileName} {Args}", options.FileName,
+        logger.LogDebug("실행 중 (스트리밍): {FileName} {Args}", options.FileName,
             string.Join(" ", options.Arguments));
 
         try
@@ -72,19 +72,19 @@ public class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner
             var process = new Process { StartInfo = psi };
             process.Start();
 
-            // Capture stderr in background so the caller only needs to read stdout
+            // 호출자가 표준 출력만 읽으면 되도록 백그라운드에서 stderr 캡처
             var stderrTask = process.StandardError.ReadToEndAsync(ct);
 
             return Task.FromResult(new StreamingProcess(process, stderrTask, options.KillEntireProcessTree, logger));
         }
         catch (FileNotFoundException ex)
         {
-            logger.LogError(ex, "Executable not found: {FileName}", options.FileName);
+            logger.LogError(ex, "실행 파일을 찾을 수 없음: {FileName}", options.FileName);
             throw;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to start process: {FileName}", options.FileName);
+            logger.LogError(ex, "프로세스 시작 실패: {FileName}", options.FileName);
             throw;
         }
     }
@@ -115,8 +115,8 @@ public class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner
     }
 
     /// <summary>
-    ///     Reads up to <paramref name="maxBytes" /> from the stream, then discards the rest.
-    ///     Returns the captured text and whether the output was truncated.
+    ///     스트림에서 <paramref name="maxBytes" />까지 읽은 후 나머지를 버립니다.
+    ///     캡처된 텍스트와 출력이 잘렸는지 여부를 반환합니다.
     /// </summary>
     private static async Task<(string Text, bool Truncated)> ReadBoundedAsync(
         StreamReader reader, int maxBytes, CancellationToken ct)
@@ -132,7 +132,7 @@ public class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner
             if (remaining <= 0)
             {
                 truncated = true;
-                // Drain remaining output so the process doesn't block on a full pipe
+                // 프로세스가 가득 찬 파이프에서 차단되지 않도록 남은 출력 비우기
                 while (await reader.ReadAsync(buffer.AsMemory(), ct) > 0)
                 {
                 }

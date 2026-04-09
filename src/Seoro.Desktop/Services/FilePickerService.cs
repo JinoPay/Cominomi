@@ -22,7 +22,7 @@ public class FilePickerService(PhotinoWindowHolder windowHolder) : IFilePickerSe
             if (!File.Exists(path)) continue;
 
             var fileName = Path.GetFileName(path);
-            var data = File.ReadAllBytes(path);
+            var data = await File.ReadAllBytesAsync(path);
             var contentType = GetContentType(Path.GetExtension(fileName));
 
             var attachment = new PendingAttachment

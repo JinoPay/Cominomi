@@ -147,9 +147,9 @@ public class HooksEngine(
             });
 
             if (!string.IsNullOrWhiteSpace(result.Stdout))
-                logger.LogDebug("Hook '{Command}' stdout: {Stdout}", hook.Command, result.Stdout.TrimEnd());
+                logger.LogDebug("훅 '{Command}' 표준 출력: {Stdout}", hook.Command, result.Stdout.TrimEnd());
             if (!string.IsNullOrWhiteSpace(result.Stderr))
-                logger.LogWarning("Hook '{Command}' stderr: {Stderr}", hook.Command, result.Stderr.TrimEnd());
+                logger.LogWarning("훅 '{Command}' 표준 오류: {Stderr}", hook.Command, result.Stderr.TrimEnd());
             if (!result.Success)
                 logger.LogWarning("Hook '{Command}' for event {Event} exited with code {ExitCode}",
                     hook.Command, hookEvent, result.ExitCode);

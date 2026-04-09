@@ -108,7 +108,7 @@ public class PluginExecutionEngine(
         foreach (var plugin in plugins.Where(p => p.IsEnabled && p.Status == PluginStatus.Valid))
             await LoadPluginAsync(plugin);
 
-        logger.LogInformation("Plugin engine loaded {Count} plugin(s)", _loaded.Count);
+        logger.LogInformation("플러그인 엔진이 {Count}개 플러그인을 로드함", _loaded.Count);
     }
 
     public async Task UnloadPluginAsync(string pluginId)
@@ -140,7 +140,7 @@ public class PluginExecutionEngine(
 
         if (plugin.Status != PluginStatus.Valid)
         {
-            logger.LogWarning("Cannot load plugin '{Id}': status is {Status}", plugin.Id, plugin.Status);
+            logger.LogWarning("플러그인 '{Id}'을 로드할 수 없음: 상태가 {Status}임", plugin.Id, plugin.Status);
             return false;
         }
 
@@ -157,7 +157,7 @@ public class PluginExecutionEngine(
                 {
                     if (!Enum.TryParse<HookEvent>(hook.Event, out var hookEvent))
                     {
-                        logger.LogWarning("Plugin '{Id}': unknown hook event '{Event}'", plugin.Id, hook.Event);
+                        logger.LogWarning("플러그인 '{Id}': 알 수 없는 훅 이벤트 '{Event}'", plugin.Id, hook.Event);
                         continue;
                     }
 
@@ -202,7 +202,7 @@ public class PluginExecutionEngine(
             plugin.Status = PluginStatus.Loaded;
             _loaded[plugin.Id] = plugin;
 
-            logger.LogInformation("Plugin '{Id}' loaded (hooks: {Hooks}, skills: {Skills})",
+            logger.LogInformation("플러그인 '{Id}' 로드됨 (훅: {Hooks}, 스킬: {Skills})",
                 plugin.Id,
                 _pluginHooks.GetValueOrDefault(plugin.Id)?.Count ?? 0,
                 _pluginSkills.GetValueOrDefault(plugin.Id)?.Count ?? 0);

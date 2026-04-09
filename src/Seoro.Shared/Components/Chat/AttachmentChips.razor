@@ -12,7 +12,7 @@
                      OnClose="@(() => OnRemove.InvokeAsync(attachment))"
                      OnClick="@(() => PreviewAttachment(attachment))"
                      Style="font-size: 0.75rem; cursor: pointer;">
-                @if (attachment.IsImage && attachment.PreviewDataUrl != null)
+                @if (attachment is { IsImage: true, PreviewDataUrl: not null })
                 {
                     <img src="@attachment.PreviewDataUrl" alt="@attachment.FileName"
                          @onclick="@(() => Lightbox.Open(attachment.PreviewDataUrl!, attachment.FileName))"
@@ -63,7 +63,7 @@
         }
         catch
         {
-            // Binary file — cannot preview as text
+            // 바이너리 파일 — 텍스트로 미리보기할 수 없음
         }
     }
 

@@ -4,7 +4,7 @@
 @if (IsVisible)
 {
     <div class="plan-review-panel">
-        @* Header *@
+        @* 헤더 *@
         <div class="plan-review-header" @onclick="TogglePreview">
             <div class="plan-review-header-left">
                 <div class="plan-review-icon-badge">
@@ -22,7 +22,7 @@
                      Size="Size.Small" Style="width: 18px; height: 18px; opacity: 0.5;"/>
         </div>
 
-        @* Plan content markdown *@
+        @* 플랜 콘텐츠 마크다운 *@
         @if (_showPreview)
         {
             <div class="plan-review-content" id="plan-review-@_planId">
@@ -41,7 +41,7 @@
             </div>
         }
 
-        @* Action buttons *@
+        @* 작업 버튼 *@
         <div class="plan-review-actions">
             <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
                        StartIcon="@Icons.Material.Filled.PlayArrow"

@@ -14,7 +14,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
     public string ClaudeHomeDir { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
 
-    // ~/.claude/.claude.json (primary), fallback: ~/.claude.json (matches cc-account-switcher behavior)
+    // ~/.claude/.claude.json (주요), 폴백: ~/.claude.json (cc-account-switcher 동작과 일치)
     private string ConfigFilePath => ResolveConfigFilePath();
     private string CredentialsFilePath => Path.Combine(ClaudeHomeDir, ".credentials.json");
 
@@ -40,7 +40,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         return primary; // default even if not yet created
     }
 
-    // ── Config (shared across platforms) ──────────────────────────────────
+    // ── 설정 (플랫폼 간 공유) ──────────────────────────────────
 
     public async Task<string?> ReadCurrentConfigAsync()
     {
@@ -80,7 +80,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
 
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             await AtomicFileWriter.WriteAsync(targetPath, merged);
-            logger.LogDebug("Wrote Claude config to {Path}", targetPath);
+            logger.LogDebug("Claude 설정을 {Path}에 작성함", targetPath);
         }
         catch (Exception ex)
         {
@@ -89,7 +89,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
     }
 
-    // ── Credentials (platform-specific) ───────────────────────────────────
+    // ── 자격증명 (플랫폼별) ───────────────────────────────────
 
     public async Task<string?> ReadCurrentCredentialsAsync()
     {
@@ -106,7 +106,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
             await WriteCredentialsFileAsync(credentialsJson);
     }
 
-    // ── macOS Keychain ─────────────────────────────────────────────────────
+    // ── macOS 키체인 ─────────────────────────────────────────────────────
 
     private async Task<string?> ReadKeychainAsync()
     {
@@ -119,7 +119,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
 
         if (!result.Success || string.IsNullOrWhiteSpace(result.Stdout))
         {
-            if (result.ExitCode != 44) // 44 = item not found — expected when not logged in
+            if (result.ExitCode != 44) // 44 = 항목을 찾을 수 없음 — 로그인하지 않았을 때 예상됨
                 logger.LogWarning("Keychain 읽기 실패 (exit {Code}): {Err}", result.ExitCode, result.Stderr);
             return null;
         }
@@ -138,15 +138,15 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
 
         if (!result.Success)
         {
-            var msg = $"Keychain write failed (exit {result.ExitCode}): {result.Stderr}";
-            logger.LogError("Keychain 쓰기 실패 (exit {Code}): {Err}", result.ExitCode, result.Stderr);
+            var msg = $"키체인 쓰기 실패 (exit {result.ExitCode}): {result.Stderr}";
+            logger.LogError("키체인 쓰기 실패 (exit {Code}): {Err}", result.ExitCode, result.Stderr);
             throw new InvalidOperationException(msg);
         }
 
         logger.LogDebug("macOS Keychain에 자격증명 저장됨");
     }
 
-    // ── Windows credentials file ───────────────────────────────────────────
+    // ── Windows 자격증명 파일 ───────────────────────────────────────────
 
     private async Task<string?> ReadCredentialsFileAsync()
     {
@@ -168,7 +168,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         {
             Directory.CreateDirectory(ClaudeHomeDir);
             await AtomicFileWriter.WriteAsync(CredentialsFilePath, credentialsJson);
-            logger.LogDebug("Wrote credentials to {Path}", CredentialsFilePath);
+            logger.LogDebug("자격증명을 {Path}에 작성함", CredentialsFilePath);
         }
         catch (Exception ex)
         {
@@ -177,7 +177,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
     }
 
-    // ── Clear (logout) ──────────────────────────────────────────────────────
+    // ── 정리 (로그아웃) ──────────────────────────────────────────────────────
 
     public async Task ClearCredentialsAsync()
     {

@@ -101,8 +101,8 @@
 
     private string _customModelId = "";
 
-    // Optimistic model — set only during user selection, before parent confirms.
-    // Cleared as soon as parent delivers the matching Model parameter.
+    // 낙관적 모델 — 부모가 확인하기 전에 사용자 선택 중에만 설정됩니다.
+    // 부모가 일치하는 Model 파라미터를 전달하면 즉시 지워집니다.
     private string? _pendingModel;
 
     private string EffectiveModel => _pendingModel ?? ChatState.CurrentSession?.Model ?? Model;
@@ -118,7 +118,7 @@
 
     protected override void OnParametersSet()
     {
-        // Parent confirmed the pending selection (or sent a new model via session switch)
+        // 부모가 대기 중인 선택을 확인했거나 세션 전환을 통해 새 모델을 보냈습니다.
         _pendingModel = null;
     }
 
@@ -129,8 +129,8 @@
             var sessionModel = ChatState.CurrentSession?.Model ?? string.Empty;
             if (EffectiveModel != sessionModel)
             {
-                // Parameter chain hasn't delivered the new model yet — force re-render.
-                // EffectiveModel will resolve via Model parameter or next OnParametersSet.
+                // 파라미터 체인이 아직 새 모델을 전달하지 않았습니다. — 강제 리렌더합니다.
+                // EffectiveModel은 Model 파라미터 또는 다음 OnParametersSet을 통해 해결됩니다.
                 _pendingModel = null;
                 StateHasChanged();
             }
@@ -150,23 +150,23 @@
         var model = ModelDefinitions.All.FirstOrDefault(m => m.Id == EffectiveModel);
         if (model != null) return model.DisplayName;
 
-        // Try keyword normalization for non-standard IDs (e.g. "claude-opus-4-6-...")
+        // 비표준 ID에 대해 키워드 정규화 시도 (예: "claude-opus-4-6-...")
         var normalized = ModelDefinitions.NormalizeModelId(EffectiveModel);
         var normalizedModel = ModelDefinitions.All.FirstOrDefault(m => m.Id == normalized);
         if (normalizedModel != null) return normalizedModel.DisplayName;
 
-        // Custom model IDs that look like API model IDs (e.g. "claude-...") — show as-is
+        // API 모델 ID처럼 보이는 커스텀 모델 ID (예: "claude-...") — 그대로 표시
         if (EffectiveModel.StartsWith("claude-", StringComparison.OrdinalIgnoreCase))
             return EffectiveModel;
 
-        // Unknown short strings (e.g. "Model") — fall back to default display name
+        // 알 수 없는 짧은 문자열 (예: "Model") — 기본 표시 이름으로 폴백
         return ModelDefinitions.Default.DisplayName;
     }
 
     private bool IsModelActive(string modelId)
     {
         if (EffectiveModel == modelId) return true;
-        // Handle non-standard IDs — normalize and compare
+        // 비표준 ID 처리 — 정규화 및 비교
         if (!string.IsNullOrEmpty(EffectiveModel) && ModelDefinitions.NormalizeModelId(EffectiveModel) == modelId)
             return true;
         return false;

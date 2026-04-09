@@ -80,7 +80,7 @@
             TerminalService.Resize(_currentSessionKey, cols, rows);
     }
 
-    /// <summary>Called when the parent panel is resized — re-fit xterm to container.</summary>
+    /// <summary>부모 패널 크기가 조정될 때 호출됨 — xterm을 컨테이너에 맞춤.</summary>
     public async Task FitAsync()
     {
         if (_initialized)
@@ -91,7 +91,7 @@
             }
             catch
             {
-                /* may be disposed */
+                /* 폐기되었을 수 있음 */
             }
         }
     }
@@ -107,7 +107,7 @@
             }
             catch
             {
-                /* component may be disposed */
+                /* 컴포넌트가 폐기되었을 수 있음 */
             }
         });
     }
@@ -143,7 +143,7 @@
             return;
         }
 
-        // Session changed — switch terminal
+        // 세션이 변경됨 — 터미널 전환
         _currentSessionKey = key;
 
         if (TerminalService.IsRunning(key))
@@ -152,7 +152,7 @@
             return;
         }
 
-        // Clear xterm display for the new session
+        // 새 세션을 위해 xterm 디스플레이 지우기
         if (_initialized)
         {
             try

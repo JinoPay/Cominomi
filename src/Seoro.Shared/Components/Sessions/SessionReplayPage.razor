@@ -379,7 +379,7 @@
 
 @code {
 
-    // Session list state
+    // 세션 목록 상태
     private List<SessionReplaySummary> _sessions = [];
     private int _totalCount;
     private bool _hasMoreSessions;
@@ -387,7 +387,7 @@
     private bool _loadingMore;
     private SessionReplaySummary? _selected;
 
-    // Event state
+    // 이벤트 상태
     private List<SessionReplayEvent> _events = [];
     private List<SessionReplayEvent> _displayEvents = [];
     private int _totalEvents;
@@ -395,28 +395,28 @@
     private bool _loadingEvents;
     private bool _loadingMoreEvents;
 
-    // Search
+    // 검색
     private string _search = "";
     private bool _searchMode;
     private bool _searching;
     private List<SessionSearchResult> _searchResults = [];
 
-    // Tags
+    // 태그
     private SessionTagsData _tagsData = new();
     private bool _showTagEditor;
     private string _tagInput = "";
     private static readonly string[] _tagPresets = ["버그수정", "기능", "리팩터"];
 
-    // Live sessions
+    // 라이브 세션
     private List<LiveSessionInfo> _liveSessions = [];
     private Timer? _liveTimer;
 
-    // Replay
+    // 재생
     private bool _playing;
     private int _visibleCount;
     private Timer? _replayTimer;
 
-    // UI state
+    // UI 상태
     private HashSet<int> _expandedEvents = [];
     private bool _exportCopied;
 
@@ -446,12 +446,12 @@
         _tagsData = tagsTask.Result;
         _liveSessions = liveTask.Result;
 
-        // Mark live sessions in the list
+        // 목록에서 라이브 세션 표시
         MarkLiveSessions();
 
         _loading = false;
 
-        // Poll for live sessions every 30s
+        // 30초마다 라이브 세션 폴링
         _liveTimer = new Timer(async _ =>
         {
             try
@@ -625,7 +625,7 @@
 
     private async Task SelectSearchResult(SessionSearchResult result)
     {
-        // Find matching session or load it
+        // 일치하는 세션을 찾거나 로드
         var session = _sessions.FirstOrDefault(s => s.FilePath == result.FilePath);
         if (session != null)
         {
@@ -633,7 +633,7 @@
         }
         else
         {
-            // Create a minimal summary for display
+            // 표시를 위한 최소 요약 생성
             await SelectSession(new SessionReplaySummary
             {
                 Id = result.SessionId,
@@ -685,7 +685,7 @@
         try
         {
             var md = await ReplayService.ExportToMarkdownAsync(_selected.FilePath);
-            // Copy to clipboard via JS interop would be ideal, but for now just store it
+            // JS interop을 통해 클립보드에 복사하는 것이 이상적이지만 현재는 그냥 저장
             _exportCopied = true;
             StateHasChanged();
             await Task.Delay(2000);

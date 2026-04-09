@@ -228,7 +228,7 @@
     {
         _customTexts[questionIndex] = value;
 
-        // Mutual exclusion: clear selection for THIS question only
+        // 상호 배제: 이 질문만의 선택 항목 지우기
         if (!string.IsNullOrWhiteSpace(value))
             _selections[questionIndex].Clear();
     }

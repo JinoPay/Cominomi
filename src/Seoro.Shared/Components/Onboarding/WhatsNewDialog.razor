@@ -94,18 +94,18 @@
 
             if (string.IsNullOrEmpty(LastSeenVersion))
             {
-                // First-time user — show only current version
+                // 처음 사용하는 사용자 — 현재 버전만 표시
                 _filteredReleases = allReleases
                     .Where(r => r.Version == _currentVersion)
                     .ToList();
 
-                // If no exact match (dev build), show the latest entry
+                // 정확한 일치가 없으면 (개발 빌드) 최신 항목 표시
                 if (_filteredReleases.Count == 0 && allReleases.Count > 0)
                     _filteredReleases = [allReleases[0]];
             }
             else
             {
-                // Returning user — show versions newer than last seen
+                // 반환 사용자 — 마지막 표시 이후 최신 버전 표시
                 _filteredReleases = allReleases
                     .Where(r => VersionComparer.IsOutdated(LastSeenVersion, r.Version))
                     .ToList();

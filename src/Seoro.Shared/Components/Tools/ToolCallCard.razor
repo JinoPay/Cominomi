@@ -53,7 +53,7 @@
                     <AgentToolWidget Tool="Tool"/>
                     break;
                 default:
-                    @* Generic fallback *@
+                    @* 일반 폴백 *@
                     @if (!string.IsNullOrEmpty(Tool.Input))
                     {
                         var formattedInput = ToolDisplayHelper.FormatJson(Tool.Input);
@@ -98,7 +98,7 @@
     private bool _expanded;
     private bool _outputExpanded;
 
-    // Cached header values to avoid JSON re-parsing on every render
+    // 모든 렌더링에서 JSON 재파싱을 피하기 위한 캐시된 헤더 값
     private string _headerLabel = "";
     private string? _compactResult;
     private string? _lastInput;
@@ -112,7 +112,7 @@
             _lastInput = Tool.Input;
             _headerLabel = ToolDisplayHelper.GetHeaderLabel(Tool);
 
-            // AskUserQuestion is handled by the bottom bar; keep collapsed by default
+            // AskUserQuestion은 하단 표시줄에서 처리되므로 기본적으로 축소 상태로 유지합니다
         }
 
         if (!ReferenceEquals(_lastOutput, Tool.Output) || _lastIsComplete != Tool.IsComplete)
@@ -141,7 +141,7 @@
         {
             "read" or "read_file" => WidgetType.Read,
             "edit" or "edit_file" => WidgetType.Edit,
-            "write" or "write_file" => WidgetType.Edit, // Write uses same diff-style widget
+            "write" or "write_file" => WidgetType.Edit, // Write는 동일한 diff 스타일 위젯 사용
             "bash" or "execute_bash" => WidgetType.Bash,
             "grep" => WidgetType.Grep,
             "glob" => WidgetType.Glob,
