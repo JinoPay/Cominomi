@@ -142,6 +142,7 @@
                 or ".ini" or ".cfg" or ".vue" or ".svelte" or ".c" or ".cpp"
                 or ".h" or ".hpp" or ".m" or ".mm" or ".r" or ".lua" or ".pl"
                 or ".makefile" or ".gradle" or ".graphql" or ".proto"
+                or ".xaml"
                 => FileViewMode.Code,
             _ => FileViewMode.PlainText
         };
@@ -163,7 +164,7 @@
             ".css" or ".scss" => "css",
             ".json" => "json",
             ".yaml" or ".yml" => "yaml",
-            ".xml" or ".csproj" or ".sln" => "xml",
+            ".xml" or ".csproj" or ".sln" or ".xaml" => "xml",
             ".sh" or ".bash" or ".zsh" => "bash",
             ".sql" => "sql",
             ".rb" => "ruby",
