@@ -70,7 +70,7 @@ public class ClaudeCliResolver(IShellService shellService, IProcessRunner proces
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to run simple command: {FileName} {Args}", fileName, arguments);
+            logger.LogWarning(ex, "간단한 명령 실행 실패: {FileName} {Args}", fileName, arguments);
             return null;
         }
     }

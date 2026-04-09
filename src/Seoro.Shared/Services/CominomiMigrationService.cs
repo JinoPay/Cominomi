@@ -87,7 +87,7 @@ public class CominomiMigrationService(ILogger<CominomiMigrationService> logger)
             catch (Exception ex)
             {
                 failed++;
-                logger.LogWarning(ex, "Failed to migrate root file: {File}", fileName);
+                logger.LogWarning(ex, "루트 파일 마이그레이션 실패: {File}", fileName);
             }
         }
 
@@ -126,7 +126,7 @@ public class CominomiMigrationService(ILogger<CominomiMigrationService> logger)
                 catch (Exception ex)
                 {
                     failed++;
-                    logger.LogWarning(ex, "Failed to migrate file: {File}", srcFile);
+                    logger.LogWarning(ex, "파일 마이그레이션 실패: {File}", srcFile);
                 }
             }
         }
@@ -150,7 +150,7 @@ public class CominomiMigrationService(ILogger<CominomiMigrationService> logger)
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to delete Cominomi folder: {Path}", CominomiBaseDir);
+            logger.LogWarning(ex, "Cominomi 폴더 삭제 실패: {Path}", CominomiBaseDir);
             return false;
         }
     }

@@ -52,7 +52,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to read Claude config from {Path}", path);
+            logger.LogWarning(ex, "{Path}에서 Claude 설정 읽기 실패", path);
             return null;
         }
     }
@@ -84,7 +84,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to write Claude config to {Path}", targetPath);
+            logger.LogError(ex, "{Path}에 Claude 설정 쓰기 실패", targetPath);
             throw;
         }
     }
@@ -120,7 +120,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         if (!result.Success || string.IsNullOrWhiteSpace(result.Stdout))
         {
             if (result.ExitCode != 44) // 44 = item not found — expected when not logged in
-                logger.LogWarning("Keychain read failed (exit {Code}): {Err}", result.ExitCode, result.Stderr);
+                logger.LogWarning("Keychain 읽기 실패 (exit {Code}): {Err}", result.ExitCode, result.Stderr);
             return null;
         }
 
@@ -139,7 +139,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         if (!result.Success)
         {
             var msg = $"Keychain write failed (exit {result.ExitCode}): {result.Stderr}";
-            logger.LogError("Keychain write failed (exit {Code}): {Err}", result.ExitCode, result.Stderr);
+            logger.LogError("Keychain 쓰기 실패 (exit {Code}): {Err}", result.ExitCode, result.Stderr);
             throw new InvalidOperationException(msg);
         }
 
@@ -157,7 +157,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to read credentials from {Path}", CredentialsFilePath);
+            logger.LogWarning(ex, "{Path}에서 자격증명 읽기 실패", CredentialsFilePath);
             return null;
         }
     }
@@ -172,7 +172,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to write credentials to {Path}", CredentialsFilePath);
+            logger.LogError(ex, "{Path}에 자격증명 쓰기 실패", CredentialsFilePath);
             throw;
         }
     }
@@ -209,7 +209,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to clear oauthAccount from {Path}", path);
+            logger.LogError(ex, "{Path}에서 oauthAccount 삭제 실패", path);
             throw;
         }
     }
@@ -226,7 +226,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         if (!result.Success && result.ExitCode != 44) // 44 = item not found — already cleared
         {
             var msg = $"Keychain delete failed (exit {result.ExitCode}): {result.Stderr}";
-            logger.LogError("Keychain delete failed (exit {Code}): {Err}", result.ExitCode, result.Stderr);
+            logger.LogError("Keychain 삭제 실패 (exit {Code}): {Err}", result.ExitCode, result.Stderr);
             throw new InvalidOperationException(msg);
         }
 
@@ -245,7 +245,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to delete credentials file at {Path}", CredentialsFilePath);
+            logger.LogError(ex, "{Path}의 자격증명 파일 삭제 실패", CredentialsFilePath);
             throw;
         }
     }
@@ -316,7 +316,7 @@ public class ClaudeCredentialService(IProcessRunner processRunner, ILogger<Claud
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to delete backup for account {Id}", accountId);
+                logger.LogWarning(ex, "계정 {Id}의 백업 삭제 실패", accountId);
             }
         }
 
