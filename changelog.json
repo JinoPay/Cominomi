@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.17.11",
+    "date": "2026-04-10",
+    "changes": [
+      { "type": "fix", "description": "CodexArgumentBuilder에서 미사용 WorkingDir 인수 처리 제거" }
+    ]
+  },
+  {
     "version": "1.17.10",
     "date": "2026-04-10",
     "changes": [
