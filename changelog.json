@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.17.8",
+    "date": "2026-04-10",
+    "changes": [
+      { "type": "refactor", "description": "코드 품질 개선 및 미사용 파일 정리" },
+      { "type": "localize", "description": "Components 폴더 영문 주석 전체 한글화" }
+    ]
+  },
+  {
     "version": "1.17.7",
     "date": "2026-04-09",
     "changes": [
