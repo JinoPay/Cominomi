@@ -28,6 +28,12 @@ public class StreamProcessingContext
     /// </summary>
     public string? AskUserQuestionInput { get; set; }
 
+    /// <summary>
+    ///     Set to true when AskUserQuestion or ExitPlanMode returned an error (non-interactive CLI).
+    ///     The streaming loop should break immediately so Seoro can show the appropriate UI.
+    /// </summary>
+    public bool ShouldBreakStream { get; set; }
+
     public string? CurrentParentToolUseId { get; set; }
 
     /// <summary>

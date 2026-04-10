@@ -145,6 +145,9 @@ public class ChatMessageOrchestrator(
                 }
 
                 await streamProcessor.ProcessEventAsync(evt, streamCtx);
+
+                if (streamCtx.ShouldBreakStream)
+                    break;
             }
 
             await streamProcessor.FinalizeAsync(streamCtx);

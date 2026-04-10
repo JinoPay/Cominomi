@@ -48,6 +48,24 @@ public class UserMessageHandler(
 
                     if (match.Name is "Bash" or "execute_bash")
                         hasBashResult = true;
+
+                    // CLI cannot handle AskUserQuestion or ExitPlanMode non-interactively.
+                    // Break the loop so Seoro can show the appropriate UI immediately.
+                    if (match.IsError)
+                    {
+                        if (match.Name.Equals("AskUserQuestion", StringComparison.OrdinalIgnoreCase)
+                            || match.Name.Equals("ask_user_question", StringComparison.OrdinalIgnoreCase))
+                        {
+                            ctx.AskUserQuestionInput ??= match.Input;
+                            ctx.ShouldBreakStream = true;
+                        }
+                        else if (match.Name.Equals("ExitPlanMode", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Mark plan as done so FinalizeAsync triggers plan review UI
+                            ctx.ExitPlanModeDetected = true;
+                            ctx.ShouldBreakStream = true;
+                        }
+                    }
                 }
             }
 
