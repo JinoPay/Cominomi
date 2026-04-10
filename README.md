@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/Windows-x64-0078D4?style=flat-square&logo=windows11&logoColor=white" alt="Windows x64" />
   <img src="https://img.shields.io/badge/macOS-ARM64-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS ARM64" />
   <a href="https://github.com/JinoPay/Seoro/stargazers"><img src="https://img.shields.io/github/stars/JinoPay/Seoro?style=flat-square&label=%E2%AD%90" alt="Stars" /></a>
-  <img src="https://img.shields.io/badge/%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4-All%20rights%20reserved-red?style=flat-square" alt="License" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4-Apache%202.0-blue?style=flat-square" alt="License" /></a>
 </div>
 
 <br>
