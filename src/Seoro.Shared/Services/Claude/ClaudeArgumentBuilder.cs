@@ -10,7 +10,8 @@ public static class ClaudeArgumentBuilder
     /// </summary>
     private static readonly string[] DefaultAllowedTools =
     [
-        "Bash(git branch*)",
+        "Bash(git:*)",
+        "Bash(gh:*)",
         "WebFetch",
         "WebSearch"
     ];
