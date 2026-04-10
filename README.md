@@ -167,14 +167,19 @@ dotnet run --project src/Seoro.Desktop
 Seoro.slnx                    # .NET XML 솔루션 파일
 src/
   Seoro.Desktop/               # 데스크톱 앱 진입점
-    Program.cs                    #   DI 컨테이너 (~50개 서비스 등록), Photino 윈도우 초기화
+    Program.cs                    #   DI 컨테이너 (~70개 서비스 등록), Photino 윈도우 초기화
     Services/                     #   플랫폼별 서비스 10개 (파일 피커, 알림, 업데이트 등)
-  Seoro.Shared/                # 공유 라이브러리 (플랫폼 독립, ~51,600 lines)
+  Seoro.Shared/                # 공유 라이브러리 (플랫폼 독립, ~62,600 lines)
     Models/                       #   데이터 모델 43개 + ViewModels/ 4개
-    Services/                     #   비즈니스 로직 106개 파일
-      Migration/                    #     JSON 스키마 마이그레이션 (6개)
-      StreamEventHandlers/          #     스트림 이벤트 핸들러 파이프라인 (12개)
-    Components/                   #   Blazor 컴포넌트 99개 (18개 폴더)
+    Services/                     #   비즈니스 로직 135개 파일 (17개 하위 폴더)
+      Cli/                          #     CLI 프로바이더 추상화 (Claude, Codex 등)
+      Claude/ Codex/                #     CLI별 서비스
+      Chat/ Sessions/ Git/          #     채팅, 세션, Git 통합
+      Settings/ Knowledge/ Account/ #     설정, 지식, 계정
+      Plugin/ Gamification/         #     플러그인, 게이미피케이션
+      Infrastructure/ Migration/    #     인프라, 마이그레이션
+      Platform/ Notification/       #     플랫폼 인터페이스, 알림
+    Components/                   #   Blazor 컴포넌트 100개 (18개 폴더)
     SeoroConstants.cs          #   공유 상수 및 제한값
 tests/
   Seoro.Shared.Tests/          # 유닛 테스트 (xUnit)
@@ -192,8 +197,8 @@ tests/
 릴리스는 GitHub Actions로 자동화되어 있습니다. 버전 태그를 push하면 CI/CD가 트리거됩니다.
 
 ```bash
-git tag v1.17.7
-git push origin v1.17.7
+git tag v1.17.9
+git push origin v1.17.9
 ```
 
 **CI 파이프라인이 수행하는 작업:**

@@ -14,8 +14,8 @@
 - **CI/CD**: GitHub Actions (`release.yml`) - triggered on `v*` tags
 - **Required CLI**: Claude CLI >= 2.1.81
 - **Required Runtime**: Node.js 20 (CI/CodeMirror 빌드)
-- **Codebase**: ~51,600 lines (.cs, .razor, .css, .js)
-- **Latest Version**: 1.17.7 (2026-04-09)
+- **Codebase**: ~62,600 lines (.cs, .razor, .css, .js)
+- **Latest Version**: 1.17.9 (2026-04-10)
 - **Single Instance**: Mutex(`SeoroSingleInstance`) — 다중 실행 방지
 
 ## Architecture Overview
@@ -26,14 +26,28 @@ git operations, file management, plugins, and more.
 ```
 src/
   Seoro.Desktop/              # 데스크톱 앱 진입점 (10 서비스)
-    Program.cs                    # Main entry - DI 컨테이너, Photino 윈도우 초기화
+    Program.cs                    # Main entry - DI 컨테이너 (~70개 서비스 등록), Photino 윈도우 초기화
     Services/                     # 플랫폼별 서비스 (아래 Desktop Services 참고)
   Seoro.Shared/                # 핵심 로직 (플랫폼 독립)
     Models/                       # 데이터 모델 43개 + ViewModels/ 4개
-    Services/                     # 비즈니스 로직 106개 파일
-      Migration/                    # JSON 스키마 마이그레이션 (6개)
-      StreamEventHandlers/          # 스트림 이벤트 핸들러 파이프라인 (12개)
-    Components/                   # Blazor 컴포넌트 99개 (18개 폴더)
+    Services/                     # 비즈니스 로직 135개 파일 (17개 하위 폴더)
+      Cli/                          # CLI 프로바이더 추상화 (7개)
+      Claude/                       # Claude CLI 서비스 (9개)
+      Codex/                        # Codex CLI 서비스 (3개)
+      Chat/                         # 채팅 & 스트리밍 (15개)
+        StreamEventHandlers/          # 스트림 이벤트 핸들러 파이프라인 (12개)
+      Sessions/                     # 세션 관리 (12개)
+      Git/                          # Git 통합 (6개)
+      Settings/                     # 설정 관리 (8개)
+      Knowledge/                    # 컨텐츠 & 지식 (12개)
+      Account/                      # 계정 관리 (4개)
+      Plugin/                       # 플러그인 시스템 (8개)
+      Gamification/                 # 게이미피케이션 (4개)
+      Notification/                 # 알림 (3개)
+      Infrastructure/               # 인프라 (18개)
+      Migration/                    # 스키마 마이그레이션 (7개)
+      Platform/                     # 플랫폼 인터페이스 (7개)
+    Components/                   # Blazor 컴포넌트 100개 (18개 폴더)
       Accounts/ Chat/ Dashboard/ Files/ Hooks/ Instructions/
       Layout/ Mcp/ Memory/ Notifications/ Onboarding/ Rules/
       Sessions/ Settings/ Settings/Sections/ Setup/ Shared/ Sidebar/ Tools/
@@ -44,14 +58,28 @@ tests/
 
 ## Key Services (Shared)
 
-### Core
+### CLI Provider System (멀티 CLI 추상화)
+- `ICliProvider` - CLI 프로바이더 인터페이스 (Claude, Codex 등)
+- `CliProviderFactory` - CLI 프로바이더 생성 팩토리
+- `CliAvailabilityService` - CLI 설치 여부 및 가용성 확인
+- `CliSendOptions` - CLI 전송 옵션
+- `ProviderCapabilities` - 프로바이더별 기능 정의
+
+### Claude CLI
 - `ClaudeService` - Claude CLI 프로세스 관리, 스트리밍 JSON 이벤트 처리
 - `ClaudeCliResolver` - Claude CLI 실행 파일 탐색 및 버전 확인
 - `ClaudeArgumentBuilder` - Claude CLI 인수 조합
+- `DependencyCheckService` - Claude CLI 설치 여부 및 버전 검증
+
+### Codex CLI
+- `CodexService` - Codex CLI 프로세스 관리
+- `CodexCliResolver` - Codex CLI 실행 파일 탐색
+- `CodexArgumentBuilder` - Codex CLI 인수 조합
+
+### Core
 - `ProcessRunner` - 프로세스 실행 추상화 (IProcessRunner)
 - `ProcessErrorClassifier` - 프로세스 오류 분류 및 사용자 친화적 메시지
 - `ShellService` - 셸 실행, macOS 기본 셸 자동 감지
-- `DependencyCheckService` - Claude CLI 설치 여부 및 버전 검증
 
 ### Chat & Streaming
 - `ChatState` - UI 상태 관리 (메시지, 스트리밍, 탭)
@@ -74,7 +102,6 @@ tests/
 - `SessionReplayService` - 세션 타임라인 리플레이 및 내비게이션
 - `SessionListDataService` / `SessionListFacade` - 세션 목록 데이터 및 UI 파사드
 - `ActiveSessionRegistry` - 활성 세션 레지스트리 (동시 세션 제한)
-- `WorkspaceService` - 워크스페이스 (Git 저장소) 관리
 - `StatsCacheService` - 사용량 통계 캐싱 및 집계 (stats-cache.json)
 
 ### Git
@@ -116,17 +143,26 @@ tests/
 - `ReleaseNotesService` (Desktop) - 인앱 릴리스 노트 (changelog.json)
 
 ### Infrastructure
+- `AppPaths` - 앱 데이터 경로 관리
 - `AtomicFileWriter` - 원자적 파일 쓰기 (임시파일 → rename)
+- `AttachmentService` - 파일 첨부 관리
 - `JsonDefaults` - 공유 JSON 직렬화 옵션
 - `VersionComparer` - 시맨틱 버전 비교
+- `TerminalService` - 내장 PTY 터미널 관리
 - `LightboxService` - 이미지 라이트박스
 - `ToolDisplayHelper` - 도구 호출 표시 포매팅
 - `SnackbarExtensions` - MudBlazor 스낵바 확장
+- `WorkspaceService` - 워크스페이스 (Git 저장소) 관리
 
 ### Migration
 - `SchemaMigrator` / `SchemaMigratorRegistry` - JSON 스키마 마이그레이션 프레임워크
 - `MigratingJsonReader` / `MigratingJsonWriter` - 마이그레이션 적용 JSON 읽기/쓰기
 - `CominomiMigrationService` (Desktop) - Cominomi → Seoro 데이터 마이그레이션
+
+### Platform Interfaces (`Services/Platform/`)
+- 플랫폼별 서비스 인터페이스 7개 (Desktop에서 구현)
+- `IFilePickerService` / `IFolderPickerService` / `ISaveFilePickerService`
+- `INotificationService` / `ILauncherService` / `IUpdateService` / `IReleaseNotesService` / `IWindowCloseGuardService`
 
 ## Desktop Services (10개, `src/Seoro.Desktop/Services/`)
 - `FilePickerService` / `FolderPickerService` / `SaveFilePickerService` - 파일/폴더 선택 대화상자
