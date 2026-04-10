@@ -13,7 +13,7 @@ public class SessionListFacade(
     IDialogService dialogService,
     ISnackbar snackbar,
     ISkillRegistry skillRegistry,
-    IClaudeService claudeService,
+    ICliProviderFactory cliProviderFactory,
     INotificationHistoryService notificationHistory,
     IWorkspaceService workspaceService,
     IGitService gitService,
@@ -66,7 +66,7 @@ public class SessionListFacade(
     {
         var isStreaming = chatState.IsSessionStreaming(session.Id);
         var confirmMessage = isStreaming
-            ? $"'{session.Title}' 세션이 현재 진행 중입니다. Claude 프로세스를 종료하고 삭제하시겠습니까?"
+            ? $"'{session.Title}' 세션이 현재 진행 중입니다. AI 프로세스를 종료하고 삭제하시겠습니까?"
             : $"'{session.Title}' 세션을 삭제하시겠습니까?";
 
         var result = await dialogService.ShowMessageBoxAsync(
@@ -75,8 +75,8 @@ public class SessionListFacade(
 
         if (result != true) return false;
 
-        // Stop Claude process before deletion
-        claudeService.Cancel(session.Id);
+        // 프로바이더에 맞는 프로세스 종료
+        cliProviderFactory.GetProviderForSession(session).Cancel(session.Id);
 
         await sessionService.DeleteSessionAsync(session.Id);
         notificationHistory.MarkSessionAsRead(session.Id);
@@ -111,7 +111,7 @@ public class SessionListFacade(
             if (dataService.SessionCache.TryGetValue(workspace.Id, out var cachedSessions))
                 foreach (var session in cachedSessions)
                 {
-                    claudeService.Cancel(session.Id);
+                    cliProviderFactory.GetProviderForSession(session).Cancel(session.Id);
                     notificationHistory.MarkSessionAsRead(session.Id);
                     dataService.DiffStatsCache.Remove(session.Id);
                 }
@@ -147,16 +147,18 @@ public class SessionListFacade(
         }
     }
 
-    public async Task<Session> CreateSessionAsync(Workspace ws, bool localDir = false)
+    public async Task<Session> CreateSessionAsync(Workspace ws, bool localDir = false, string provider = "claude")
     {
-        // Workspace override > App default
-        var model = !string.IsNullOrEmpty(ws.DefaultModel)
-            ? ws.DefaultModel
-            : appSettings.CurrentValue.DefaultModel;
+        // 프로바이더별 기본 모델 해결: Codex는 앱 전역 설정, Claude는 워크스페이스 > 앱 기본값
+        var model = provider == "codex"
+            ? appSettings.CurrentValue.DefaultCodexModel
+            : !string.IsNullOrEmpty(ws.DefaultModel)
+                ? ws.DefaultModel
+                : appSettings.CurrentValue.DefaultModel;
 
         var session = localDir
-            ? await sessionService.CreateLocalDirSessionAsync(model, ws.Id)
-            : await sessionService.CreatePendingSessionAsync(model, ws.Id);
+            ? await sessionService.CreateLocalDirSessionAsync(model, ws.Id, provider)
+            : await sessionService.CreatePendingSessionAsync(model, ws.Id, provider);
 
         await SwitchWorkspaceAsync(ws);
         chatState.SetSession(session);

@@ -14,6 +14,20 @@ public static class ProcessErrorClassifier
         new(["authentication", "unauthorized", "invalid api key"], ErrorCode.ClaudeProcessFailed,
             ErrorCategory.Permanent)
     ];
+
+    private static readonly ErrorPattern[] CodexPatterns =
+    [
+        new(["invalid api key", "OPENAI_API_KEY", "authentication failed", "unauthorized"],
+            ErrorCode.CodexProcessFailed, ErrorCategory.Permanent),
+        new(["rate limit", "429", "too many requests"],
+            ErrorCode.StreamingFailed, ErrorCategory.Transient, IsRateLimit: true),
+        new(["model not found", "does not exist", "invalid model"],
+            ErrorCode.CodexProcessFailed, ErrorCategory.Permanent),
+        new(["sandbox", "permission denied", "not allowed", "blocked by policy"],
+            ErrorCode.CodexSandboxViolation, ErrorCategory.Permanent),
+        new(["ECONNREFUSED", "network error", "connection timeout"],
+            ErrorCode.StreamingFailed, ErrorCategory.Transient)
+    ];
     // ─── 패턴 정의 ────────────────────────────────────────
 
     private static readonly ErrorPattern[] GitPatterns =
@@ -22,6 +36,16 @@ public static class ProcessErrorClassifier
         new(["not a git repository"], ErrorCode.NotAGitRepo, ErrorCategory.Permanent),
         new(["fatal: unable to create", "worktree"], ErrorCode.WorktreeCreationFailed, ErrorCategory.Permanent)
     ];
+
+    /// <summary>
+    ///     Codex CLI 오류를 분류합니다.
+    /// </summary>
+    public static AppError ClassifyCodexError(string stderr, string? stdout = null)
+    {
+        var combined = CombineText(stderr, stdout);
+        return MatchPatterns(combined, stderr, CodexPatterns)
+               ?? new AppError(ErrorCode.CodexProcessFailed, ErrorCategory.Unknown, stderr);
+    }
 
     /// <summary>
     ///     Claude CLI 오류를 분류합니다.

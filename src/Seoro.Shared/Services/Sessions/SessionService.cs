@@ -310,7 +310,7 @@ public partial class SessionService(
         return session;
     }
 
-    public async Task<Session> CreateLocalDirSessionAsync(string model, string workspaceId)
+    public async Task<Session> CreateLocalDirSessionAsync(string model, string workspaceId, string provider = "claude")
     {
         Guard.NotNullOrWhiteSpace(model, nameof(model));
         Guard.NotNullOrWhiteSpace(workspaceId, nameof(workspaceId));
@@ -325,6 +325,7 @@ public partial class SessionService(
         var session = new Session
         {
             Model = model,
+            Provider = provider,
             WorkspaceId = workspaceId,
             CityName = cityName,
             Title = cityName,
@@ -348,7 +349,7 @@ public partial class SessionService(
         return session;
     }
 
-    public async Task<Session> CreatePendingSessionAsync(string model, string workspaceId)
+    public async Task<Session> CreatePendingSessionAsync(string model, string workspaceId, string provider = "claude")
     {
         Guard.NotNullOrWhiteSpace(model, nameof(model));
         Guard.NotNullOrWhiteSpace(workspaceId, nameof(workspaceId));
@@ -364,6 +365,7 @@ public partial class SessionService(
         var session = new Session
         {
             Model = model,
+            Provider = provider,
             WorkspaceId = workspaceId,
             CityName = cityName,
             Title = cityName,
@@ -386,7 +388,7 @@ public partial class SessionService(
         return session;
     }
 
-    public async Task<Session> CreateSessionAsync(string model, string workspaceId, string baseBranch)
+    public async Task<Session> CreateSessionAsync(string model, string workspaceId, string baseBranch, string provider = "claude")
     {
         Guard.NotNullOrWhiteSpace(model, nameof(model));
         Guard.NotNullOrWhiteSpace(workspaceId, nameof(workspaceId));
@@ -405,6 +407,7 @@ public partial class SessionService(
         var session = new Session
         {
             Model = model,
+            Provider = provider,
             WorkspaceId = workspaceId,
             Git = { BranchName = branchName, BaseBranch = baseBranch },
             EffortLevel = settings.DefaultEffortLevel,

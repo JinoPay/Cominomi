@@ -57,6 +57,20 @@ public class Session
 
     public string? ConversationId { get; set; }
 
+    /// <summary>
+    ///     세션이 사용하는 CLI 프로바이더 식별자. "claude" 또는 "codex".
+    ///     세션 생성 후 변경 불가 (init-only).
+    /// </summary>
+    public string Provider { get; init; } = "claude";
+
+    [JsonIgnore] public bool IsCodex => Provider == "codex";
+
+    /// <summary>Codex 세션별 샌드박스 모드 오버라이드. null이면 글로벌 설정 사용.</summary>
+    public string? CodexSandboxMode { get; set; }
+
+    /// <summary>Codex 세션별 승인 정책 오버라이드. null이면 글로벌 설정 사용.</summary>
+    public string? CodexApprovalPolicy { get; set; }
+
     [JsonIgnore] public string? ErrorMessage => Error?.Message;
 
     /// <summary>

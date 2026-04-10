@@ -1,4 +1,5 @@
 // Domain-based service namespaces
+global using Seoro.Shared.Services.Cli;
 global using Seoro.Shared.Services.Account;
 global using Seoro.Shared.Services.Chat;
 global using Seoro.Shared.Services.Chat.StreamEventHandlers;

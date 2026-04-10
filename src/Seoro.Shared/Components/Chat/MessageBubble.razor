@@ -37,7 +37,7 @@
         </div>
         <div class="message-content" id="msg-@(Message.Id)">
             <div class="message-header">
-                <span class="role-name">@(Message.Role == MessageRole.User ? "나" : "Claude")</span>
+                <span class="role-name">@(Message.Role == MessageRole.User ? "나" : ProviderDisplayName)</span>
                 <span class="message-time">@Message.Timestamp.ToLocalTime().ToString("HH:mm")</span>
                 @if (Message is { Role: MessageRole.Assistant, Duration: not null } && !HasActivitySummary())
                 {
@@ -207,6 +207,12 @@
 
 @code {
     [Parameter][EditorRequired] public ChatMessage Message { get; set; } = null!;
+
+    private string ProviderDisplayName => ChatState.CurrentSession?.Provider switch
+    {
+        "codex" => "Codex",
+        _ => "Claude"
+    };
 
     private readonly Dictionary<string, string> _imageCache = new();
     private readonly HashSet<int> _thinkingExpanded = [];

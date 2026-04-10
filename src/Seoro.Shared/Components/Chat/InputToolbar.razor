@@ -8,13 +8,16 @@
                            Disabled="Disabled || IsStreaming"/>
         </MudTooltip>
 
-        <MudTooltip Text="@GetEffortLevelTooltip()" Placement="Placement.Top">
-            <MudIconButton Icon="@Icons.Material.Filled.Psychology"
-                           Color="@GetEffortLevelColor()"
-                           Size="Size.Small"
-                           OnClick="CycleEffortLevel"
-                           Disabled="@(Disabled || IsStreaming)"/>
-        </MudTooltip>
+        @if (_capabilities?.SupportsEffortLevel != false)
+        {
+            <MudTooltip Text="@GetEffortLevelTooltip()" Placement="Placement.Top">
+                <MudIconButton Icon="@Icons.Material.Filled.Psychology"
+                               Color="@GetEffortLevelColor()"
+                               Size="Size.Small"
+                               OnClick="CycleEffortLevel"
+                               Disabled="@(Disabled || IsStreaming)"/>
+            </MudTooltip>
+        }
 
         <MudTooltip Text="파일 첨부" Placement="Placement.Top">
             <MudIconButton Icon="@Icons.Material.Filled.AttachFile"
@@ -23,6 +26,17 @@
                            OnClick="@(() => OnPickFiles.InvokeAsync())"
                            Disabled="Disabled || IsStreaming"/>
         </MudTooltip>
+
+        @if (CurrentSession?.IsCodex == true)
+        {
+            <MudTooltip Text="@(WebSearchEnabled ? "웹 검색 켜짐" : "웹 검색 꺼짐")" Placement="Placement.Top">
+                <MudIconButton Icon="@Icons.Material.Filled.TravelExplore"
+                               Color="@(WebSearchEnabled ? Color.Info : Color.Default)"
+                               Size="Size.Small"
+                               OnClick="ToggleWebSearch"
+                               Disabled="Disabled || IsStreaming"/>
+            </MudTooltip>
+        }
     </div>
 
     <div class="input-toolbar-right">
@@ -68,6 +82,8 @@
     </div>
 </div>
 
+@inject ICliProviderFactory CliProviderFactory
+
 @code {
     [Parameter] public string PermissionMode { get; set; } = "bypassAll";
     [Parameter] public EventCallback<string> OnPermissionModeChanged { get; set; }
@@ -87,9 +103,15 @@
     [Parameter] public string? PlanFilePath { get; set; }
     [Parameter] public string? PlanContent { get; set; }
     [Parameter] public EventCallback OnViewPlan { get; set; }
+    [Parameter] public bool WebSearchEnabled { get; set; }
+    [Parameter] public EventCallback<bool> OnWebSearchChanged { get; set; }
 
     private static readonly string[] PermissionModes = ["bypassAll", "plan"];
-    // EffortLevels 제거 — 토글 대상이 이제 GetMaxEffortLevel을 통해 모델 종속
+
+    private ProviderCapabilities? _capabilities =>
+        CurrentSession != null
+            ? CliProviderFactory.GetProviderForSession(CurrentSession).Capabilities
+            : null;
 
     private string GetPermissionModeTooltip()
     {
@@ -150,6 +172,11 @@
         var maxLevel = ModelDefinitions.GetMaxEffortLevel(Model);
         var next = EffortLevel == "auto" ? maxLevel : "auto";
         await OnEffortLevelChanged.InvokeAsync(next);
+    }
+
+    private async Task ToggleWebSearch()
+    {
+        await OnWebSearchChanged.InvokeAsync(!WebSearchEnabled);
     }
 
 }

@@ -23,7 +23,8 @@ public class DependencyCheckService(
             CheckToolAsync("gh", "GitHub CLI",
                 "https://cli.github.com/",
                 "winget install GitHub.cli",
-                "brew install gh")
+                "brew install gh"),
+            CheckCodexAsync()
         };
 
         var results = await Task.WhenAll(tasks);
@@ -46,6 +47,23 @@ public class DependencyCheckService(
         var version = await GetVersionAsync(path);
         return new DependencyResult("claude", description, true, version, path, installUrl,
             winHint, macHint, ClaudeInstallMethods.Windows, ClaudeInstallMethods.Mac);
+    }
+
+    private async Task<DependencyResult> CheckCodexAsync()
+    {
+        const string description = "Codex CLI (선택 사항)";
+        const string installUrl = "https://github.com/openai/codex";
+        const string hint = "npm install -g @openai/codex";
+
+        var path = await FindExecutableAsync("codex");
+
+        if (path == null)
+            return new DependencyResult("codex", description, false, null, null, installUrl,
+                hint, hint, [], [], false);
+
+        var version = await GetVersionAsync(path);
+        return new DependencyResult("codex", description, true, version, path, installUrl,
+            hint, hint, [], [], false);
     }
 
     private async Task<DependencyResult> CheckToolAsync(

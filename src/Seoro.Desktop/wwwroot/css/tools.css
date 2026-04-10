@@ -659,6 +659,28 @@
 }
 
 /* Bash widget */
+.tool-widget-fullcmd {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+    overflow-x: auto;
+    margin-top: var(--space-1);
+}
+
+.tool-widget-fullcmd.collapsed {
+    display: none;
+}
+
+.tool-widget-fullcmd pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.5;
+}
+
 .tool-widget-bash .tool-widget-command {
     color: var(--color-success);
 }

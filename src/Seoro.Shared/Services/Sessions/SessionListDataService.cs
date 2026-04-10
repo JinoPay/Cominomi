@@ -203,12 +203,35 @@ public class SessionListDataService : IDisposable
         OrderedSessions.Clear();
         foreach (var group in Workspaces.GroupBy(GetProjectName))
         {
-            var workspacesInGroup = group.OrderByDescending(w => w.UpdatedAt).ToList();
+            var workspacesInGroup = group.OrderBy(w => w.SortIndex).ThenByDescending(w => w.UpdatedAt).ToList();
             foreach (var ws in workspacesInGroup)
                 if (SessionCache.TryGetValue(ws.Id, out var sessions))
                     foreach (var s in sessions)
                         OrderedSessions.Add((s, ws));
         }
+    }
+
+    public async Task ReorderProjectGroupsAsync(List<string> projectNameOrder)
+    {
+        // Workspaces 스냅샷 — SaveWorkspaceAsync가 HandleWorkspaceSaved를 트리거하여
+        // 열거 중 컬렉션이 변경되는 것을 방지
+        var snapshot = Workspaces.ToList();
+        var index = 0;
+        foreach (var projectName in projectNameOrder)
+        {
+            var workspacesInGroup = snapshot.Where(w => GetProjectName(w) == projectName).ToList();
+            foreach (var ws in workspacesInGroup)
+            {
+                ws.SortIndex = index;
+                await _workspaceService.SaveWorkspaceAsync(ws);
+            }
+
+            index++;
+        }
+
+        Workspaces = Workspaces.OrderBy(w => w.SortIndex).ThenByDescending(w => w.UpdatedAt).ToList();
+        RebuildOrderedSessions();
+        OnDataChanged?.Invoke();
     }
 
     private void HandleWorkspaceSaved(Workspace updated)

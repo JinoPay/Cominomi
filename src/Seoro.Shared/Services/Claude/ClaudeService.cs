@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-
 namespace Seoro.Shared.Services.Claude;
 
 public class ClaudeService(
@@ -13,7 +12,7 @@ public class ClaudeService(
     IShellService shellService,
     IProcessRunner processRunner,
     ILogger<ClaudeService> logger)
-    : IClaudeService
+    : IClaudeService, ICliProvider
 {
     private const string DefaultAgentKey = "__default__";
     private static readonly TimeSpan GracefulShutdownTimeout = TimeSpan.FromSeconds(2);
@@ -228,6 +227,50 @@ public class ClaudeService(
         var key = sessionId ?? DefaultAgentKey;
         logger.LogInformation("세션 {AgentKey}의 Claude 프로세스 취소 중", key);
         if (_agents.TryRemove(key, out var agent)) agent.Cancel();
+    }
+
+    // ──────────────────────────────────────────────
+    //  ICliProvider 구현 (Claude 프로바이더)
+    // ──────────────────────────────────────────────
+
+    public string ProviderId => "claude";
+    public string DisplayName => "Claude";
+
+    public ProviderCapabilities Capabilities { get; } = new()
+    {
+        SupportsEffortLevel = true,
+        SupportsForkSession = true,
+        SupportsPlanMode = true,
+        SupportsToolFiltering = true,
+        SupportsMaxBudget = true,
+        SupportsFallbackModel = true,
+        SupportsImageAttachment = true,
+        SupportsWebSearch = true,
+        SupportsMcp = true,
+    };
+
+    async IAsyncEnumerable<StreamEvent> ICliProvider.SendMessageAsync(
+        CliSendOptions options,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        await foreach (var evt in SendMessageAsync(
+                           options.Message,
+                           options.WorkingDir,
+                           options.Model,
+                           options.PermissionMode,
+                           options.EffortLevel,
+                           options.SessionId,
+                           options.ConversationId,
+                           options.SystemPrompt,
+                           options.ContinueMode,
+                           options.ForkSession,
+                           options.MaxTurns,
+                           options.MaxBudgetUsd,
+                           options.AdditionalDirs,
+                           options.AllowedTools,
+                           options.DisallowedTools,
+                           ct))
+            yield return evt;
     }
 
     public void Dispose()

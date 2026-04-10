@@ -33,6 +33,13 @@ public class AppSettings
     public string NotificationSoundName { get; set; } = "default";
     public string Theme { get; set; } = "dark";
     public string? ClaudePath { get; set; }
+    public string? CodexPath { get; set; }
+    public string DefaultCodexModel { get; set; } = "gpt-5.4";
+    public string CodexApprovalPolicy { get; set; } = "never"; // untrusted | on-request | never
+    public string CodexSandboxMode { get; set; } = "workspace-write"; // read-only | workspace-write | danger-full-access
+    public string CodexReasoningEffort { get; set; } = "medium"; // minimal | low | medium | high | xhigh
+    public bool CodexWebSearch { get; set; }
+    public bool CodexEphemeral { get; set; }
     public string? DefaultCloneDirectory { get; set; }
     public string? FallbackModel { get; set; }
     public string? GhPath { get; set; }

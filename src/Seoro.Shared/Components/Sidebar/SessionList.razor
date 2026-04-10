@@ -7,6 +7,8 @@
 @inject ILauncherService Launcher
 @inject ILogger<SessionList> Logger
 @inject IWorktreeSyncService SyncService
+@inject ICliProviderFactory CliProviderFactory
+@inject ICliAvailabilityService CliAvailability
 @using Microsoft.Extensions.Logging
 @implements IDisposable
 
@@ -31,7 +33,15 @@
                     case SidebarRowKind.ProjectHeader:
                         var isExpanded = _expandedProjects.Contains(row.ProjectName!);
                         <div @key="@($"ph-{row.ProjectName}")"
-                             class="project-header @(row.HasStreamingSession && !isExpanded ? "has-streaming" : "")"
+                             class="project-header @(row.HasStreamingSession && !isExpanded ? "has-streaming" : "") @(_draggedProject == row.ProjectName ? "dragging" : "") @(_dropTargetProject == row.ProjectName ? "drop-target" : "")"
+                             draggable="true"
+                             @ondragstart="@(() => OnProjectDragStart(row.ProjectName!))"
+                             @ondragover="@(() => OnProjectDragOver(row.ProjectName!))"
+                             @ondragover:preventDefault="true"
+                             @ondragleave="OnProjectDragLeave"
+                             @ondrop="@(() => OnProjectDrop(row.ProjectName!))"
+                             @ondrop:preventDefault="true"
+                             @ondragend="OnProjectDragEnd"
                              @onclick="@(() => ToggleProject(row.ProjectName!))">
                             <MudIcon
                                 Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
@@ -55,6 +65,9 @@
                                     <AddSessionMenu WorkspaceId="@readyWs.Id"
                                                     OnNewChat="@(() => CreateNewChat(readyWs))"
                                                     OnAddLocalDir="@(() => CreateLocalDirChat(readyWs))"
+                                                    OnNewCodexChat="@(() => CreateNewCodexChat(readyWs))"
+                                                    OnAddCodexLocalDir="@(() => CreateCodexLocalDirChat(readyWs))"
+                                                    CodexAvailable="_codexAvailable"
                                                     Style="width: 20px; height: 20px; opacity: 0.5;"/>
                                 }
                                 <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small"
@@ -91,6 +104,9 @@
                                 <AddSessionMenu WorkspaceId="@row.Workspace.Id"
                                                 OnNewChat="@(() => CreateNewChat(row.Workspace))"
                                                 OnAddLocalDir="@(() => CreateLocalDirChat(row.Workspace))"
+                                                OnNewCodexChat="@(() => CreateNewCodexChat(row.Workspace))"
+                                                OnAddCodexLocalDir="@(() => CreateCodexLocalDirChat(row.Workspace))"
+                                                CodexAvailable="_codexAvailable"
                                                 Style="width: 16px; height: 16px; opacity: 0.4;"/>
                             }
                         </div>
@@ -148,6 +164,7 @@
     private bool _isCreatingSession;
     private bool _filterVisible;
     private bool _ctrlHeld;
+    private bool _codexAvailable;
     private string? _filterText;
     private DotNetObjectReference<SessionList>? _dotNetRef;
     private IDisposable? _branchChangedSub;
@@ -155,6 +172,10 @@
     private List<SidebarRow> _flatRows = new();
     private List<(Session Session, Workspace Workspace)> _visibleSessions = new();
     private List<IdeInfo> _availableIdes = [];
+
+    // 드래그 앤 드롭 상태
+    private string? _draggedProject;
+    private string? _dropTargetProject;
 
     private enum SidebarRowKind
     {
@@ -180,10 +201,12 @@
         var sessionIndex = 0;
 
         foreach (var group in DataService.GetFilteredWorkspaces(_filterText)
-                     .GroupBy(SessionListDataService.GetProjectName))
+                     .GroupBy(SessionListDataService.GetProjectName)
+                     .OrderBy(g => g.Min(w => w.SortIndex))
+                     .ThenByDescending(g => g.Max(w => w.UpdatedAt)))
         {
             var projectName = group.Key;
-            var workspacesInGroup = group.OrderByDescending(w => w.UpdatedAt).ToList();
+            var workspacesInGroup = group.OrderBy(w => w.SortIndex).ThenByDescending(w => w.UpdatedAt).ToList();
 
             var sessionCount = 0;
             var hasStreaming = false;
@@ -233,6 +256,58 @@
         _visibleSessions = visibleSessions;
     }
 
+    private void OnProjectDragStart(string projectName)
+    {
+        _draggedProject = projectName;
+    }
+
+    private void OnProjectDragOver(string projectName)
+    {
+        if (_draggedProject != null && _draggedProject != projectName)
+            _dropTargetProject = projectName;
+    }
+
+    private void OnProjectDragLeave()
+    {
+        _dropTargetProject = null;
+    }
+
+    private async Task OnProjectDrop(string targetProject)
+    {
+        if (_draggedProject == null || _draggedProject == targetProject)
+        {
+            ResetDragState();
+            return;
+        }
+
+        var projectNames = DataService.GetFilteredWorkspaces(null)
+            .GroupBy(SessionListDataService.GetProjectName)
+            .OrderBy(g => g.Min(w => w.SortIndex))
+            .ThenByDescending(g => g.Max(w => w.UpdatedAt))
+            .Select(g => g.Key)
+            .ToList();
+
+        projectNames.Remove(_draggedProject);
+        var targetIdx = projectNames.IndexOf(targetProject);
+        if (targetIdx >= 0)
+            projectNames.Insert(targetIdx, _draggedProject);
+
+        ResetDragState();
+        await DataService.ReorderProjectGroupsAsync(projectNames);
+        RebuildFlatRows();
+    }
+
+    private void OnProjectDragEnd()
+    {
+        ResetDragState();
+    }
+
+    private void ResetDragState()
+    {
+        _draggedProject = null;
+        _dropTargetProject = null;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         ChatState.OnChange += OnStateChanged;
@@ -263,6 +338,10 @@
         try
         {
             _availableIdes = await Launcher.GetAvailableIdesAsync();
+
+            // Codex CLI 설치 여부 확인 (캐싱된 서비스 사용)
+            _codexAvailable = await CliAvailability.IsAvailableAsync("codex");
+
             await DataService.LoadWorkspacesAsync();
 
             // 1차: 워크스페이스와 프로젝트명 결정 (세션 캐시 아직 비어있음)
@@ -450,15 +529,25 @@
 
     private async Task CreateNewChat(Workspace ws)
     {
-        await CreateSession(ws, false);
+        await CreateSession(ws, false, "claude");
     }
 
     private async Task CreateLocalDirChat(Workspace ws)
     {
-        await CreateSession(ws, true);
+        await CreateSession(ws, true, "claude");
     }
 
-    private async Task CreateSession(Workspace ws, bool localDir)
+    private async Task CreateNewCodexChat(Workspace ws)
+    {
+        await CreateSession(ws, false, "codex");
+    }
+
+    private async Task CreateCodexLocalDirChat(Workspace ws)
+    {
+        await CreateSession(ws, true, "codex");
+    }
+
+    private async Task CreateSession(Workspace ws, bool localDir, string provider = "claude")
     {
         if (ws.Status != WorkspaceStatus.Ready) return;
 
@@ -467,7 +556,7 @@
 
         try
         {
-            await Facade.CreateSessionAsync(ws, localDir);
+            await Facade.CreateSessionAsync(ws, localDir, provider);
             RebuildFlatRows();
         }
         finally

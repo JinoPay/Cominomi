@@ -5,6 +5,7 @@ namespace Seoro.Shared.Services.Chat;
 public class ChatMessageOrchestrator(
     IChatState chatState,
     IClaudeService claudeService,
+    ICliProviderFactory cliProviderFactory,
     ISessionService sessionService,
     IAttachmentService attachmentService,
     IStreamEventProcessor streamProcessor,
@@ -121,16 +122,21 @@ public class ChatMessageOrchestrator(
         {
             ct.ThrowIfCancellationRequested();
 
-            await foreach (var evt in claudeService.SendMessageAsync(
-                               message,
-                               session.Git.WorktreePath,
-                               modelOverride ?? session.Model,
-                               session.PermissionMode,
-                               session.EffortLevel ?? "auto",
-                               session.Id,
-                               conversationId,
-                               systemPrompt,
-                               continueMode).WithCancellation(ct))
+            var provider = cliProviderFactory.GetProviderForSession(session);
+            var sendOptions = new CliSendOptions
+            {
+                Message = message,
+                WorkingDir = session.Git.WorktreePath,
+                Model = modelOverride ?? session.Model,
+                PermissionMode = session.PermissionMode,
+                EffortLevel = session.EffortLevel ?? SeoroConstants.DefaultEffortLevel,
+                SessionId = session.Id,
+                ConversationId = conversationId,
+                SystemPrompt = systemPrompt,
+                ContinueMode = continueMode
+            };
+
+            await foreach (var evt in provider.SendMessageAsync(sendOptions, ct).WithCancellation(ct))
             {
                 if (firstEvent)
                 {

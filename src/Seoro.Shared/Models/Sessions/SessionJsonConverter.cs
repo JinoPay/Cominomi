@@ -72,7 +72,8 @@ public class SessionJsonConverter : JsonConverter<Session>
             MaxBudgetUsd = maxBudgetUsd,
             CreatedAt = createdAt,
             Git = git,
-            Messages = messages
+            Messages = messages,
+            Provider = root.TryGet("provider", out var prov) ? prov : "claude"
         };
 
         // Mutable properties — set after construction
@@ -144,6 +145,8 @@ public class SessionJsonConverter : JsonConverter<Session>
 
         if (value.ConversationId != null)
             writer.WriteString("conversationId", value.ConversationId);
+
+        writer.WriteString("provider", value.Provider);
 
         // Messages (written as empty array for metadata; actual messages saved separately)
         writer.WritePropertyName("messages");

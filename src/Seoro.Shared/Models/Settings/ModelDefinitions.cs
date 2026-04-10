@@ -22,6 +22,10 @@ public record ModelInfo(string Id, string DisplayName)
     /// <summary>"standard", "extended", "hybrid", "alias" 중 하나</summary>
     [JsonPropertyName("category")]
     public string? Category { get; init; }
+
+    /// <summary>이 모델을 지원하는 프로바이더 ID. "claude" 또는 "codex".</summary>
+    [JsonPropertyName("provider")]
+    public string Provider { get; init; } = "claude";
 }
 
 public record ModelPricing(
@@ -49,6 +53,7 @@ public static class ModelDefinitions
 {
     private static ModelConfig _config = CreateDefaultConfig();
     public static ModelInfo Default => All.FirstOrDefault(m => m.Id == _config.DefaultModelId) ?? All[0];
+    public static ModelInfo DefaultCodex => All.FirstOrDefault(m => m.Provider == "codex") ?? Default;
 
     public static ModelInfo[] All => _config.Models;
     public static string PricingFallbackId => _config.DefaultPricingFallbackId;
@@ -93,8 +98,13 @@ public static class ModelDefinitions
             if (modelId.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 return model.Id;
 
-        // 사용자 정의 API 모델 ID (예: "claude-...")는 있는 그대로 유지
-        if (modelId.StartsWith("claude-", StringComparison.OrdinalIgnoreCase))
+        // 사용자 정의 API 모델 ID는 있는 그대로 유지
+        if (modelId.StartsWith("claude-", StringComparison.OrdinalIgnoreCase) ||
+            modelId.StartsWith("o1", StringComparison.OrdinalIgnoreCase) ||
+            modelId.StartsWith("o3", StringComparison.OrdinalIgnoreCase) ||
+            modelId.StartsWith("o4", StringComparison.OrdinalIgnoreCase) ||
+            modelId.StartsWith("gpt-", StringComparison.OrdinalIgnoreCase) ||
+            modelId.StartsWith("codex-", StringComparison.OrdinalIgnoreCase))
             return modelId;
 
         // 알 수 없는 짧은 문자열 (예: "Model") — 기본값으로 정규화
@@ -169,9 +179,10 @@ public static class ModelDefinitions
     }
 
     /// <summary>팝오버 표시 그룹화를 위해 "실제" (별칭 제외) 모델만 검색하는 헬퍼.</summary>
-    public static IEnumerable<IGrouping<string?, ModelInfo>> GetGroupedModels()
+    public static IEnumerable<IGrouping<string?, ModelInfo>> GetGroupedModels(string? provider = null)
     {
-        return All.GroupBy(m => m.Category);
+        var models = provider is null ? All : All.Where(m => m.Provider == provider);
+        return models.GroupBy(m => m.Category);
     }
 
     private static ModelConfig CreateDefaultConfig()
@@ -252,7 +263,48 @@ public static class ModelDefinitions
                     SpeedTier = 2,
                     IsAlias = true,
                     Category = "alias"
-                }
+                },
+                // ── Codex / OpenAI ──
+                new ModelInfo("gpt-5.4", "GPT-5.4")
+                {
+                    Keywords = ["gpt-5.4"],
+                    Pricing = new ModelPricing(2.50m, 15.0m, 0m, 0.25m),
+                    ContextWindow = 1_000_000,
+                    Description = "플래그십 코딩+추론+에이전트 모델",
+                    SpeedTier = 1,
+                    Provider = "codex",
+                    Category = "standard"
+                },
+                new ModelInfo("gpt-5.4-mini", "GPT-5.4 Mini")
+                {
+                    Keywords = ["gpt-5.4-mini"],
+                    Pricing = new ModelPricing(0.75m, 4.50m, 0m, 0.075m),
+                    ContextWindow = 400_000,
+                    Description = "빠른 코딩, 서브에이전트용",
+                    SpeedTier = 3,
+                    Provider = "codex",
+                    Category = "standard"
+                },
+                new ModelInfo("gpt-5.3-codex", "GPT-5.3 Codex")
+                {
+                    Keywords = ["gpt-5.3-codex", "codex"],
+                    Pricing = new ModelPricing(1.75m, 14.0m, 0m, 0.175m),
+                    ContextWindow = 400_000,
+                    Description = "복잡한 소프트웨어 엔지니어링 특화",
+                    SpeedTier = 1,
+                    Provider = "codex",
+                    Category = "standard"
+                },
+new ModelInfo("gpt-5.2", "GPT-5.2")
+                {
+                    Keywords = ["gpt-5.2"],
+                    Pricing = new ModelPricing(1.75m, 14.0m, 0m, 0.175m),
+                    ContextWindow = 400_000,
+                    Description = "디버깅, 깊은 추론에 강점",
+                    SpeedTier = 1,
+                    Provider = "codex",
+                    Category = "standard"
+                },
             ]
         };
     }

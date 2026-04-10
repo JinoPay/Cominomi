@@ -29,6 +29,30 @@
             <span class="add-session-desc">로컬 저장소 경로를 사용</span>
         </div>
     </div>
+    @if (CodexAvailable)
+    {
+        <div class="add-session-separator"></div>
+        <div class="add-session-option" @onclick="HandleNewCodexChat">
+            <div class="add-session-icon" style="background: var(--color-success-bg, rgba(0,200,120,0.12));">
+                <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small"
+                         Style="color: var(--color-success, #00c878);"/>
+            </div>
+            <div class="add-session-label">
+                <span class="add-session-title">Codex 워크트리</span>
+                <span class="add-session-desc">OpenAI Codex CLI로 시작</span>
+            </div>
+        </div>
+        <div class="add-session-option" @onclick="HandleAddCodexLocalDir">
+            <div class="add-session-icon" style="background: var(--color-success-bg, rgba(0,200,120,0.12));">
+                <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small"
+                         Style="color: var(--color-success, #00c878);"/>
+            </div>
+            <div class="add-session-label">
+                <span class="add-session-title">Codex 로컬 디렉터리</span>
+                <span class="add-session-desc">OpenAI Codex CLI + 로컬 경로</span>
+            </div>
+        </div>
+    }
 </MudPopover>
 
 <MudOverlay Visible="_open" OnClick="Close" LockScroll="false"/>
@@ -37,7 +61,10 @@
     [Parameter] public string WorkspaceId { get; set; } = "";
     [Parameter] public EventCallback OnNewChat { get; set; }
     [Parameter] public EventCallback OnAddLocalDir { get; set; }
+    [Parameter] public EventCallback OnNewCodexChat { get; set; }
+    [Parameter] public EventCallback OnAddCodexLocalDir { get; set; }
     [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool CodexAvailable { get; set; }
     [Parameter] public string? ButtonClass { get; set; }
     [Parameter] public string? Style { get; set; }
     [Parameter] public Size IconSize { get; set; } = Size.Small;
@@ -65,6 +92,18 @@
     {
         _open = false;
         await OnAddLocalDir.InvokeAsync();
+    }
+
+    private async Task HandleNewCodexChat()
+    {
+        _open = false;
+        await OnNewCodexChat.InvokeAsync();
+    }
+
+    private async Task HandleAddCodexLocalDir()
+    {
+        _open = false;
+        await OnAddCodexLocalDir.InvokeAsync();
     }
 
 }

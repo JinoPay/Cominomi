@@ -1,0 +1,60 @@
+@using System.Text.Json
+<div class="tool-widget tool-widget-websearch">
+    <div class="tool-widget-header">
+        <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Size="Size.Small"
+                 Style="width: 14px; height: 14px; opacity: 0.6;"/>
+        <span class="tool-widget-command">@_query</span>
+    </div>
+    @if (!string.IsNullOrEmpty(Tool.Output))
+    {
+        <div class="tool-widget-output @(_collapsed ? "collapsed" : "") @(Tool.IsError ? "error-output" : "")">
+            <pre>@Tool.Output</pre>
+        </div>
+        @if (_lineCount > 20)
+        {
+            <div class="tool-widget-toggle" @onclick="@(() => _collapsed = !_collapsed)"
+                 @onclick:stopPropagation="true">
+                @(_collapsed ? $"전체 보기 ({_lineCount}줄)" : "접기")
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter][EditorRequired] public ToolCall Tool { get; set; } = null!;
+
+    private string _query = "";
+    private int _lineCount;
+    private bool _collapsed = true;
+    private string? _lastInput;
+    private string? _lastOutput;
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(_lastInput, Tool.Input))
+        {
+            _lastInput = Tool.Input;
+            _query = ParseQuery(Tool.Input);
+        }
+
+        if (!ReferenceEquals(_lastOutput, Tool.Output))
+        {
+            _lastOutput = Tool.Output;
+            _lineCount = string.IsNullOrEmpty(Tool.Output) ? 0 : Tool.Output.Split('\n').Length;
+            _collapsed = _lineCount > 20;
+        }
+    }
+
+    private static string ParseQuery(string? input)
+    {
+        if (string.IsNullOrEmpty(input)) return "";
+        try
+        {
+            using var doc = JsonDocument.Parse(input);
+            if (doc.RootElement.TryGetProperty("query", out var q))
+                return q.GetString() ?? "";
+        }
+        catch (JsonException) { /* 잘못된 입력 */ }
+        return "";
+    }
+}

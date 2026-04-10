@@ -44,7 +44,7 @@
                                HelperText="이 워크스페이스의 세션에 사용할 모델입니다. 비워두면 앱 기본값을 따릅니다."
                                Clearable="true">
                         <MudSelectItem T="string" Value="@("")">앱 기본값 사용</MudSelectItem>
-                        @foreach (var model in ModelDefinitions.All)
+                        @foreach (var model in ModelDefinitions.All.Where(m => m.Provider != "codex"))
                         {
                             <MudSelectItem T="string" Value="@model.Id">@model.DisplayName</MudSelectItem>
                         }

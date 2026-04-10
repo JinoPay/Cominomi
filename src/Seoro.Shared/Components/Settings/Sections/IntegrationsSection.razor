@@ -213,6 +213,65 @@
                   HelperText="비워두면 자동으로 감지합니다"/>
 </div>
 
+<div class="settings-group">
+    <div class="settings-group-title">Codex CLI <span style="opacity: 0.5; font-size: 0.75rem;">(선택 사항)</span></div>
+    <div class="integration-status">
+        @if (_codexChecking)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                 Style="width: 18px; height: 18px;"/>
+            <span class="status-text">감지 중...</span>
+        }
+        else if (_codexFound)
+        {
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                     Class="status-ok"/>
+            <span class="status-text">감지됨</span>
+            @if (!string.IsNullOrEmpty(_codexResolvedPath))
+            {
+                <span class="status-path">@_codexResolvedPath</span>
+            }
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small"
+                     Style="color: var(--mud-palette-text-secondary);"/>
+            <span class="status-text">미설치</span>
+        }
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
+                       OnClick="CheckCodex" title="다시 확인"/>
+    </div>
+
+    @if (_codexFound && !string.IsNullOrEmpty(_codexVersion))
+    {
+        <div class="stack gap-1 mt-2">
+            <div class="stack-row items-center gap-2">
+                <span class="typo-body2">버전:</span>
+                <MudChip T="string" Size="Size.Small" Color="Color.Success"
+                         Variant="Variant.Text">
+                    @_codexVersion
+                </MudChip>
+            </div>
+        </div>
+    }
+
+    @if (!_codexChecking && !_codexFound)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined"
+                  Class="mt-2" Dense="true">
+            <div class="stack gap-1">
+                <span class="typo-body2">설치 방법:</span>
+                <code>npm install -g @("@openai/codex")</code>
+            </div>
+        </MudAlert>
+    }
+
+    <MudTextField @bind-Value="Settings.CodexPath" Label="Codex CLI 경로"
+                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                  Placeholder="자동 감지" Class="mt-3"
+                  HelperText="비워두면 자동으로 감지합니다"/>
+</div>
+
 @code {
     [Parameter][EditorRequired] public AppSettings Settings { get; set; } = null!;
 
@@ -229,6 +288,10 @@
     private bool _ghFound;
     private string? _ghResolvedPath;
     private string? _ghVersion;
+    private bool _codexChecking;
+    private bool _codexFound;
+    private string? _codexResolvedPath;
+    private string? _codexVersion;
     private readonly bool _isMac = !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
     protected override async Task OnInitializedAsync()
@@ -240,6 +303,7 @@
     {
         _gitChecking = true;
         _ghChecking = true;
+        _codexChecking = true;
         StateHasChanged();
 
         var depsTask = DependencyCheckService.CheckAllAsync();
@@ -250,6 +314,8 @@
         _gitChecking = false;
         ApplyDepResult(deps, "gh", ref _ghFound, ref _ghResolvedPath, ref _ghVersion);
         _ghChecking = false;
+        ApplyDepResult(deps, "codex", ref _codexFound, ref _codexResolvedPath, ref _codexVersion);
+        _codexChecking = false;
 
         await cliTask;
         StateHasChanged();
@@ -288,6 +354,18 @@
         ApplyDepResult(deps, "gh", ref _ghFound, ref _ghResolvedPath, ref _ghVersion);
 
         _ghChecking = false;
+        StateHasChanged();
+    }
+
+    private async Task CheckCodex()
+    {
+        _codexChecking = true;
+        StateHasChanged();
+
+        var deps = await DependencyCheckService.CheckAllAsync();
+        ApplyDepResult(deps, "codex", ref _codexFound, ref _codexResolvedPath, ref _codexVersion);
+
+        _codexChecking = false;
         StateHasChanged();
     }
 

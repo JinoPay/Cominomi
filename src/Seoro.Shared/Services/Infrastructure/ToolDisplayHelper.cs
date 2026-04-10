@@ -38,7 +38,9 @@ public static class ToolDisplayHelper
                 "Bash" => count == 1 ? Strings.Tool_BashSingle : Strings.Tool_BashMultiple(count),
                 "Agent" => count == 1 ? Strings.Tool_AgentSingle : Strings.Tool_AgentMultiple(count),
                 "WebFetch" => count == 1 ? Strings.Tool_WebFetchSingle : Strings.Tool_WebFetchMultiple(count),
-                "WebSearch" => count == 1 ? Strings.Tool_WebSearchSingle : Strings.Tool_WebSearchMultiple(count),
+                "WebSearch" => count == 1
+                    ? GetWebSearchSummary(toolParts) ?? Strings.Tool_WebSearchSingle
+                    : Strings.Tool_WebSearchMultiple(count),
                 "NotebookEdit" => count == 1 ? Strings.Tool_NotebookSingle : Strings.Tool_NotebookMultiple(count),
                 "TodoWrite" => Strings.Tool_TodoWriteDone,
                 "AskUserQuestion" => "질문 대기 중",
@@ -322,6 +324,30 @@ public static class ToolDisplayHelper
         return firstLine.Length <= maxLength
             ? firstLine
             : firstLine[..maxLength] + "…";
+    }
+
+    private static string? GetWebSearchSummary(List<ContentPart> toolParts)
+    {
+        var part = toolParts.FirstOrDefault(p =>
+            NormalizeToolName(p.ToolCall?.Name ?? "") == "WebSearch");
+        if (part?.ToolCall?.Input is not { } input) return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(input);
+            if (doc.RootElement.TryGetProperty("query", out var q))
+            {
+                var query = q.GetString();
+                if (!string.IsNullOrEmpty(query))
+                {
+                    var display = query.Length <= 40 ? query : query[..40] + "…";
+                    return $"웹 검색: \"{display}\"";
+                }
+            }
+        }
+        catch { /* 잘못된 입력 */ }
+
+        return null;
     }
 
     internal static string NormalizeToolName(string name)

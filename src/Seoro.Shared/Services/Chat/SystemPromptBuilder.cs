@@ -6,6 +6,7 @@ public class SystemPromptBuilder(
     IContextService contextService,
     IMemoryService memoryService,
     ISettingsService settingsService,
+    ICliProviderFactory cliProviderFactory,
     ILogger<SystemPromptBuilder> logger)
     : ISystemPromptBuilder
 {
@@ -33,7 +34,8 @@ public class SystemPromptBuilder(
         if (!string.IsNullOrWhiteSpace(generalPrompt))
             parts.Add(generalPrompt);
 
-        if (session.PermissionMode == "plan")
+        var provider = cliProviderFactory.GetProviderForSession(session);
+        if (provider.Capabilities.SupportsPlanMode && session.PermissionMode == "plan")
             parts.Add(
                 @"You are in Plan mode. Your goal is to explore the codebase thoroughly and create a detailed implementation plan.
 

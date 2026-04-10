@@ -19,12 +19,22 @@ public class ContentBlockDeltaHandler(IChatState chatState, IChatEventBus eventB
         }
         else if (evt.Delta?.Type == "text_delta" && evt.Delta.Text != null)
         {
-            chatState.AppendText(ctx.AssistantMessage, evt.Delta.Text);
-            chatState.SetPhase(StreamingPhase.WritingText, sessionId: ctx.Session.Id);
+            if (ctx.CurrentToolCall != null)
+            {
+                // Codex 패턴: item.updated 시 도구 출력을 text_delta로 전달
+                // Claude는 text_delta 중 CurrentToolCall이 null이므로 충돌 없음
+                ctx.CurrentToolCall.Output += evt.Delta.Text;
+                chatState.NotifyStateChanged();
+            }
+            else
+            {
+                chatState.AppendText(ctx.AssistantMessage, evt.Delta.Text);
+                chatState.SetPhase(StreamingPhase.WritingText, sessionId: ctx.Session.Id);
 
-            // 로컬 디렉토리 세션의 타이틀 마커를 스트리밍 중 즉시 감지
-            if (ctx.Session.Git.IsLocalDir && !ctx.Session.TitleLocked)
-                TryExtractTitleMarker(ctx, chatState);
+                // 로컬 디렉토리 세션의 타이틀 마커를 스트리밍 중 즉시 감지
+                if (ctx.Session.Git.IsLocalDir && !ctx.Session.TitleLocked)
+                    TryExtractTitleMarker(ctx, chatState);
+            }
         }
         else if (evt.Delta?.Type == "thinking_delta" && evt.Delta.Thinking != null)
         {

@@ -6,6 +6,16 @@
                  Style="width: 14px; height: 14px; opacity: 0.6;"/>
         <span class="tool-widget-command">$ @_command</span>
     </div>
+    @if (_isMultilineCommand)
+    {
+        <div class="tool-widget-fullcmd @(_cmdExpanded ? "" : "collapsed")" style="margin-bottom: 2px;">
+            <pre>@_fullCommand</pre>
+        </div>
+        <div class="tool-widget-toggle" @onclick="@(() => _cmdExpanded = !_cmdExpanded)"
+             @onclick:stopPropagation="true">
+            @(_cmdExpanded ? "명령 접기" : "전체 명령 보기")
+        </div>
+    }
     @if (!string.IsNullOrEmpty(Tool.Output))
     {
         <div class="tool-widget-output @(_collapsed ? "collapsed" : "") @(Tool.IsError ? "error-output" : "")">
@@ -25,6 +35,9 @@
     [Parameter][EditorRequired] public ToolCall Tool { get; set; } = null!;
 
     private string _command = "";
+    private string _fullCommand = "";
+    private bool _isMultilineCommand;
+    private bool _cmdExpanded;
     private int _lineCount;
     private bool _collapsed = true;
     private string? _lastInput;
@@ -35,7 +48,7 @@
         if (!ReferenceEquals(_lastInput, Tool.Input))
         {
             _lastInput = Tool.Input;
-            _command = ParseCommand(Tool.Input);
+            (_command, _fullCommand, _isMultilineCommand) = ParseCommand(Tool.Input);
         }
 
         if (!ReferenceEquals(_lastOutput, Tool.Output))
@@ -46,18 +59,20 @@
         }
     }
 
-    private static string ParseCommand(string? input)
+    private static (string header, string full, bool isMultiline) ParseCommand(string? input)
     {
-        if (string.IsNullOrEmpty(input)) return "";
+        if (string.IsNullOrEmpty(input)) return ("", "", false);
         try
         {
             using var doc = JsonDocument.Parse(input);
             if (doc.RootElement.TryGetProperty("command", out var cmd))
             {
                 var text = cmd.GetString() ?? "";
-                // 여러 줄 명령에 대해 첫 줄만 표시
-                var firstLine = text.Split('\n')[0];
-                return firstLine.Length > 80 ? firstLine[..80] + "..." : firstLine;
+                var lines = text.Split('\n');
+                var firstLine = lines[0];
+                var header = firstLine.Length > 80 ? firstLine[..80] + "…" : firstLine;
+                var isMultiline = lines.Length > 1 && lines.Any(l => !string.IsNullOrWhiteSpace(l));
+                return (header, text.TrimEnd(), isMultiline);
             }
         }
         catch (JsonException)
@@ -65,7 +80,7 @@
             /* 잘못된 도구 입력 — 빈 상태로 렌더링 */
         }
 
-        return "";
+        return ("", "", false);
     }
 
     private static string StripAnsi(string text)

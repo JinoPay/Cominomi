@@ -28,7 +28,9 @@ public class ContentBlockStartHandler(IChatState chatState, IGitBranchWatcherSer
                 {
                     Id = evt.ContentBlock.Id ?? "",
                     Name = evt.ContentBlock.Name ?? "",
-                    ParentToolUseId = evt.ParentToolUseId
+                    ParentToolUseId = evt.ParentToolUseId,
+                    // Codex는 input을 delta가 아닌 ContentBlock에 바로 제공
+                    Input = evt.ContentBlock.Input?.GetRawText() ?? ""
                 };
                 chatState.AddToolCall(ctx.AssistantMessage, ctx.CurrentToolCall);
                 chatState.SetPhase(StreamingPhase.UsingTool, evt.ContentBlock.Name, ctx.Session.Id);
@@ -49,6 +51,9 @@ public class ContentBlockStartHandler(IChatState chatState, IGitBranchWatcherSer
                         if (evt.ContentBlock.Content != null)
                             matchingTool.Output =
                                 StreamEventUtils.ExtractToolResultContent(evt.ContentBlock.Content.Value);
+                        else if (!string.IsNullOrEmpty(evt.ContentBlock.Text))
+                            // Codex는 output을 Content가 아닌 ContentBlock.Text에 직접 제공
+                            matchingTool.Output = evt.ContentBlock.Text;
                         chatState.NotifyStateChanged();
 
                         // Refresh branch from HEAD file after Bash tool completes

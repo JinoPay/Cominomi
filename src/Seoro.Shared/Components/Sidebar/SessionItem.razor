@@ -4,6 +4,11 @@
      @oncontextmenu="OpenContextMenu"
      @oncontextmenu:preventDefault="true">
 
+    @if (Session.Provider == "codex")
+    {
+        <span class="status-badge" style="background: rgba(0,200,120,0.15); color: #00c878;" title="Codex">Codex</span>
+    }
+
     @if (IsSynced)
     {
         <span class="status-badge synced" title="동기화">동기화</span>

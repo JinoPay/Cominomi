@@ -26,7 +26,7 @@
 <MudPopover Open="@_modelMenuOpen" AnchorOrigin="Origin.TopRight"
             TransformOrigin="Origin.BottomRight" Class="model-popover">
     <MudList T="string" Dense="true" Class="model-list">
-        @foreach (var group in ModelDefinitions.GetGroupedModels())
+        @foreach (var group in ModelDefinitions.GetGroupedModels(CurrentProvider))
         {
             <div class="model-group-header">@GetCategoryLabel(group.Key)</div>
             @foreach (var model in group)
@@ -69,7 +69,7 @@
             @if (_customModelInput)
             {
                 <MudTextField T="string" @bind-Value="_customModelId"
-                              Placeholder="claude-sonnet-4-6..."
+                              Placeholder="@(CurrentProvider == "codex" ? "o4-mini..." : "claude-sonnet-4-6...")"
                               Variant="Variant.Text" Margin="Margin.Dense"
                               Immediate="true" AutoFocus="true"
                               OnKeyDown="HandleCustomModelKeyDown"
@@ -106,6 +106,8 @@
     private string? _pendingModel;
 
     private string EffectiveModel => _pendingModel ?? ChatState.CurrentSession?.Model ?? Model;
+
+    private string CurrentProvider => ChatState.CurrentSession?.Provider ?? "claude";
 
     private bool _isCustomModel => !string.IsNullOrEmpty(EffectiveModel)
                                    && ModelDefinitions.All.All(m => m.Id != EffectiveModel) && ModelDefinitions.NormalizeModelId(EffectiveModel) == EffectiveModel;

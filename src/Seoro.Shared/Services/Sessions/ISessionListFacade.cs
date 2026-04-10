@@ -36,5 +36,5 @@ public interface ISessionListFacade
     /// <summary>
     ///     Creates a new session (standard or local-dir), sets ChatState, updates cache, and persists selection.
     /// </summary>
-    Task<Session> CreateSessionAsync(Workspace ws, bool localDir = false);
+    Task<Session> CreateSessionAsync(Workspace ws, bool localDir = false, string provider = "claude");
 }

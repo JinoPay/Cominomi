@@ -1,19 +1,22 @@
 <div class="tool-card @(!Tool.IsComplete ? "running" : "")">
     <div class="tool-card-header" @onclick="@(() => _expanded = !_expanded)">
-        @if (!Tool.IsComplete)
+        @if (ShowStatusIcon)
         {
-            <MudProgressCircular Size="Size.Small" Indeterminate="true"
-                                 Style="width: 14px; height: 14px;" Color="Color.Warning"/>
-        }
-        else if (Tool.IsError)
-        {
-            <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Color="Color.Error"
-                     Style="width: 16px; height: 16px;"/>
-        }
-        else
-        {
-            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success"
-                     Style="width: 16px; height: 16px;"/>
+            @if (!Tool.IsComplete)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                     Style="width: 14px; height: 14px;" Color="Color.Warning"/>
+            }
+            else if (Tool.IsError)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Small" Color="Color.Error"
+                         Style="width: 16px; height: 16px;"/>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success"
+                         Style="width: 16px; height: 16px;"/>
+            }
         }
         <MudIcon Icon="@ToolDisplayHelper.GetToolIcon(Tool.Name)" Size="Size.Small"
                  Style="width: 16px; height: 16px; opacity: 0.6;"/>
@@ -51,6 +54,9 @@
                     break;
                 case WidgetType.Agent:
                     <AgentToolWidget Tool="Tool"/>
+                    break;
+                case WidgetType.WebSearch:
+                    <WebSearchWidget Tool="Tool"/>
                     break;
                 default:
                     @* 일반 폴백 *@
@@ -95,6 +101,8 @@
 @code {
     [Parameter][EditorRequired] public ToolCall Tool { get; set; } = default!;
 
+    [Parameter] public bool ShowStatusIcon { get; set; } = true;
+
     private bool _expanded;
     private bool _outputExpanded;
 
@@ -132,7 +140,8 @@
         Grep,
         Glob,
         AskUserQuestion,
-        Agent
+        Agent,
+        WebSearch
     }
 
     private WidgetType GetWidgetType()
@@ -147,6 +156,7 @@
             "glob" => WidgetType.Glob,
             "askuserquestion" or "ask_user_question" => WidgetType.AskUserQuestion,
             "agent" => WidgetType.Agent,
+            "websearch" or "web_search" => WidgetType.WebSearch,
             _ => WidgetType.Generic
         };
     }

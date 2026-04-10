@@ -75,7 +75,7 @@
                                        Variant="Variant.Outlined" Margin="Margin.Dense"
                                        HelperText="비워두면 앱 기본값을 따릅니다.">
                                 <MudSelectItem T="string" Value="@("")">앱 기본값 사용</MudSelectItem>
-                                @foreach (var model in ModelDefinitions.All)
+                                @foreach (var model in ModelDefinitions.All.Where(m => m.Provider != "codex"))
                                 {
                                     <MudSelectItem T="string" Value="@model.Id">@model.DisplayName</MudSelectItem>
                                 }
@@ -131,7 +131,7 @@
                                        Variant="Variant.Outlined" Margin="Margin.Dense"
                                        HelperText="비워두면 앱 기본값을 따릅니다.">
                                 <MudSelectItem T="string" Value="@("")">앱 기본값 사용</MudSelectItem>
-                                @foreach (var model in ModelDefinitions.All)
+                                @foreach (var model in ModelDefinitions.All.Where(m => m.Provider != "codex"))
                                 {
                                     <MudSelectItem T="string" Value="@model.Id">@model.DisplayName</MudSelectItem>
                                 }

@@ -68,4 +68,61 @@ public class ProcessErrorClassifierTests
         Assert.Equal(ErrorCode.BranchPushFailed, error.Code);
     }
 
+    // --- Codex ---
+
+    [Fact]
+    public void ClassifyCodexError_ApiKey_ReturnsPermanent()
+    {
+        var error = ProcessErrorClassifier.ClassifyCodexError("Error: invalid api key");
+        Assert.Equal(ErrorCode.CodexProcessFailed, error.Code);
+        Assert.Equal(ErrorCategory.Permanent, error.Category);
+    }
+
+    [Fact]
+    public void ClassifyCodexError_OpenAiApiKey_ReturnsPermanent()
+    {
+        var error = ProcessErrorClassifier.ClassifyCodexError("OPENAI_API_KEY environment variable not set");
+        Assert.Equal(ErrorCode.CodexProcessFailed, error.Code);
+        Assert.Equal(ErrorCategory.Permanent, error.Category);
+    }
+
+    [Fact]
+    public void ClassifyCodexError_RateLimit_ReturnsTransient()
+    {
+        var error = ProcessErrorClassifier.ClassifyCodexError("Error: 429 too many requests");
+        Assert.Equal(ErrorCode.StreamingFailed, error.Code);
+        Assert.Equal(ErrorCategory.Transient, error.Category);
+    }
+
+    [Fact]
+    public void ClassifyCodexError_ModelNotFound_ReturnsPermanent()
+    {
+        var error = ProcessErrorClassifier.ClassifyCodexError("Error: model not found");
+        Assert.Equal(ErrorCode.CodexProcessFailed, error.Code);
+        Assert.Equal(ErrorCategory.Permanent, error.Category);
+    }
+
+    [Fact]
+    public void ClassifyCodexError_SandboxViolation_ReturnsPermanent()
+    {
+        var error = ProcessErrorClassifier.ClassifyCodexError("sandbox: permission denied for /etc/passwd");
+        Assert.Equal(ErrorCode.CodexSandboxViolation, error.Code);
+        Assert.Equal(ErrorCategory.Permanent, error.Category);
+    }
+
+    [Fact]
+    public void ClassifyCodexError_Network_ReturnsTransient()
+    {
+        var error = ProcessErrorClassifier.ClassifyCodexError("ECONNREFUSED when connecting to api.openai.com");
+        Assert.Equal(ErrorCode.StreamingFailed, error.Code);
+        Assert.Equal(ErrorCategory.Transient, error.Category);
+    }
+
+    [Fact]
+    public void ClassifyCodexError_Unknown_FallsBack()
+    {
+        var error = ProcessErrorClassifier.ClassifyCodexError("some unknown codex error");
+        Assert.Equal(ErrorCode.CodexProcessFailed, error.Code);
+        Assert.Equal(ErrorCategory.Unknown, error.Category);
+    }
 }

@@ -11,6 +11,7 @@ using Photino.Blazor;
 using Serilog;
 using Serilog.Events;
 using Velopack;
+using Seoro.Shared.Services.Cli;
 using NotificationService = Seoro.Desktop.Services.NotificationService;
 
 namespace Seoro.Desktop;
@@ -185,7 +186,14 @@ public static class Program
         appBuilder.Services.AddSingleton<IGitService, GitService>();
         appBuilder.Services.AddSingleton<IGitBranchWatcherService, GitBranchWatcherService>();
         appBuilder.Services.AddSingleton<IWorktreeSyncService, WorktreeSyncService>();
-        appBuilder.Services.AddSingleton<IClaudeService, ClaudeService>();
+        appBuilder.Services.AddSingleton<ClaudeService>();
+        appBuilder.Services.AddSingleton<IClaudeService>(sp => sp.GetRequiredService<ClaudeService>());
+        appBuilder.Services.AddSingleton<Seoro.Shared.Services.Codex.CodexService>();
+        // ICliProvider로 두 구현체 모두 등록 (CliProviderFactory가 IEnumerable<ICliProvider> 주입받음)
+        appBuilder.Services.AddSingleton<ICliProvider>(sp => sp.GetRequiredService<ClaudeService>());
+        appBuilder.Services.AddSingleton<ICliProvider>(sp => sp.GetRequiredService<Seoro.Shared.Services.Codex.CodexService>());
+        appBuilder.Services.AddSingleton<ICliProviderFactory, CliProviderFactory>();
+        appBuilder.Services.AddSingleton<ICliAvailabilityService, CliAvailabilityService>();
         appBuilder.Services.AddSingleton<IContextService, ContextService>();
         appBuilder.Services.AddSingleton<IMemoryService, MemoryService>();
         appBuilder.Services.AddSingleton<IHooksEngine, HooksEngine>();

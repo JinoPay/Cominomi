@@ -22,6 +22,10 @@ public enum ErrorCode
     StreamingFailed,
     ClaudeProcessFailed,
 
+    // Codex
+    CodexProcessFailed,
+    CodexSandboxViolation,
+
     // 세션 / 워크스페이스
     SessionNotFound,
     WorkspaceNotFound,
