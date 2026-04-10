@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.17.9",
+    "date": "2026-04-10",
+    "changes": [
+      { "type": "feat", "description": "Codex CLI 지원 통합 (실험적 기능)" },
+      { "type": "feat", "description": "사이드바 워크스페이스 드래그 앤 드롭 순서 변경" },
+      { "type": "feat", "description": "탭 바 우클릭 컨텍스트 메뉴 추가" }
+    ]
+  },
+  {
     "version": "1.17.8",
     "date": "2026-04-10",
     "changes": [
