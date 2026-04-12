@@ -120,6 +120,8 @@ public class MergeStatusService : IMergeStatusService
 
         _streamingStoppedSub = eventBus.Subscribe<StreamingStoppedEvent>(evt =>
         {
+            // 스트리밍 종료 후 커밋이 새로 생겼을 수 있으므로 debounce 우회.
+            _lastRefresh.TryRemove(evt.SessionId, out _);
             _ = RefreshAsync(evt.SessionId);
         });
 

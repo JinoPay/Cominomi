@@ -236,8 +236,17 @@
             InvokeAsync(async () => await OnSessionChangedAsync()));
 
         // 스트림이 끝났을 때 브랜치 목록도 같이 리프레시 (사용자가 외부에서 푸시했을 수 있음).
+        // targetBranchOverride 를 넘겨 debounce 를 우회 — 커밋이 새로 생겼을 수 있으므로 반드시 재계산.
         _streamingStoppedSub = EventBus.Subscribe<StreamingStoppedEvent>(_ =>
-            InvokeAsync(async () => await ReloadBranchesAsync(forceCacheInvalidate: false)));
+            InvokeAsync(async () =>
+            {
+                await ReloadBranchesAsync(forceCacheInvalidate: false);
+                var sess = ChatState.CurrentSession;
+                if (sess != null && !string.IsNullOrEmpty(_targetBranch))
+                    await MergeStatusService.RefreshAsync(
+                        sess.Id,
+                        BranchRefNormalizer.Normalize(_targetBranch));
+            }));
 
         _branchChangedSub = EventBus.Subscribe<BranchChangedEvent>(_ =>
             InvokeAsync(StateHasChanged));
