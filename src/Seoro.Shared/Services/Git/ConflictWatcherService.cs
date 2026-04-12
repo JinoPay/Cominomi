@@ -19,7 +19,7 @@ public interface IConflictWatcherService : IDisposable
 {
     void Watch(Session session);
     void Unwatch();
-    bool IsInConflict(string workingDir);
+    ValueTask<bool> IsInConflictAsync(string workingDir, CancellationToken ct = default);
     void WatchExtraPath(string workingDir);
     void UnwatchExtraPath(string workingDir);
 }
@@ -118,7 +118,7 @@ public class ConflictWatcherService : IConflictWatcherService
         }
     }
 
-    public bool IsInConflict(string workingDir)
+    public async ValueTask<bool> IsInConflictAsync(string workingDir, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(workingDir))
             return false;
@@ -129,9 +129,10 @@ public class ConflictWatcherService : IConflictWatcherService
         }
 
         // 감시 중이 아니어도 일회성 질의는 허용 — git 에 직접 물어본다.
+        // sync-over-async 금지: UI 스레드 SyncContext 에서 continuation 이 돌아올 때 데드락 발생.
         try
         {
-            return _gitService.HasUnresolvedConflictsAsync(workingDir).GetAwaiter().GetResult();
+            return await _gitService.HasUnresolvedConflictsAsync(workingDir, ct).ConfigureAwait(false);
         }
         catch
         {

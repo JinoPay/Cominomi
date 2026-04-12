@@ -217,8 +217,8 @@ public class MergeStatusService : IMergeStatusService
 
         var now = DateTime.UtcNow;
 
-        // 1) 실제 머지 중인가 — 최우선. ConflictWatcher 의 캐시 활용 (동기적).
-        if (_conflictWatcher.IsInConflict(session.Git.WorktreePath))
+        // 1) 실제 머지 중인가 — 최우선. ConflictWatcher 의 캐시 활용.
+        if (await _conflictWatcher.IsInConflictAsync(session.Git.WorktreePath, ct))
         {
             var conflictFiles = await GetWorktreeConflictFilesAsync(session.Git.WorktreePath, ct);
             return new MergeStatus(MergeStatusKind.InConflict,
