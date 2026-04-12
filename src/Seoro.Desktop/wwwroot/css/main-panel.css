@@ -79,7 +79,11 @@
     font-family: var(--font-mono);
     font-size: 0.7rem;
     font-weight: 600;
+    display: inline-flex;
+    gap: 3px;
 }
+.merge-status-badge .diff-add { color: var(--color-success, #3fb950); }
+.merge-status-badge .diff-del { color: var(--color-error, #f85149); }
 
 .merge-action-conflict {
     background: var(--color-error-bg) !important;

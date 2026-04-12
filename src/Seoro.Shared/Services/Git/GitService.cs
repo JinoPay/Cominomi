@@ -851,25 +851,6 @@ public class GitService(
         return url;
     }
 
-    public async Task<GitResult> PushAsync(string workingDir, string remote, string branch,
-        CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(workingDir) || string.IsNullOrWhiteSpace(remote)
-                                                  || string.IsNullOrWhiteSpace(branch))
-            return new GitResult(false, string.Empty, "push 파라미터가 비어 있습니다.");
-
-        logger.LogInformation("git push 시작: workdir={Dir} remote={Remote} branch={Branch}",
-            workingDir, remote, branch);
-
-        var result = await RunGitAsync(workingDir, ct, "push", remote, branch);
-        if (result.Success)
-            logger.LogInformation("git push 완료: {Branch} → {Remote}", branch, remote);
-        else
-            logger.LogWarning("git push 실패: {Branch} → {Remote}: {Error}", branch, remote, result.Error);
-
-        return result;
-    }
-
     public async Task<bool> HasUnresolvedConflictsAsync(string workingDir, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(workingDir) || !Directory.Exists(workingDir))

@@ -283,6 +283,9 @@
 
         try
         {
+            // diff 와 MergeStatus 를 함께 갱신 — Changes 새로고침이 툴바 상태도 최신화.
+            _ = MergeStatusService.RefreshAsync(session.Id);
+
             var diffBase = session.Git.GetDiffBase();
             var diffTask = GitService.GetDiffSummaryAsync(session.Git.WorktreePath, diffBase);
             var aheadBehindTask = GitService.GetAheadBehindAsync(session.Git.WorktreePath);

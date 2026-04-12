@@ -17,12 +17,6 @@ public interface IGitService
         CancellationToken ct = default);
 
     /// <summary>
-    ///     브랜치를 원격에 푸시한다 (<c>git push &lt;remote&gt; &lt;branch&gt;</c>).
-    ///     세션 워크트리에서 직접 호출해도 안전하다 — .git 공유 구조 덕분.
-    /// </summary>
-    Task<GitResult> PushAsync(string workingDir, string remote, string branch,
-        CancellationToken ct = default);
-
     /// <summary>
     ///     작업 디렉터리에 해결되지 않은 머지 충돌이 있는지 판정한다.
     ///     <c>.git/MERGE_HEAD</c> 파일 존재 + <c>git status --porcelain</c>의 UU/AA/DD/AU/UA/DU/UD 마커.

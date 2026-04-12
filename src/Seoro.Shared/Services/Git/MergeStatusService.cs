@@ -210,7 +210,7 @@ public class MergeStatusService : IMergeStatusService
     private async Task<MergeStatus> ComputeStatusAsync(string sessionId, CancellationToken ct)
     {
         var session = await _sessionService.LoadSessionAsync(sessionId);
-        if (session == null || session.Git.IsLocalDir || string.IsNullOrEmpty(session.Git.WorktreePath))
+        if (session == null || string.IsNullOrEmpty(session.Git.WorktreePath))
             return MergeStatus.Unknown;
 
         var workspace = await _workspaceService.LoadWorkspaceAsync(session.WorkspaceId);
@@ -218,6 +218,31 @@ public class MergeStatusService : IMergeStatusService
             return MergeStatus.Unknown;
 
         var now = DateTime.UtcNow;
+
+        // 로컬 디렉토리 세션은 워크트리 머지가 아닌 origin/<branchName> 기준 push 감지만 수행.
+        if (session.Git.IsLocalDir && !string.IsNullOrEmpty(session.Git.BranchName))
+        {
+            int localUncommitted;
+            try
+            {
+                var uc = await _gitService.GetUncommittedChangesAsync(session.Git.WorktreePath, ct);
+                localUncommitted = uc.Count;
+            }
+            catch { localUncommitted = 0; }
+
+            var remoteRef = $"origin/{BranchRefNormalizer.Normalize(session.Git.BranchName)}";
+            var cmp = await _gitService.FetchAndCompareAsync(
+                workspace.RepoLocalPath, session.Git.BranchName, remoteRef, ct);
+            if (cmp == null)
+                return new MergeStatus(MergeStatusKind.NetworkError,
+                    null, null, null, localUncommitted, now, "원격 fetch 에 실패했습니다.");
+
+            var localKind = localUncommitted > 0 ? MergeStatusKind.UncommittedDirty : MergeStatusKind.Clean;
+            return new MergeStatus(localKind, cmp.Value.Ahead, cmp.Value.Behind, null, localUncommitted, now, null);
+        }
+
+        if (session.Git.IsLocalDir)
+            return MergeStatus.Unknown;
 
         // 1) 실제 머지 중인가 — 최우선. ConflictWatcher 의 캐시 활용.
         if (await _conflictWatcher.IsInConflictAsync(session.Git.WorktreePath, ct))

@@ -29,13 +29,57 @@
         var workspace = ChatState.CurrentWorkspace;
     }
 
-    @if (session != null && !session.Git.IsLocalDir && session.Status != SessionStatus.Pending)
+    @if (session != null && session.Status != SessionStatus.Pending)
     {
         var isStreaming = ChatState.IsSessionStreaming(session.Id);
         var remoteInfo = workspace != null ? WorkspaceService.GetRemoteInfo(workspace.Id) : RemoteInfo.None;
         var status = MergeStatusService.GetCurrent(session.Id);
-        var noTarget = string.IsNullOrEmpty(_targetBranch);
         var blocked = isStreaming || _busy;
+
+        @* ─── 로컬 디렉토리 세션: 간단한 푸시 버튼만 표시 ─── *@
+        @if (session.Git.IsLocalDir)
+        {
+            var localHasChanges = (status.AheadCount ?? 0) > 0 || status.UncommittedChangeCount > 0;
+            if (localHasChanges && remoteInfo.Mode == RemoteMode.GitHub)
+            {
+                <div class="merge-flow" style="justify-content: flex-end;">
+                    <MudTooltip Text="@BuildLocalDirPushTooltip(status, _localDiffStats)" Placement="Placement.Bottom">
+                        <span class="merge-status-icon @StatusCssClass(status.Kind)">
+                            <MudIcon Icon="@StatusIcon(status.Kind)" Style="width: 14px; height: 14px;"/>
+                            @if (_localDiffStats is { Additions: > 0 } or { Deletions: > 0 })
+                            {
+                                <span class="merge-status-badge">
+                                    <span class="diff-add">+@(_localDiffStats!.Value.Additions)</span>
+                                    <span class="diff-del">-@(_localDiffStats!.Value.Deletions)</span>
+                                </span>
+                            }
+                            else if ((status.AheadCount ?? 0) > 0)
+                            {
+                                <span class="merge-status-badge">↑@status.AheadCount</span>
+                            }
+                            else if (status.UncommittedChangeCount > 0)
+                            {
+                                <span class="merge-status-badge">@status.UncommittedChangeCount</span>
+                            }
+                        </span>
+                    </MudTooltip>
+                </div>
+                <div class="merge-actions">
+                    <MudTooltip Text="@($"origin/{session.Git.BranchName} 으로 푸시")" Placement="Placement.Bottom">
+                        <button class="merge-action-btn @(blocked ? "disabled" : "")"
+                                @onclick="HandlePush"
+                                disabled="@blocked">
+                            <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" Style="width: 13px; height: 13px;"/>
+                            <span>푸시</span>
+                        </button>
+                    </MudTooltip>
+                </div>
+            }
+        }
+        else
+        {
+
+        var noTarget = string.IsNullOrEmpty(_targetBranch);
 
         // 새 워크트리처럼 푸시할 커밋도, 미커밋 변경도 없는 상태에서는
         // 머지 액션을 노출할 이유가 없다 — 44px 빈 줄만 남겨 "공간은 있되 비어있는" 첫인상.
@@ -164,32 +208,9 @@
                 </MudTooltip>
             </div>
         }
-        else if (remoteInfo.Mode == RemoteMode.Other)
-        {
-            <div class="merge-actions">
-                <MudTooltip Text="현재 이 워크스페이스의 원격(origin)은 GitHub 이 아니라 지원되지 않습니다." Placement="Placement.Bottom">
-                    <button class="merge-action-btn disabled" disabled="true">
-                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="width: 13px; height: 13px;"/>
-                        <span>지원 안 됨</span>
-                    </button>
-                </MudTooltip>
-            </div>
-        }
         else
         {
             <div class="merge-actions">
-                @if (remoteInfo.Mode == RemoteMode.GitHub)
-                {
-                    <MudTooltip Text="@BuildPushTooltip(session, remoteInfo)" Placement="Placement.Bottom">
-                        <button class="merge-action-btn @(blocked ? "disabled" : "")"
-                                @onclick="HandlePush"
-                                disabled="@blocked">
-                            <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" Style="width: 13px; height: 13px;"/>
-                            <span>푸시</span>
-                        </button>
-                    </MudTooltip>
-                }
-
                 <MudTooltip Text="@BuildMergeTooltip(noTarget, _targetBranch)" Placement="Placement.Bottom">
                     <button class="merge-split-primary @(blocked || noTarget ? "disabled" : "")"
                             @onclick="HandleSquashMerge"
@@ -200,7 +221,8 @@
                 </MudTooltip>
             </div>
         }
-        }
+        } @* closes if (!isEmpty) *@
+        } @* closes else (worktree session block) *@
     }
 </div>
 
@@ -210,6 +232,7 @@
     private bool _branchMenuOpen;
     private string _branchSearchText = "";
     private bool _busy;
+    private (int Additions, int Deletions)? _localDiffStats;
 
     private IDisposable? _sessionChangedSub;
     private IDisposable? _streamingStoppedSub;
@@ -275,9 +298,16 @@
     {
         var session = ChatState.CurrentSession;
         var workspace = ChatState.CurrentWorkspace;
-        if (session == null || session.Git.IsLocalDir || workspace == null ||
-            string.IsNullOrEmpty(workspace.RepoLocalPath))
+        if (session == null || workspace == null || string.IsNullOrEmpty(workspace.RepoLocalPath))
             return;
+
+        // 로컬 디렉토리 세션은 브랜치 선택기가 불필요 — 상태 + diff stats 새로고침.
+        if (session.Git.IsLocalDir)
+        {
+            await MergeStatusService.RefreshAsync(session.Id);
+            await LoadLocalDiffStatsAsync(session);
+            return;
+        }
 
         // β 버그 #1·#5 수정: 새로고침 요청이 오면 캐시를 수동 무효화해 최신을 보장한다.
         if (forceCacheInvalidate)
@@ -320,7 +350,14 @@
         var current = ChatState.CurrentSession;
         if (current == null || current.Id != sessionId)
             return;
-        InvokeAsync(StateHasChanged);
+        if (current.Git.IsLocalDir)
+            InvokeAsync(async () =>
+            {
+                await LoadLocalDiffStatsAsync(current);
+                StateHasChanged();
+            });
+        else
+            InvokeAsync(StateHasChanged);
     }
 
     private void HandleStateChanged()
@@ -507,80 +544,9 @@
         var workspace = ChatState.CurrentWorkspace;
         if (session == null || workspace == null) return;
 
-        _busy = true;
-        StateHasChanged();
-        try
-        {
-            await MergeStatusService.RefreshAsync(session.Id);
-            var status = MergeStatusService.GetCurrent(session.Id);
-
-            if (status.Kind == MergeStatusKind.ConflictExpected)
-            {
-                var ok = await ConfirmAsync(
-                    "충돌 예상",
-                    "푸시 후 타겟 브랜치와 충돌이 예상됩니다. 푸시는 가능하지만 PR 에서 수동 해결이 필요합니다. 계속할까요?");
-                if (!ok) return;
-            }
-
-            Snackbar.Add("푸시 중...", Severity.Info);
-            Logger.LogInformation("MergeToolbar 푸시 시작: session={Id} branch={Branch}",
-                session.Id, session.Git.BranchName);
-
-            var result = await GitService.PushAsync(
-                session.Git.WorktreePath, "origin", session.Git.BranchName);
-
-            if (!result.Success)
-            {
-                Snackbar.Add($"푸시 실패: {result.Error}", Severity.Error);
-                return;
-            }
-
-            Snackbar.Add("푸시 완료.", Severity.Success);
-
-            // GitHub 모드면 compare URL 생성 후 안내.
-            var remoteInfo = WorkspaceService.GetRemoteInfo(workspace.Id);
-            if (remoteInfo.Mode == RemoteMode.GitHub && remoteInfo.Owner != null && remoteInfo.Repo != null)
-            {
-                var baseBranch = _targetBranch ?? session.Git.BaseBranch;
-                var compareUrl = GitHubUrlHelper.BuildCompareUrl(
-                    remoteInfo.Owner, remoteInfo.Repo,
-                    BranchRefNormalizer.Normalize(baseBranch),
-                    BranchRefNormalizer.Normalize(session.Git.BranchName));
-
-                var openPr = await ConfirmAsync(
-                    "PR 만들기",
-                    $"GitHub compare 페이지를 열까요?\n{compareUrl}",
-                    "열기",
-                    "나중에");
-                if (openPr)
-                {
-                    OpenUrlInBrowser(compareUrl);
-                }
-
-                // PR 링크 저장 제안
-                var saved = await PromptTextAsync(
-                    "PR 링크 저장 (선택)",
-                    "만든 PR URL 을 여기 붙여넣으면 이 세션과 연결됩니다. 비워 두려면 취소.",
-                    "");
-                if (!string.IsNullOrWhiteSpace(saved) &&
-                    saved.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                {
-                    session.Git.LastPrUrl = saved.Trim();
-                    await SessionService.SaveSessionAsync(session);
-                    Snackbar.Add("PR 링크가 세션에 저장되었습니다.", Severity.Success);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"푸시 처리 중 예외: {ex.Message}", Severity.Error);
-            Logger.LogError(ex, "HandlePush 예외");
-        }
-        finally
-        {
-            _busy = false;
-            StateHasChanged();
-        }
+        // 로컬 디렉토리 세션: 미커밋 파일이 많을 수 있고 remote HEAD 확인도 필요하므로 AI 에게 위임.
+        if (session.Git.IsLocalDir)
+            HandleLocalDirPushViaAi(session);
     }
 
     private Task OpenSavedPr()
@@ -657,6 +623,43 @@
         Snackbar.Add("AI 에게 충돌 해결을 요청했습니다.", Severity.Info);
     }
 
+    private async Task LoadLocalDiffStatsAsync(Session session)
+    {
+        if (!session.Git.IsLocalDir || string.IsNullOrEmpty(session.Git.WorktreePath))
+            return;
+        try
+        {
+            var diff = await GitService.GetDiffSummaryAsync(session.Git.WorktreePath, session.Git.GetDiffBase());
+            _localDiffStats = diff != null
+                ? (diff.TotalAdditions, diff.TotalDeletions)
+                : null;
+        }
+        catch
+        {
+            _localDiffStats = null;
+        }
+    }
+
+    private void HandleLocalDirPushViaAi(Session session)
+    {
+        var branch = session.Git.BranchName;
+        var prompt =
+            $"""
+             현재 브랜치(`{branch}`)의 변경사항을 origin 에 푸시해주세요. 순서대로 진행하세요:
+
+             1. `git status`로 현재 상태를 확인하세요.
+             2. 스테이지되지 않은 변경이 있으면 `git add -A` 로 전부 스테이지하세요.
+             3. 커밋되지 않은 변경이 있으면 변경 내용을 요약한 커밋 메시지로 커밋하세요.
+             4. `git fetch origin {branch}` 로 원격 상태를 확인하고,
+                원격이 앞서 있으면 `git pull --rebase origin {branch}` 로 rebase 하세요.
+                rebase 중 충돌이 발생하면 충돌을 해결한 뒤 `git rebase --continue` 하세요.
+             5. `git push origin {branch}` 로 푸시하세요.
+             """;
+
+        EventBus.Publish(new MergeRequestedEvent(new ChatInputMessage { Text = prompt }));
+        Snackbar.Add("AI 에게 커밋 및 푸시를 요청했습니다.", Severity.Info);
+    }
+
     // ─────────────────────────────────────────────
     //  상태 아이콘 / 툴팁 헬퍼
     // ─────────────────────────────────────────────
@@ -701,11 +704,20 @@
         _ => ""
     };
 
-    private static string BuildPushTooltip(Session session, RemoteInfo remote)
+    private static string BuildLocalDirPushTooltip(MergeStatus status, (int Additions, int Deletions)? diffStats)
     {
-        if (remote.Mode != RemoteMode.GitHub)
-            return "GitHub 원격만 지원됩니다";
-        return $"origin/{session.Git.BranchName} 으로 푸시";
+        var parts = new List<string>();
+
+        if (diffStats is { } s && (s.Additions > 0 || s.Deletions > 0))
+            parts.Add($"+{s.Additions} -{s.Deletions}");
+        else if (status.UncommittedChangeCount > 0)
+            parts.Add($"변경 {status.UncommittedChangeCount}개");
+
+        if ((status.AheadCount ?? 0) > 0)
+            parts.Add($"커밋 {status.AheadCount}개 미푸시");
+
+        var info = parts.Count > 0 ? string.Join(" · ", parts) + " — " : "";
+        return $"{info}AI 가 커밋하고 origin 에 푸시합니다";
     }
 
     private static string BuildMergeTooltip(bool noTarget, string? target)
