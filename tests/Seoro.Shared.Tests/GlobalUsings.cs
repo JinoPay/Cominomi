@@ -3,6 +3,7 @@ global using Seoro.Shared.Services.Account;
 global using Seoro.Shared.Services.Chat;
 global using Seoro.Shared.Services.Chat.StreamEventHandlers;
 global using Seoro.Shared.Services.Claude;
+global using Seoro.Shared.Services.Cli;
 global using Seoro.Shared.Services.Gamification;
 global using Seoro.Shared.Services.Git;
 global using Seoro.Shared.Services.Infrastructure;

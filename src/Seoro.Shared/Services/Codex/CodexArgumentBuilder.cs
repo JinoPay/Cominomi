@@ -86,7 +86,7 @@ public static class CodexArgumentBuilder
             sb.Append($"--model \"{opts.Model}\" ");
 
         // 승인/샌드박스 모드 매핑
-        AppendPermissionFlags(sb, opts);
+        AppendExecPermissionFlags(sb, opts);
 
         // 추론 노력 수준
         if (!string.IsNullOrWhiteSpace(opts.ReasoningEffort) && opts.ReasoningEffort != "medium")
@@ -141,7 +141,7 @@ public static class CodexArgumentBuilder
         if (!string.IsNullOrWhiteSpace(opts.Model))
             sb.Append($"--model \"{opts.Model}\" ");
 
-        AppendPermissionFlags(sb, opts);
+        AppendExecResumePermissionFlags(sb, opts);
 
         if (!string.IsNullOrWhiteSpace(opts.ReasoningEffort) && opts.ReasoningEffort != "medium")
             sb.Append($"--config model_reasoning_effort={opts.ReasoningEffort} ");
@@ -218,7 +218,7 @@ public static class CodexArgumentBuilder
         });
     }
 
-    private static void AppendPermissionFlags(StringBuilder sb, CodexBuildOptions opts)
+    private static void AppendExecPermissionFlags(StringBuilder sb, CodexBuildOptions opts)
     {
         if (opts.DangerouslyBypass)
         {
@@ -236,5 +236,20 @@ public static class CodexArgumentBuilder
 
         if (!string.IsNullOrWhiteSpace(sandbox))
             sb.Append($"--sandbox {sandbox} ");
+    }
+
+    private static void AppendExecResumePermissionFlags(StringBuilder sb, CodexBuildOptions opts)
+    {
+        if (opts.DangerouslyBypass)
+        {
+            sb.Append("--dangerously-bypass-approvals-and-sandbox ");
+            return;
+        }
+
+        // codex exec resume는 --sandbox 플래그를 지원하지 않는다.
+        // approval_policy는 --config 오버라이드로만 전달한다.
+        var approval = opts.ApprovalPolicy;
+        if (!string.IsNullOrWhiteSpace(approval))
+            sb.Append($"--config approval_policy={approval} ");
     }
 }

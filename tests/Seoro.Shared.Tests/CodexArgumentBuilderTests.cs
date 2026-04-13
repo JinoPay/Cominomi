@@ -127,7 +127,7 @@ public class CodexArgumentBuilderTests
         Assert.DoesNotContain("--full-auto", result);
         Assert.DoesNotContain("--ask-for-approval", result);
         Assert.Contains("--config approval_policy=never", result);
-        Assert.Contains("--sandbox workspace-write", result);
+        Assert.DoesNotContain("--sandbox", result);
     }
 
     [Fact]
@@ -278,7 +278,7 @@ public class CodexArgumentBuilderTests
         Assert.Contains("\"t-123\"", result);
         Assert.DoesNotContain("--ask-for-approval", result);
         Assert.Contains("--config approval_policy=untrusted", result);
-        Assert.Contains("--sandbox danger-full-access", result);
+        Assert.DoesNotContain("--sandbox", result);
         Assert.Contains("--config model_reasoning_effort=xhigh", result);
         Assert.Contains("--config web_search=live", result);
         Assert.Contains("--all", result);
