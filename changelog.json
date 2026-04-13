@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.17.16",
+    "date": "2026-04-13",
+    "changes": [
+      { "type": "fix", "description": "macOS 시작 시 프로세스 점검을 직렬화해 초기화 안정성 개선" },
+      { "type": "fix", "description": "멀티스레드 환경에서 fork() 호출로 발생하던 macOS SIGSEGV 크래시 수정" }
+    ]
+  },
+  {
     "version": "1.17.15",
     "date": "2026-04-13",
     "changes": [
