@@ -1,5 +1,22 @@
 [
   {
+    "version": "1.17.13",
+    "date": "2026-04-13",
+    "changes": [
+      { "type": "feat", "description": "워크트리 세션 스쿼시 머지 버튼 → AI 위임 PR 생성 요청으로 교체" },
+      { "type": "feat", "description": "로컬 디렉토리 세션 푸시 버튼 AI 위임으로 커밋+푸시 통합 처리" },
+      { "type": "feat", "description": "MergeToolbar diff 뱃지에 +/- 라인 수 색상 표시 (초록/빨강)" },
+      { "type": "feat", "description": "MergeStatusService — 세션별 머지 상태 실시간 추적 및 충돌 감지" },
+      { "type": "feat", "description": "ConflictWatcherService — .git/MERGE_HEAD FSW 감시로 충돌 상태 실시간 발행" },
+      { "type": "feat", "description": "BranchRefNormalizer — 다양한 형식의 git ref 표기 정규화" },
+      { "type": "feat", "description": "GitHubUrlHelper — GitHub 원격 URL 파싱 및 PR·비교 웹 URL 생성" },
+      { "type": "feat", "description": "터미널 동적 크기 초기화 지원 (cols/rows 자동 감지)" },
+      { "type": "fix", "description": "스트리밍 종료 후 머지 상태 즉시 갱신 (debounce 우회)" },
+      { "type": "fix", "description": "PR 대상 드롭다운에서 로컬 브랜치 제외 (리모트 전용)" },
+      { "type": "fix", "description": "워크트리 BaseBranch 기준 기본 타겟 브랜치 올바르게 선택" }
+    ]
+  },
+  {
     "version": "1.17.12",
     "date": "2026-04-13",
     "changes": [
