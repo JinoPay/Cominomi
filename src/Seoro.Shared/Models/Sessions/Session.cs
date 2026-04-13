@@ -81,6 +81,7 @@ public class Session
     public string? PendingAskUserQuestionInput { get; set; }
 
     public string? PlanFilePath { get; set; }
+    public string? PlanContent { get; set; }
 
     /// <summary>
     ///     진행 중인 스트리밍 턴의 예상 토큰 사용량.
