@@ -15,7 +15,7 @@
 - **Required CLI**: Claude CLI >= 2.1.81
 - **Required Runtime**: Node.js 20 (CI/CodeMirror 빌드)
 - **Codebase**: ~62,600 lines (.cs, .razor, .css, .js)
-- **Latest Version**: 1.17.16 (2026-04-13)
+- **Latest Version**: 1.17.17 (2026-04-13)
 - **Single Instance**: Mutex(`SeoroSingleInstance`) — 다중 실행 방지
 
 ## Architecture Overview

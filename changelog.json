@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.17.17",
+    "date": "2026-04-13",
+    "changes": [
+      { "type": "fix", "description": "macOS에서 Process.Start()를 AppKit 메인 스레드 밖으로 이동해 SIGSEGV 크래시 수정" }
+    ]
+  },
+  {
     "version": "1.17.16",
     "date": "2026-04-13",
     "changes": [
