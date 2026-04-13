@@ -43,14 +43,14 @@
             if (localHasChanges && remoteInfo.Mode == RemoteMode.GitHub)
             {
                 <div class="merge-flow" style="justify-content: flex-end;">
-                    <MudTooltip Text="@BuildLocalDirPushTooltip(status, _localDiffStats)" Placement="Placement.Bottom">
+                    <MudTooltip Text="@BuildLocalDirPushTooltip(status, _diffStats)" Placement="Placement.Bottom">
                         <span class="merge-status-icon @StatusCssClass(status.Kind)">
                             <MudIcon Icon="@StatusIcon(status.Kind)" Style="width: 14px; height: 14px;"/>
-                            @if (_localDiffStats is { Additions: > 0 } or { Deletions: > 0 })
+                            @if (_diffStats is { Additions: > 0 } or { Deletions: > 0 })
                             {
                                 <span class="merge-status-badge">
-                                    <span class="diff-add">+@(_localDiffStats!.Value.Additions)</span>
-                                    <span class="diff-del">-@(_localDiffStats!.Value.Deletions)</span>
+                                    <span class="diff-add">+@(_diffStats!.Value.Additions)</span>
+                                    <span class="diff-del">-@(_diffStats!.Value.Deletions)</span>
                                 </span>
                             }
                             else if ((status.AheadCount ?? 0) > 0)
@@ -165,7 +165,17 @@
                     }
                     else if (status.Kind == MergeStatusKind.UncommittedDirty && status.UncommittedChangeCount > 0)
                     {
-                        <span class="merge-status-badge">@status.UncommittedChangeCount</span>
+                        @if (_diffStats is { Additions: > 0 } or { Deletions: > 0 })
+                        {
+                            <span class="merge-status-badge">
+                                <span class="diff-add">+@(_diffStats!.Value.Additions)</span>
+                                <span class="diff-del">-@(_diffStats!.Value.Deletions)</span>
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="merge-status-badge">@status.UncommittedChangeCount</span>
+                        }
                     }
                     else if (status.Kind == MergeStatusKind.ConflictExpected && status.ConflictingFiles is { Count: > 0 })
                     {
@@ -211,12 +221,12 @@
         else
         {
             <div class="merge-actions">
-                <MudTooltip Text="@BuildMergeTooltip(noTarget, _targetBranch)" Placement="Placement.Bottom">
+                <MudTooltip Text="@BuildPrTooltip(noTarget, _targetBranch)" Placement="Placement.Bottom">
                     <button class="merge-split-primary @(blocked || noTarget ? "disabled" : "")"
-                            @onclick="HandleSquashMerge"
+                            @onclick="HandleCreatePrViaAi"
                             disabled="@(blocked || noTarget)">
-                        <MudIcon Icon="@Icons.Material.Outlined.Compress" Style="width: 13px; height: 13px;"/>
-                        <span>스쿼시 머지</span>
+                        <MudIcon Icon="@Icons.Material.Outlined.CallMerge" Style="width: 13px; height: 13px;"/>
+                        <span>PR 생성 요청</span>
                     </button>
                 </MudTooltip>
             </div>
@@ -232,7 +242,7 @@
     private bool _branchMenuOpen;
     private string _branchSearchText = "";
     private bool _busy;
-    private (int Additions, int Deletions)? _localDiffStats;
+    private (int Additions, int Deletions)? _diffStats; // 로컬 디렉토리 & 워크트리 공용
 
     private IDisposable? _sessionChangedSub;
     private IDisposable? _streamingStoppedSub;
@@ -338,6 +348,8 @@
             {
                 await MergeStatusService.RefreshAsync(session.Id);
             }
+
+            await LoadLocalDiffStatsAsync(session);
         }
         catch (Exception ex)
         {
@@ -350,14 +362,11 @@
         var current = ChatState.CurrentSession;
         if (current == null || current.Id != sessionId)
             return;
-        if (current.Git.IsLocalDir)
-            InvokeAsync(async () =>
-            {
-                await LoadLocalDiffStatsAsync(current);
-                StateHasChanged();
-            });
-        else
-            InvokeAsync(StateHasChanged);
+        InvokeAsync(async () =>
+        {
+            await LoadLocalDiffStatsAsync(current);
+            StateHasChanged();
+        });
     }
 
     private void HandleStateChanged()
@@ -623,20 +632,51 @@
         Snackbar.Add("AI 에게 충돌 해결을 요청했습니다.", Severity.Info);
     }
 
+    private void HandleCreatePrViaAi()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null || string.IsNullOrEmpty(_targetBranch)) return;
+
+        var branch = session.Git.BranchName;
+        var target = BranchRefNormalizer.Normalize(_targetBranch);
+        var status = MergeStatusService.GetCurrent(session.Id);
+
+        var uncommittedNote = status.UncommittedChangeCount > 0
+            ? $"\n- 미커밋 변경이 {status.UncommittedChangeCount}개 있습니다. 먼저 변경 내용을 요약한 메시지로 커밋하세요."
+            : "";
+
+        var prompt =
+            $"""
+             현재 워크트리 브랜치(`{branch}`)의 변경사항으로 GitHub PR 을 생성해주세요. 순서대로 진행하세요:
+
+             1. `git status` 로 현재 상태를 확인하세요.{uncommittedNote}
+             2. 커밋되지 않은 변경이 있으면 변경 내용을 요약한 커밋 메시지로 커밋하세요.
+             3. `git push origin {branch}` 로 원격에 푸시하세요 (필요 시 `--set-upstream` 추가).
+             4. `gh pr create --base {target} --head {branch} --title "..." --body "..."` 로 PR 을 생성하세요.
+                - 제목과 본문은 변경 내용을 보고 자동으로 작성하세요.
+             5. 생성된 PR URL 을 알려주세요.
+
+             **중요**: 워크트리 경로 바깥은 절대 읽거나 쓰지 마세요.
+             """;
+
+        EventBus.Publish(new MergeRequestedEvent(new ChatInputMessage { Text = prompt }));
+        Snackbar.Add("AI 에게 PR 생성을 요청했습니다.", Severity.Info);
+    }
+
     private async Task LoadLocalDiffStatsAsync(Session session)
     {
-        if (!session.Git.IsLocalDir || string.IsNullOrEmpty(session.Git.WorktreePath))
+        if (string.IsNullOrEmpty(session.Git.WorktreePath))
             return;
         try
         {
             var diff = await GitService.GetDiffSummaryAsync(session.Git.WorktreePath, session.Git.GetDiffBase());
-            _localDiffStats = diff != null
+            _diffStats = diff != null
                 ? (diff.TotalAdditions, diff.TotalDeletions)
                 : null;
         }
         catch
         {
-            _localDiffStats = null;
+            _diffStats = null;
         }
     }
 
@@ -696,7 +736,7 @@
         MergeStatusKind.ConflictExpected =>
             $"머지 시 {status.ConflictingFiles?.Count ?? 0}개 파일 충돌이 예상됩니다",
         MergeStatusKind.UncommittedDirty =>
-            $"미커밋 변경 {status.UncommittedChangeCount}개 — 먼저 커밋하세요",
+            $"미커밋 변경 {status.UncommittedChangeCount}개 — PR 생성 요청 시 AI가 자동 커밋",
         MergeStatusKind.InConflict =>
             "현재 머지 진행 중 — 충돌 해결 버튼을 사용하세요",
         MergeStatusKind.NetworkError =>
@@ -720,10 +760,10 @@
         return $"{info}AI 가 커밋하고 origin 에 푸시합니다";
     }
 
-    private static string BuildMergeTooltip(bool noTarget, string? target)
+    private static string BuildPrTooltip(bool noTarget, string? target)
     {
         if (noTarget) return "먼저 타겟 브랜치를 선택하세요";
-        return $"{target} 에 스쿼시 머지 (임시 클론 방식)";
+        return $"AI 에게 위임 — {target} 를 base 로 PR 생성";
     }
 
     // ─────────────────────────────────────────────
