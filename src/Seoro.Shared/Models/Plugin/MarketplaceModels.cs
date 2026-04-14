@@ -59,7 +59,8 @@ public class MarketplaceInstalledPlugin
 
     // `claude plugin list --json`으로 보강되는 필드
     public bool Enabled { get; set; } = true;
-    public bool HasUpdate { get; set; } = false;
+    public bool HasUpdate { get; set; }
+    public string LatestVersion { get; set; } = "";
 }
 
 /// <summary>
@@ -73,4 +74,6 @@ public class CliPluginEntry
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
     [JsonPropertyName("installedAt")] public string InstalledAt { get; set; } = "";
     [JsonPropertyName("lastUpdated")] public string LastUpdated { get; set; } = "";
+    [JsonPropertyName("hasUpdate")] public bool HasUpdate { get; set; }
+    [JsonPropertyName("latestVersion")] public string LatestVersion { get; set; } = "";
 }
