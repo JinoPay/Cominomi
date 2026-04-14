@@ -52,7 +52,7 @@
             <MudTooltip Text="@BuildStatusTooltip(status)" Placement="Placement.Bottom">
                 <div class="mp-status-row @StatusCssClass(status.Kind)">
                     <span class="merge-status-icon @StatusCssClass(status.Kind)">
-                        <MudIcon Icon="@StatusIcon(status.Kind)" Style="width: 13px; height: 13px;"/>
+                        <MudIcon Icon="@StatusIcon(status.Kind, status.AheadCount ?? 0)" Style="width: 13px; height: 13px;"/>
                     </span>
                     <span class="mp-status-label">@BuildStatusLabel(status)</span>
                     @if (_diffStats is { Additions: > 0 } or { Deletions: > 0 })
@@ -172,7 +172,7 @@
             <MudTooltip Text="@BuildStatusTooltip(status)" Placement="Placement.Bottom">
                 <div class="mp-status-row @StatusCssClass(status.Kind)">
                     <span class="merge-status-icon @StatusCssClass(status.Kind)">
-                        <MudIcon Icon="@StatusIcon(status.Kind)" Style="width: 13px; height: 13px;"/>
+                        <MudIcon Icon="@StatusIcon(status.Kind, status.AheadCount ?? 0)" Style="width: 13px; height: 13px;"/>
                     </span>
                     <span class="mp-status-label">@BuildStatusLabel(status)</span>
 
@@ -203,6 +203,7 @@
                 </div>
             </MudTooltip>
 
+            <div class="mp-action-area">
             @* PR 카드 *@
             @if (session.Git.TrackedPr != null)
             {
@@ -336,6 +337,7 @@
                     </MudTooltip>
                 }
             }
+            </div>@* mp-action-area *@
         }
     }
 </div>
@@ -916,8 +918,9 @@
     //  상태 아이콘 / 라벨 / 툴팁 헬퍼
     // ─────────────────────────────────────────────
 
-    internal static string StatusIcon(MergeStatusKind kind) => kind switch
+    internal static string StatusIcon(MergeStatusKind kind, int aheadCount = 0) => kind switch
     {
+        MergeStatusKind.Clean when aheadCount == 0 => Icons.Material.Outlined.CheckCircle,
         MergeStatusKind.Clean => Icons.Material.Filled.CheckCircle,
         MergeStatusKind.BehindTarget => Icons.Material.Filled.Warning,
         MergeStatusKind.ConflictExpected => Icons.Material.Filled.Error,
@@ -941,6 +944,7 @@
     private static string BuildStatusLabel(MergeStatus status) => status.Kind switch
     {
         MergeStatusKind.Unknown => "상태 확인 중...",
+        MergeStatusKind.Clean when (status.AheadCount ?? 0) == 0 => "변경사항 없음",
         MergeStatusKind.Clean => "머지 가능",
         MergeStatusKind.BehindTarget => "타겟 브랜치가 앞서 있음",
         MergeStatusKind.ConflictExpected => "충돌 예상",
@@ -953,6 +957,8 @@
     private static string BuildStatusTooltip(MergeStatus status) => status.Kind switch
     {
         MergeStatusKind.Unknown => "머지 상태 계산 대기 중",
+        MergeStatusKind.Clean when (status.AheadCount ?? 0) == 0 =>
+            "타겟 브랜치와 동일 — 머지할 변경사항이 없습니다",
         MergeStatusKind.Clean =>
             $"머지 가능 (ahead {status.AheadCount ?? 0}, behind {status.BehindCount ?? 0})",
         MergeStatusKind.BehindTarget =>

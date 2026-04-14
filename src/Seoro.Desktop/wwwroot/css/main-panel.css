@@ -973,6 +973,14 @@
     cursor: not-allowed;
 }
 
+/* ── 액션 영역 (PR 카드 + 버튼) — 패널 하단 고정 ── */
+.mp-action-area {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: auto;
+}
+
 /* ── 메인 버튼 (PR 생성, 머지 등) ── */
 .mp-main-btn {
     display: inline-flex;
