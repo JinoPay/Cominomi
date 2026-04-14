@@ -14,9 +14,9 @@
                 <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit"
                                Size="Size.Small" OnClick="@OnOpenNotifications"
                                Style="width: 28px; height: 28px; opacity: 0.5;"
-                               title="알림 히스토리"/>
+                               title="@Strings.Layout_SidebarToolbar_NotificationHistory"/>
             </MudBadge>
-            <button class="sidebar-collapse-btn" @onclick="@OnToggleSidebar" title="사이드바 접기">
+            <button class="sidebar-collapse-btn" @onclick="@OnToggleSidebar" title="@Strings.Layout_SidebarToolbar_CollapseSidebar">
                 <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small"
                          Style="width: 18px; height: 18px;"/>
             </button>
@@ -24,7 +24,7 @@
     }
     else
     {
-        <button class="sidebar-collapse-btn" @onclick="@OnToggleSidebar" title="사이드바 펼치기">
+        <button class="sidebar-collapse-btn" @onclick="@OnToggleSidebar" title="@Strings.Layout_SidebarToolbar_ExpandSidebar">
             <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"
                      Style="width: 18px; height: 18px;"/>
         </button>
