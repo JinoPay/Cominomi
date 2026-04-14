@@ -201,7 +201,7 @@ public class PluginService(
 
         // Claude CLI가 내부적으로 사용하는 시스템 디렉토리는 플러그인으로 취급하지 않음
         var systemDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "marketplaces" };
+            { "marketplaces", "cache" };
 
         try
         {
