@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.17.18",
+    "date": "2026-04-14",
+    "changes": [
+      { "type": "feat", "description": "GitHub PR 추적 및 앱 내 머지 기능 통합" },
+      { "type": "feat", "description": "Merge 탭 UI 전면 리디자인 및 diff stats → Changes 탭 링크" },
+      { "type": "feat", "description": "머지 툴바 UX 개선 — Merge 탭 패널로 상세 컨트롤 이동" },
+      { "type": "fix", "description": "Merge 패널 변경없음 상태 표시 및 액션 버튼 하단 고정" },
+      { "type": "fix", "description": "thinking 버블 헤더 overflow hidden 추가로 ellipsis 위치 수정" },
+      { "type": "fix", "description": "머지 툴바 아카이브 시 세션 완전 삭제로 변경" }
+    ]
+  },
+  {
     "version": "1.17.17",
     "date": "2026-04-13",
     "changes": [
