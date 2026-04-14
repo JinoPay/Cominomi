@@ -21,7 +21,7 @@
         var remoteInfo = workspace != null ? WorkspaceService.GetRemoteInfo(workspace.Id) : RemoteInfo.None;
 
         <span class="merge-status-icon @MergePanel.StatusCssClass(status.Kind)">
-            <MudIcon Icon="@MergePanel.StatusIcon(status.Kind)" Style="width: 14px; height: 14px;"/>
+            <MudIcon Icon="@MergePanel.StatusIcon(status.Kind, status.AheadCount ?? 0)" Style="width: 14px; height: 14px;"/>
         </span>
 
         @if (session.Git.IsLocalDir)
@@ -91,6 +91,7 @@
         var target = MergeStatusService_GetTargetLabel(status);
         var statusText = status.Kind switch
         {
+            MergeStatusKind.Clean when (status.AheadCount ?? 0) == 0 => "변경사항 없음",
             MergeStatusKind.Clean => "머지 가능",
             MergeStatusKind.BehindTarget => $"↓{status.BehindCount ?? 0} 뒤처짐",
             MergeStatusKind.ConflictExpected => $"충돌 {status.ConflictingFiles?.Count ?? 0}개 예상",
