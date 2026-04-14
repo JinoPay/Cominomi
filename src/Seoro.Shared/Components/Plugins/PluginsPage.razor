@@ -127,7 +127,7 @@
                                     }
                                     else
                                     {
-                                        <span class="plugin-tag">v@p.Version</span>
+                                        <span class="plugin-tag">v@(p.Version)</span>
                                     }
                                     <span class="plugin-tag">@p.Scope</span>
                                     @if (!string.IsNullOrEmpty(p.InstalledAt))
@@ -164,7 +164,7 @@
                                 <div class="plugin-card-tags">
                                     @if (!string.IsNullOrEmpty(p.Version))
                                     {
-                                        <span class="plugin-tag">v@p.Version</span>
+                                        <span class="plugin-tag">v@(p.Version)</span>
                                     }
                                     @{
                                         var (_, statusColor, statusLabel) = GetStatusDisplay(p);
