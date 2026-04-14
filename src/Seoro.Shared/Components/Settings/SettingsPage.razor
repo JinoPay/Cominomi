@@ -64,6 +64,11 @@
                 <MudIcon Icon="@Icons.Material.Filled.Hub" Size="Size.Small"/>
                 확장
             </button>
+            <button class="settings-nav-item @ActiveClass("slash-commands")"
+                    @onclick="@(() => SetSection("slash-commands"))">
+                <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small"/>
+                슬래시 명령어
+            </button>
         </div>
 
         <div class="settings-nav-divider"></div>
@@ -185,6 +190,10 @@
         else if (ChatState.SettingsSection == "memory")
         {
             <MemoryBrowserPage/>
+        }
+        else if (ChatState.SettingsSection == "slash-commands")
+        {
+            <SlashCommandsPage/>
         }
         else if (ChatState.SettingsSection == "usage")
         {
