@@ -574,6 +574,13 @@
     gap: 2px;
     flex-shrink: 0;
     align-self: center;
+    max-width: 0;
+    overflow: hidden;
+    transition: max-width 200ms ease;
+}
+
+.tree-session-shortcuts.show {
+    max-width: 5rem;
 }
 
 .tree-session-shortcut {
