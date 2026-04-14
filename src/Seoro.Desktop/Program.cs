@@ -12,6 +12,8 @@ using Serilog;
 using Serilog.Events;
 using Velopack;
 using Seoro.Shared.Services.Cli;
+using Seoro.Shared.Services.Claude;
+using Seoro.Shared.Services.Infrastructure;
 using NotificationService = Seoro.Desktop.Services.NotificationService;
 
 namespace Seoro.Desktop;
@@ -222,6 +224,11 @@ public static class Program
         appBuilder.Services.AddSingleton<IFolderPickerService, FolderPickerService>();
         appBuilder.Services.AddSingleton<IFilePickerService, FilePickerService>();
         appBuilder.Services.AddSingleton<IAttachmentService, AttachmentService>();
+        appBuilder.Services.AddSingleton<ClaudeCliResolver>(sp =>
+            new ClaudeCliResolver(
+                sp.GetRequiredService<IShellService>(),
+                sp.GetRequiredService<IProcessRunner>(),
+                sp.GetRequiredService<ILogger<ClaudeCliResolver>>()));
         appBuilder.Services.AddSingleton<IPluginService, PluginService>();
         appBuilder.Services.AddSingleton<IPluginExecutionEngine, PluginExecutionEngine>();
         appBuilder.Services.AddSingleton<IStatsCacheService, StatsCacheService>();
