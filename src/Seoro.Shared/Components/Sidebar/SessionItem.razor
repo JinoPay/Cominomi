@@ -79,7 +79,7 @@
 
     @if (DeleteShortcutLabel != null || ShortcutLabel != null)
     {
-        <div class="tree-session-shortcuts">
+        <div class="tree-session-shortcuts @(ShowShortcuts ? "show" : "")">
             @if (DeleteShortcutLabel != null)
             {
                 <span
