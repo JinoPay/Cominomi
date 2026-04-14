@@ -14,8 +14,8 @@
 - **CI/CD**: GitHub Actions (`release.yml`) - triggered on `v*` tags
 - **Required CLI**: Claude CLI >= 2.1.81
 - **Required Runtime**: Node.js 20 (CI/CodeMirror 빌드)
-- **Codebase**: ~62,600 lines (.cs, .razor, .css, .js)
-- **Latest Version**: 1.17.17 (2026-04-13)
+- **Codebase**: ~55,300 lines (.cs, .razor, .css, .js)
+- **Latest Version**: 1.17.19 (2026-04-14)
 - **Single Instance**: Mutex(`SeoroSingleInstance`) — 다중 실행 방지
 
 ## Architecture Overview
@@ -26,18 +26,18 @@ git operations, file management, plugins, and more.
 ```
 src/
   Seoro.Desktop/              # 데스크톱 앱 진입점 (10 서비스)
-    Program.cs                    # Main entry - DI 컨테이너 (~70개 서비스 등록), Photino 윈도우 초기화
+    Program.cs                    # Main entry - DI 컨테이너 (~75개 서비스 등록), Photino 윈도우 초기화
     Services/                     # 플랫폼별 서비스 (아래 Desktop Services 참고)
   Seoro.Shared/                # 핵심 로직 (플랫폼 독립)
-    Models/                       # 데이터 모델 43개 + ViewModels/ 4개
-    Services/                     # 비즈니스 로직 135개 파일 (17개 하위 폴더)
+    Models/                       # 데이터 모델 45개 + ViewModels/ 4개
+    Services/                     # 비즈니스 로직 147개 파일 (16개 하위 폴더)
       Cli/                          # CLI 프로바이더 추상화 (7개)
       Claude/                       # Claude CLI 서비스 (9개)
       Codex/                        # Codex CLI 서비스 (3개)
-      Chat/                         # 채팅 & 스트리밍 (15개)
+      Chat/                         # 채팅 & 스트리밍 (16개)
         StreamEventHandlers/          # 스트림 이벤트 핸들러 파이프라인 (12개)
       Sessions/                     # 세션 관리 (12개)
-      Git/                          # Git 통합 (13개)
+      Git/                          # Git 통합 (15개)
       Settings/                     # 설정 관리 (8개)
       Knowledge/                    # 컨텐츠 & 지식 (12개)
       Account/                      # 계정 관리 (4개)
@@ -45,12 +45,12 @@ src/
       Gamification/                 # 게이미피케이션 (4개)
       Notification/                 # 알림 (3개)
       Infrastructure/               # 인프라 (18개)
-      Migration/                    # 스키마 마이그레이션 (7개)
+      Migration/                    # 스키마 마이그레이션 (9개)
       Platform/                     # 플랫폼 인터페이스 (7개)
-    Components/                   # Blazor 컴포넌트 100개 (18개 폴더)
+    Components/                   # Blazor 컴포넌트 101개 (19개 폴더)
       Accounts/ Chat/ Dashboard/ Files/ Hooks/ Instructions/
-      Layout/ Mcp/ Memory/ Notifications/ Onboarding/ Rules/
-      Sessions/ Settings/ Settings/Sections/ Setup/ Shared/ Sidebar/ Tools/
+      Layout/ Mcp/ Memory/ Notifications/ Onboarding/ Plugins/
+      Rules/ Sessions/ Settings/ Settings/Sections/ Setup/ Shared/ Sidebar/ Tools/
     SeoroConstants.cs          # 공유 상수 및 제한값
 tests/
   Seoro.Shared.Tests/          # 유닛 테스트 (xUnit)
@@ -91,6 +91,7 @@ tests/
 - `ContentGrouper` - 연속 콘텐츠 블록 그룹화
 - `TabManager` - 채팅 탭 관리
 - `SystemPromptBuilder` - 시스템 프롬프트 조립 (토큰 예산 관리)
+- `PlanSessionTransferBuilder` - 플랜 세션 전환 빌더
 
 ### Stream Event Handlers (12개)
 - `SystemInitHandler` → `MessageStartHandler` → `ContentBlockStartHandler` → `ContentBlockDeltaHandler` → `ContentBlockStopHandler` → `MessageDeltaHandler` → `AssistantMessageHandler` → `UserMessageHandler` → `ResultHandler` → `ErrorHandler`
@@ -113,6 +114,7 @@ tests/
 - `ConflictWatcherService` - `.git/MERGE_HEAD` FSW 감시로 실제 충돌 상태 실시간 발행
 - `BranchRefNormalizer` - git ref 표기 정규화 (`refs/heads/`, `origin/` 등 → 순수 브랜치명)
 - `GitHubUrlHelper` - GitHub 원격 URL 파싱 및 PR·비교 웹 URL 생성 (순수 함수, DI 없음)
+- `PullRequestService` / `IPullRequestService` - PR 생성 및 관리
 
 ### Configuration & Settings
 - `SettingsService` - 앱 설정 CRUD
@@ -161,6 +163,8 @@ tests/
 ### Migration
 - `SchemaMigrator` / `SchemaMigratorRegistry` - JSON 스키마 마이그레이션 프레임워크
 - `MigratingJsonReader` / `MigratingJsonWriter` - 마이그레이션 적용 JSON 읽기/쓰기
+- `IJsonMigration` / `SchemaVersion` - 마이그레이션 인터페이스 및 스키마 버전
+- `WorkspaceV1ToV2Migration` / `SessionV3ToV4Migration` / `SessionV4ToV5Migration` - 데이터 마이그레이션
 - `CominomiMigrationService` (Desktop) - Cominomi → Seoro 데이터 마이그레이션
 
 ### Platform Interfaces (`Services/Platform/`)
@@ -178,7 +182,7 @@ tests/
 - `WindowCloseGuardService` - 활성 세션 시 종료 방지
 - `DeferredSnackbarService` - 지연 스낵바 표시
 
-## Models (43개 + ViewModels 4개)
+## Models (45개 + ViewModels 4개)
 
 ### Core Models
 - `Session` / `SessionJsonConverter` - 세션 데이터 및 JSON 변환
@@ -196,7 +200,7 @@ tests/
 - `GamificationModels` - 레벨, 업적, 스트릭
 - `StatsCacheModels` - 통계 캐시
 - `SessionReplayModels` - 리플레이
-- `GitContext` / `GitRepoInfo` / `BranchInfo` / `DiffInfo` - Git
+- `GitContext` / `GitRepoInfo` / `BranchInfo` / `DiffInfo` / `TrackedPullRequest` - Git
 - `RemoteInfo` - 원격 저장소 URL 및 리모트 모드 (GitHub / Other)
 - `MergeSimulationResult` - `git merge-tree` 시뮬레이션 결과 (충돌 예상 여부)
 - `SquashMergeResult` - 스쿼시 머지 실행 결과
@@ -207,6 +211,7 @@ tests/
 - `RuleFile` / `InstructionFile` - 규칙/인스트럭션
 - `SkillDefinition` / `SkillChainStep` - 스킬
 - `TemplateDefinition` - 템플릿
+- `MarketplaceModels` - 플러그인 마켓플레이스
 - `TaskItem` - 태스크
 - `ContextInfo` - 컨텍스트
 - `NotificationRecord` - 알림
