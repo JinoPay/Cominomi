@@ -48,3 +48,9 @@ public sealed record SessionTitleChangedEvent(string SessionId, string Title) : 
 ///     <see cref="Entered"/> 가 true 면 충돌 시작, false 면 해제 (.git/MERGE_HEAD 삭제 감지).
 /// </summary>
 public sealed record ConflictDetectedEvent(string WorkingDir, bool Entered) : ChatEvent;
+
+/// <summary>
+///     슬림 MergeToolbar 클릭 또는 ConflictDetectedEvent 발생 시
+///     EmbeddedDiffPanel 의 Merge 탭으로 전환 요청.
+/// </summary>
+public sealed record MergeTabRequestedEvent : ChatEvent;
