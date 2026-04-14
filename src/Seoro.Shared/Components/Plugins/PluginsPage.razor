@@ -100,7 +100,7 @@
                                             <MudProgressCircular Size="Size.Small" Indeterminate="true"
                                                                  Style="width:16px;height:16px;"/>
                                         }
-                                        else
+                                        else if (p.HasUpdate)
                                         {
                                             <MudTooltip Text="업데이트">
                                                 <MudIconButton Icon="@Icons.Material.Filled.SystemUpdateAlt"
@@ -121,7 +121,14 @@
                                     </div>
                                 </div>
                                 <div class="plugin-card-tags">
-                                    <span class="plugin-tag">v@p.Version</span>
+                                    @if (p.HasUpdate && !string.IsNullOrEmpty(p.LatestVersion))
+                                    {
+                                        <span class="plugin-tag plugin-tag--update">v@(p.Version) → v@(p.LatestVersion)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="plugin-tag">v@p.Version</span>
+                                    }
                                     <span class="plugin-tag">@p.Scope</span>
                                     @if (!string.IsNullOrEmpty(p.InstalledAt))
                                     {
@@ -257,10 +264,15 @@
                                 <div class="mt-2">
                                     @if (already)
                                     {
+                                        var installed = FindInstalledPlugin(item.Plugin);
                                         <div class="plugin-installed-label">
                                             <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
                                                      Size="Size.Small"/>
                                             설치됨
+                                            @if (installed != null)
+                                            {
+                                                <span class="plugin-installed-version">v@(installed.Version)</span>
+                                            }
                                         </div>
                                     }
                                     else
@@ -382,7 +394,9 @@
                     Scope = latest.Scope,
                     Version = latest.Version,
                     InstalledAt = latest.InstalledAt,
-                    Enabled = cliEntry?.Enabled ?? true
+                    Enabled = cliEntry?.Enabled ?? true,
+                    HasUpdate = cliEntry?.HasUpdate ?? false,
+                    LatestVersion = cliEntry?.LatestVersion ?? ""
                 };
             })
             .ToList();
@@ -414,6 +428,13 @@
     {
         var name = fullName.Contains('@') ? fullName.Split('@')[0] : fullName;
         return _marketplaceInstalled.Any(p =>
+            p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private MarketplaceInstalledPlugin? FindInstalledPlugin(string fullName)
+    {
+        var name = fullName.Contains('@') ? fullName.Split('@')[0] : fullName;
+        return _marketplaceInstalled.FirstOrDefault(p =>
             p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
     }
 

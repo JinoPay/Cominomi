@@ -1196,6 +1196,12 @@
     background: rgba(239, 68, 68, 0.10);
 }
 
+.plugin-tag--update {
+    color: var(--accent);
+    background: rgba(var(--accent-rgb, 99, 102, 241), 0.10);
+    font-weight: 600;
+}
+
 /* install button */
 .plugin-install-btn {
     width: 100%;
@@ -1231,6 +1237,12 @@
     font-size: var(--text-xs);
     color: var(--color-success);
     font-weight: 600;
+}
+
+.plugin-installed-version {
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 2px;
 }
 
 /* blocked row */
