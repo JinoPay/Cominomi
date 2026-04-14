@@ -13,27 +13,10 @@
                      Style="color: var(--text-muted);"/>
         </div>
     </div>
-
-    <div class="settings-group settings-group-link" @onclick="@(() => _slashCommandsOpen = true)">
-        <div class="stack-row items-center gap-3">
-            <div class="settings-icon-box">
-                <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small"
-                         Style="color: var(--accent);"/>
-            </div>
-            <div style="flex: 1;">
-                <div class="typo-subtitle2">슬래시 명령어</div>
-                <div class="typo-caption text-secondary">커스텀 슬래시 명령어를 만들고 편집합니다.</div>
-            </div>
-            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"
-                     Style="color: var(--text-muted);"/>
-        </div>
-    </div>
 </div>
 
-<SlashCommandsEditor @bind-IsOpen="_slashCommandsOpen"/>
 <PluginManagerDialog @bind-IsOpen="_pluginManagerOpen"/>
 
 @code {
-    private bool _slashCommandsOpen;
     private bool _pluginManagerOpen;
 }
