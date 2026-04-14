@@ -1,14 +1,26 @@
 [
   {
+    "version": "1.17.19",
+    "date": "2026-04-14",
+    "changes": [
+      { "type": "feat", "description": "플러그인 독립 설정 탭 승격 및 마켓플레이스·enable/disable/update GUI 추가" },
+      { "type": "feat", "description": "MergePanel AI 프롬프트 커스터마이즈 및 Git/머지 설정 섹션 추가" },
+      { "type": "feat", "description": "슬래시 명령어를 독립 탭으로 이동 및 글로벌/프로젝트 스코프 UX 개선" },
+      { "type": "fix", "description": "스레딩 경쟁 조건으로 인한 SIGSEGV 크래시 수정" },
+      { "type": "fix", "description": "아카이브 후 채팅/사이드바가 닫히지 않는 버그 수정" },
+      { "type": "fix", "description": "삭제된 워크트리 경로에 대한 git 명령 실행 방지" },
+      { "type": "fix", "description": "플러그인 버전 정보 표시, UI 오인식, 캐시 스캔 제외 등 플러그인 안정화" },
+      { "type": "fix", "description": "ClaudeCliResolver DI 싱글톤 등록 누락 수정" },
+      { "type": "fix", "description": "Ctrl 미입력 시 단축키 힌트 컨테이너가 공간을 차지하던 문제 수정" }
+    ]
+  },
+  {
     "version": "1.17.18",
     "date": "2026-04-14",
     "changes": [
-      { "type": "feat", "description": "GitHub PR 추적 및 앱 내 머지 기능 통합" },
-      { "type": "feat", "description": "Merge 탭 UI 전면 리디자인 및 diff stats → Changes 탭 링크" },
-      { "type": "feat", "description": "머지 툴바 UX 개선 — Merge 탭 패널로 상세 컨트롤 이동" },
-      { "type": "fix", "description": "Merge 패널 변경없음 상태 표시 및 액션 버튼 하단 고정" },
-      { "type": "fix", "description": "thinking 버블 헤더 overflow hidden 추가로 ellipsis 위치 수정" },
-      { "type": "fix", "description": "머지 툴바 아카이브 시 세션 완전 삭제로 변경" }
+      { "type": "feat", "description": "GitHub PR 추적 및 앱 내 머지 기능 통합, Merge 탭 UI 전면 리디자인" },
+      { "type": "fix", "description": "Merge 패널 변경없음 표시, 아카이브 시 세션 완전 삭제 등 머지 UX 개선" },
+      { "type": "fix", "description": "thinking 버블 헤더 overflow hidden 추가로 ellipsis 위치 수정" }
     ]
   },
   {
@@ -22,8 +34,7 @@
     "version": "1.17.16",
     "date": "2026-04-13",
     "changes": [
-      { "type": "fix", "description": "macOS 시작 시 프로세스 점검을 직렬화해 초기화 안정성 개선" },
-      { "type": "fix", "description": "멀티스레드 환경에서 fork() 호출로 발생하던 macOS SIGSEGV 크래시 수정" }
+      { "type": "fix", "description": "멀티스레드 환경 fork() 호출로 인한 macOS SIGSEGV 크래시 수정 및 초기화 안정성 개선" }
     ]
   },
   {
@@ -38,8 +49,7 @@
     "date": "2026-04-13",
     "changes": [
       { "type": "feat", "description": "세션별 첨부파일 초안 상태 저장으로 채팅 입력 중인 파일 유지" },
-      { "type": "fix", "description": "Codex 플랜 모드 처리 안정화 및 plan 전환 상태 저장 개선" },
-      { "type": "fix", "description": "Codex 재개 시 인수 전달 보정 및 플랜 세션 컨텍스트 전달 개선" },
+      { "type": "fix", "description": "Codex 플랜 모드 안정화 — 상태 저장, 재개 시 인수 전달 및 컨텍스트 보정" },
       { "type": "style", "description": "세션 단축키 힌트를 세로 스택 레이아웃으로 정리" }
     ]
   },
@@ -47,17 +57,11 @@
     "version": "1.17.13",
     "date": "2026-04-13",
     "changes": [
-      { "type": "feat", "description": "워크트리 세션 스쿼시 머지 버튼 → AI 위임 PR 생성 요청으로 교체" },
-      { "type": "feat", "description": "로컬 디렉토리 세션 푸시 버튼 AI 위임으로 커밋+푸시 통합 처리" },
-      { "type": "feat", "description": "MergeToolbar diff 뱃지에 +/- 라인 수 색상 표시 (초록/빨강)" },
-      { "type": "feat", "description": "MergeStatusService — 세션별 머지 상태 실시간 추적 및 충돌 감지" },
-      { "type": "feat", "description": "ConflictWatcherService — .git/MERGE_HEAD FSW 감시로 충돌 상태 실시간 발행" },
-      { "type": "feat", "description": "BranchRefNormalizer — 다양한 형식의 git ref 표기 정규화" },
-      { "type": "feat", "description": "GitHubUrlHelper — GitHub 원격 URL 파싱 및 PR·비교 웹 URL 생성" },
+      { "type": "feat", "description": "머지/푸시 버튼을 AI 위임 방식으로 전환 (PR 생성, 커밋+푸시 통합)" },
+      { "type": "feat", "description": "Git 머지 인프라 — 머지 상태 실시간 추적, 충돌 감지, ref 정규화, GitHub URL 생성" },
+      { "type": "feat", "description": "MergeToolbar diff 뱃지에 +/- 라인 수 색상 표시" },
       { "type": "feat", "description": "터미널 동적 크기 초기화 지원 (cols/rows 자동 감지)" },
-      { "type": "fix", "description": "스트리밍 종료 후 머지 상태 즉시 갱신 (debounce 우회)" },
-      { "type": "fix", "description": "PR 대상 드롭다운에서 로컬 브랜치 제외 (리모트 전용)" },
-      { "type": "fix", "description": "워크트리 BaseBranch 기준 기본 타겟 브랜치 올바르게 선택" }
+      { "type": "fix", "description": "머지 상태 갱신 타이밍, PR 브랜치 필터링 및 기본 타겟 선택 수정" }
     ]
   },
   {
@@ -225,22 +229,18 @@
     "version": "1.16.12",
     "date": "2026-04-04",
     "changes": [
+      { "type": "feat", "description": "설정 전체 UX/UI 현대화 — 세그먼트 컨트롤, pill 셀렉터, 토글행, Effort binary 선택 등" },
       { "type": "feat", "description": "MCP 서버 관리를 독립 페이지로 분리 및 UI 개선" },
-      { "type": "feat", "description": "설정 UI 현대화 — 드롭다운을 세그먼트 컨트롤과 pill 셀렉터로 교체" },
-      { "type": "feat", "description": "설정 전체 UX/UI 현대화 — 사이드바, 토글행, 단축키, 확장 섹션 개선" },
-      { "type": "feat", "description": "설정 UI 현대화 — Effort 레벨 binary 선택, 모델별 최대 자동 적용" },
       { "type": "feat", "description": "MergeToolbar를 GitHub 스타일 스플릿 버튼으로 리디자인" },
       { "type": "feat", "description": "채팅 버블 첨부파일 썸네일 크기 축소 및 가로 wrap 레이아웃" },
-      { "type": "fix", "description": "MergeToolbar에서 소스 브랜치 표시 제거" },
-      { "type": "fix", "description": "채팅 버블 첨부파일과 헤더 간격 추가" }
+      { "type": "fix", "description": "MergeToolbar 소스 브랜치 표시 및 첨부파일 헤더 간격 수정" }
     ]
   },
   {
     "version": "1.16.11",
     "date": "2026-04-03",
     "changes": [
-      { "type": "refactor", "description": "텍스트 첨부파일 뷰어를 인라인 카드/다이얼로그 방식에서 기존 탭 시스템으로 교체 — 파일 클릭 시 Explorer와 동일하게 탭에서 열림" },
-      { "type": "refactor", "description": "FilePreviewDialog 및 FilePreviewService 제거" }
+      { "type": "refactor", "description": "텍스트 첨부파일 뷰어를 인라인 다이얼로그에서 탭 시스템으로 교체 (FilePreviewDialog 제거)" }
     ]
   },
   {
@@ -314,8 +314,7 @@
     "version": "1.6.3",
     "date": "2026-04-01",
     "changes": [
-      { "type": "fix", "description": "macOS 디버그 빌드에서 알림 크래시 및 무응답 수정" },
-      { "type": "fix", "description": "macOS 릴리스 번들에 NSUserNotificationAlertStyle 추가" },
+      { "type": "fix", "description": "macOS 알림 크래시 수정 및 릴리스 번들 NSUserNotificationAlertStyle 추가" },
       { "type": "fix", "description": "Messages 리스트 동시 접근 레이스 컨디션 수정" }
     ]
   },
@@ -331,8 +330,7 @@
     "version": "1.6.1",
     "date": "2026-04-01",
     "changes": [
-      { "type": "fix", "description": "동기화 안정성 개선 — FSWatcher fallback, HashSet 최적화, UI 블로킹 해소" },
-      { "type": "fix", "description": "동기화 기능 git diff 의존 제거, 실제 파일 비교 기반으로 전환" }
+      { "type": "fix", "description": "동기화 안정성 개선 — git diff 의존 제거, 실제 파일 비교 전환, FSWatcher fallback" }
     ]
   },
   {
