@@ -199,11 +199,17 @@ public class PluginService(
 
         var settings = appSettings.CurrentValue;
 
+        // Claude CLI가 내부적으로 사용하는 시스템 디렉토리는 플러그인으로 취급하지 않음
+        var systemDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "marketplaces" };
+
         try
         {
             foreach (var dir in Directory.GetDirectories(PluginsDirectory))
             {
                 var pluginId = Path.GetFileName(dir);
+                if (systemDirs.Contains(pluginId)) continue;
+
                 var plugin = await LoadPluginFromDirectoryAsync(dir, pluginId, settings);
                 plugins.Add(plugin);
             }

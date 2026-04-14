@@ -197,8 +197,11 @@
         _discoverError = null;
         StateHasChanged();
 
-        await _discoverCts?.CancelAsync();
-        _discoverCts?.Dispose();
+        if (_discoverCts != null)
+        {
+            await _discoverCts.CancelAsync();
+            _discoverCts.Dispose();
+        }
         _discoverCts = new CancellationTokenSource();
 
         try
