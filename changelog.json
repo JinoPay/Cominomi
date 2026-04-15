@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.17.21",
+    "date": "2026-04-15",
+    "changes": [
+      { "type": "feat", "description": "슬래시 명령어를 칩 UI로 표시하여 입력란 가독성 개선" },
+      { "type": "feat", "description": "PR 오픈 상태에서 미푸시 변경사항 경고 및 푸시 요청 기능 추가" },
+      { "type": "fix", "description": "플랜뷰 코드블록 빈박스 제거 및 승인 단축키 힌트 추가" },
+      { "type": "fix", "description": "워크스페이스 설정에서 변경한 이름이 사이드바에 반영되도록 개선" }
+    ]
+  },
+  {
     "version": "1.17.20",
     "date": "2026-04-15",
     "changes": [
