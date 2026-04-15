@@ -264,7 +264,8 @@ public class StatsCacheService(ILogger<StatsCacheService> logger) : IStatsCacheS
         stats.TotalOutputTokens = modelMap.Values.Sum(m => m.OutputTokens);
         stats.TotalCacheCreationTokens = modelMap.Values.Sum(m => m.CacheCreationTokens);
         stats.TotalCacheReadTokens = modelMap.Values.Sum(m => m.CacheReadTokens);
-        stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens;
+        stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens
+                            + stats.TotalCacheCreationTokens + stats.TotalCacheReadTokens;
         stats.TotalCost = modelMap.Values.Sum(m => m.TotalCost);
         stats.TotalSessions = cache.TotalSessions;
         stats.TotalMessages = cache.TotalMessages;

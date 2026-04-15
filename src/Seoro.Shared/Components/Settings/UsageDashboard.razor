@@ -142,9 +142,9 @@
                 <div class="analytics-stat-content">
                     <div class="analytics-stat-label">활성 시작</div>
                     <div class="analytics-stat-value" style="color: var(--mud-palette-primary);">
-                        @FormatActiveSince(_stats.FirstSessionDate)
+                        @FormatActiveSince(GetFirstSessionDate())
                     </div>
-                    <div class="analytics-stat-subtitle">@FormatDaysAgo(_stats.FirstSessionDate)</div>
+                    <div class="analytics-stat-subtitle">@FormatDaysAgo(GetFirstSessionDate())</div>
                 </div>
             </div>
         </div>
@@ -662,6 +662,17 @@
             if (activity.Count == 0) return 0;
             return activity.Sum(d => d.MessageCount) / activity.Count;
         }
+    }
+
+    // stats-cache.json에 firstSessionDate가 없을 경우 history.jsonl 기반 데이터로 대체
+    private DateTime? GetFirstSessionDate()
+    {
+        if (_stats?.FirstSessionDate != null)
+            return _stats.FirstSessionDate;
+        var firstDate = _dashStats.DailyActivity.Count > 0
+            ? _dashStats.DailyActivity.Min(d => d.Date)
+            : null;
+        return firstDate != null && DateTime.TryParse(firstDate, out var dt) ? dt : null;
     }
 
     // ── Export ──
