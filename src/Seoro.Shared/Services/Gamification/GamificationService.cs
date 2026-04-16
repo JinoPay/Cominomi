@@ -5,11 +5,14 @@ namespace Seoro.Shared.Services.Gamification;
 
 public class GamificationService(
     IStatsCacheService statsCacheService,
-    ISessionReplayService replayService,
     IClaudeSettingsService claudeSettings,
     ILogger<GamificationService> logger)
     : IGamificationService
 {
+    private static readonly string ProjectsDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".claude", "projects");
+
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
     private DashboardStats? _cachedStats;
@@ -27,31 +30,54 @@ public class GamificationService(
             return _cachedStats;
         var stats = new DashboardStats();
 
+        // ── 1. 활동 통계: history.jsonl 기반 데이터 소스 ──
         try
         {
-            // Ensure session index is up-to-date, then aggregate from index (no list allocation)
-            await replayService.RefreshSessionIndexAsync();
-            var indexStats = await replayService.GetIndexStatsAsync();
+            var liveStats = await statsCacheService.ComputeLiveActivityAsync();
+            if (liveStats != null)
+            {
+                stats.DailyActivity = liveStats.DailyActivity.Select(d => new DailyActivityEntry
+                {
+                    Date = d.Date,
+                    MessageCount = d.MessageCount,
+                    SessionCount = d.SessionCount,
+                    ToolCallCount = d.ToolCallCount
+                }).ToList();
+                stats.TotalSessions = liveStats.TotalSessions;
+                stats.TotalMessages = liveStats.TotalMessages;
+                stats.TotalToolCalls = liveStats.DailyActivity.Sum(d => d.ToolCallCount);
+                stats.DaysActive = liveStats.DailyActivity.Count(d => d.MessageCount > 0);
 
-            stats.DailyActivity = indexStats.DailyActivity;
-            stats.TotalSessions = indexStats.TotalSessions;
-            stats.TotalMessages = indexStats.TotalMessages;
-            stats.TotalToolCalls = indexStats.TotalToolCalls;
-            stats.DaysActive = indexStats.DaysActive;
-            stats.TotalProjects = indexStats.TotalProjects;
-            stats.HourCounts = indexStats.HourCounts;
-            stats.NightSessionCount = indexStats.NightSessions;
-            stats.MorningSessionCount = indexStats.MorningSessions;
-            stats.LongestSessionMs = indexStats.LongestSessionMs;
+                // HourCounts: Dictionary<string,int> → int[24]
+                foreach (var (hourStr, count) in liveStats.HourCounts)
+                    if (int.TryParse(hourStr, out var h) && h is >= 0 and < 24)
+                        stats.HourCounts[h] = count;
 
-            // Cache stats from stats-cache.json
+                // NightSessions (22:00-04:00) / MorningSessions (05:00-08:00)
+                stats.NightSessionCount = new[] { 22, 23, 0, 1, 2, 3 }.Sum(h => stats.HourCounts[h]);
+                stats.MorningSessionCount = new[] { 5, 6, 7, 8 }.Sum(h => stats.HourCounts[h]);
+
+                // TotalProjects: 프로젝트 디렉토리 수
+                stats.TotalProjects = Directory.Exists(ProjectsDir)
+                    ? Directory.GetDirectories(ProjectsDir).Length
+                    : 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "대시보드: 활동 통계 로드 실패");
+        }
+
+        // ── 2. 토큰/비용 통계: stats-cache.json ──
+        try
+        {
             var usageStats = await statsCacheService.GetMergedStatsAsync();
+
             var cacheTotal = usageStats.TotalCacheCreationTokens + usageStats.TotalCacheReadTokens;
             stats.CacheHitRate = cacheTotal > 0
                 ? (double)usageStats.TotalCacheReadTokens / cacheTotal * 100
                 : 0;
 
-            // Cache savings
             decimal savings = 0;
             foreach (var m in usageStats.ByModel)
             {
@@ -59,50 +85,67 @@ public class GamificationService(
                 if (pricing != null)
                     savings += (decimal)m.CacheReadTokens / 1_000_000m * (pricing.Input - pricing.CacheRead);
             }
-
             stats.EstimatedCacheSavings = savings;
 
-            // Economy fields
             stats.TotalTokens = usageStats.TotalTokens;
             stats.TotalOutputTokens = usageStats.TotalOutputTokens;
             stats.TotalCostUsd = usageStats.TotalCost;
             stats.DistinctModelsUsed = usageStats.ByModel.Count;
+            stats.LongestSessionMs = usageStats.LongestSession?.DurationMs ?? 0;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "대시보드: 토큰/비용 통계 로드 실패");
+        }
 
-            // Pattern fields
-            stats.WeekendDaysActive = indexStats.DailyActivity
+        // ── 3. 패턴/스트릭: 이미 로드된 데이터에서 파생 ──
+        try
+        {
+            stats.WeekendDaysActive = stats.DailyActivity
                 .Count(d => DateOnly.TryParse(d.Date, out var dt)
                             && dt.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday
                             && d.MessageCount > 0);
-            stats.PeakDayMessages = indexStats.DailyActivity.Count > 0
-                ? indexStats.DailyActivity.Max(d => d.MessageCount)
+            stats.PeakDayMessages = stats.DailyActivity.Count > 0
+                ? stats.DailyActivity.Max(d => d.MessageCount)
                 : 0;
-            stats.ActiveHoursCount = indexStats.HourCounts.Count(h => h > 0);
+            stats.ActiveHoursCount = stats.HourCounts.Count(h => h > 0);
 
-            // Streak
-            var activeDates = indexStats.DailyActivity
+            var activeDates = stats.DailyActivity
                 .Where(d => d.MessageCount > 0)
                 .Select(d => DateOnly.Parse(d.Date)).ToList();
             stats.Streak = CalculateStreak(activeDates);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "대시보드: 패턴/스트릭 계산 실패");
+        }
 
-            // XP and level
+        // ── 4. XP / 레벨 / 설정 / 업적 ──
+        try
+        {
             var settings = await claudeSettings.ReadAsync(ClaudeSettingsScope.Global);
             var xp = CalculateXp(settings, stats);
             stats.Level = CalculateLevel(xp);
 
-            // Config completeness
             var (completeness, configItems) = CalculateConfigCompleteness(settings);
             stats.ConfigCompleteness = completeness;
             stats.ConfigItems = configItems;
 
-            // Achievements
             stats.Achievements = EvaluateAchievements(stats, settings);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "대시보드: XP/업적 계산 실패");
+        }
 
-            // Cost summary
+        // ── 5. 비용 요약 ──
+        try
+        {
             stats.Cost = await CalculateCostSummaryAsync();
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "대시보드 통계 계산 오류");
+            logger.LogWarning(ex, "대시보드: 비용 요약 계산 실패");
         }
 
         _cachedStats = stats;

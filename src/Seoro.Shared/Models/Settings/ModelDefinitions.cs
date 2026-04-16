@@ -197,7 +197,7 @@ public static class ModelDefinitions
                 new ModelInfo("opus", "Claude Opus 4.6")
                 {
                     Keywords = ["opus"],
-                    Pricing = new ModelPricing(5.0m, 25.0m, 6.25m, 0.50m),
+                    Pricing = new ModelPricing(15.0m, 75.0m, 18.75m, 1.50m),
                     ContextWindow = 200_000,
                     Description = "최고 지능, 적응형 사고",
                     SpeedTier = 1,
@@ -228,9 +228,9 @@ public static class ModelDefinitions
                 new ModelInfo("opus[1m]", "Opus (Extended 1M)")
                 {
                     Keywords = ["opus[1m]"],
-                    Pricing = new ModelPricing(5.0m, 25.0m, 6.25m, 0.50m,
-                        ExtendedInput: 10.0m, ExtendedOutput: 37.5m,
-                        ExtendedCacheWrite: 12.5m, ExtendedCacheRead: 1.0m),
+                    Pricing = new ModelPricing(15.0m, 75.0m, 18.75m, 1.50m,
+                        ExtendedInput: 30.0m, ExtendedOutput: 112.5m,
+                        ExtendedCacheWrite: 37.5m, ExtendedCacheRead: 3.0m),
                     ContextWindow = 1_000_000,
                     Description = "Opus + 1M 컨텍스트 윈도우",
                     SpeedTier = 1,

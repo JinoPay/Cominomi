@@ -115,7 +115,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // 병렬: 통계 캐시가 만료되었으면 새로 고침 + 세션 인덱스 로드 확인
+        // 병렬: 통계 캐시 갱신 + 세션 인덱스 갱신 (SessionMonitor용)
         var t1 = StatsCacheService.RefreshIfStaleAsync();
         var t2 = ReplayService.RefreshSessionIndexAsync();
         await Task.WhenAll(t1, t2);
@@ -129,8 +129,10 @@
         _refreshing = true;
         StateHasChanged();
 
-        await StatsCacheService.ForceRefreshAsync();
-        await ReplayService.RefreshSessionIndexAsync(true);
+        // 병렬: 통계 캐시 강제 갱신 + 세션 인덱스 강제 갱신 (SessionMonitor용)
+        await Task.WhenAll(
+            StatsCacheService.ForceRefreshAsync(),
+            ReplayService.RefreshSessionIndexAsync(true));
         _stats = await GamificationService.ForceRefreshDashboardAsync();
 
         _refreshing = false;

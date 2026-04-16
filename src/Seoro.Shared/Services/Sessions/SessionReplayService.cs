@@ -271,9 +271,7 @@ public class SessionReplayService(ILogger<SessionReplayService> logger) : ISessi
                             var snippet = ExtractTextSnippet(node, q);
                             if (string.IsNullOrEmpty(snippet)) continue;
 
-                            DateTime? ts = null;
-                            var tsStr = node["timestamp"]?.GetValue<string>();
-                            if (tsStr != null && DateTime.TryParse(tsStr, out var dt)) ts = dt;
+                            var ts = ParseTimestampNode(node["timestamp"]);
 
                             results.Add(new SessionSearchResult
                             {
@@ -543,6 +541,38 @@ public class SessionReplayService(ILogger<SessionReplayService> logger) : ISessi
 
     // ===== Helpers =====
 
+    /// <summary>
+    ///     Safely extracts a DateTime from a JsonNode "timestamp" field
+    ///     that may be an ISO 8601 string or a Unix millisecond number.
+    ///     Mirrors the same dual-format handling in StatsCacheService.
+    /// </summary>
+    private static DateTime? ParseTimestampNode(JsonNode? tsNode)
+    {
+        if (tsNode == null) return null;
+        try
+        {
+            var kind = tsNode.GetValueKind();
+            if (kind == JsonValueKind.String)
+            {
+                var str = tsNode.GetValue<string>();
+                if (str != null && DateTimeOffset.TryParse(str, out var dto))
+                    return dto.UtcDateTime;
+            }
+            else if (kind == JsonValueKind.Number)
+            {
+                var ms = (long)tsNode.GetValue<double>();
+                if (ms > 0)
+                    return DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime;
+            }
+        }
+        catch
+        {
+            // ignore — return null for unexpected node state
+        }
+
+        return null;
+    }
+
     private static bool IsToolResultOnlyUser(JsonNode node)
     {
         var msg = node["message"];
@@ -558,8 +588,8 @@ public class SessionReplayService(ILogger<SessionReplayService> logger) : ISessi
             using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var reader = new StreamReader(fs);
 
-            string? firstTimestamp = null;
-            string? lastTimestamp = null;
+            DateTime? firstTimestamp = null;
+            DateTime? lastTimestamp = null;
             string? firstMessage = null;
             int parsedCount = 0, userCount = 0, toolCount = 0;
             long totalBytesRead = 0;
@@ -588,7 +618,7 @@ public class SessionReplayService(ILogger<SessionReplayService> logger) : ISessi
 
                 parsedCount++;
 
-                var ts = node["timestamp"]?.GetValue<string>();
+                var ts = ParseTimestampNode(node["timestamp"]);
                 if (ts != null)
                 {
                     firstTimestamp ??= ts;
@@ -649,10 +679,6 @@ public class SessionReplayService(ILogger<SessionReplayService> logger) : ISessi
             var projectDir = Path.GetDirectoryName(filePath) ?? "";
             var projectHash = Path.GetFileName(projectDir);
 
-            DateTime? firstTs = null, lastTs = null;
-            if (firstTimestamp != null && DateTime.TryParse(firstTimestamp, out var dt1)) firstTs = dt1;
-            if (lastTimestamp != null && DateTime.TryParse(lastTimestamp, out var dt2)) lastTs = dt2;
-
             return new SessionIndexEntry
             {
                 Id = Path.GetFileNameWithoutExtension(filePath),
@@ -662,8 +688,8 @@ public class SessionReplayService(ILogger<SessionReplayService> logger) : ISessi
                 EntryCount = estimatedEntries,
                 UserMessageCount = estimatedUsers,
                 ToolCallCount = estimatedTools,
-                FirstTimestamp = firstTs,
-                LastTimestamp = lastTs,
+                FirstTimestamp = firstTimestamp,
+                LastTimestamp = lastTimestamp,
                 FirstMessage = firstMessage,
                 FileSizeBytes = fi.Length,
                 FileLastWriteUtc = fi.LastWriteTimeUtc,
@@ -680,9 +706,7 @@ public class SessionReplayService(ILogger<SessionReplayService> logger) : ISessi
 
     private static SessionReplayEvent ParseEvent(JsonNode node, string type)
     {
-        DateTime? ts = null;
-        var tsStr = node["timestamp"]?.GetValue<string>();
-        if (tsStr != null && DateTime.TryParse(tsStr, out var dt)) ts = dt;
+        var ts = ParseTimestampNode(node["timestamp"]);
 
         var msg = node["message"] ?? node;
         var content = msg["content"];
