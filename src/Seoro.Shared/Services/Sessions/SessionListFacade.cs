@@ -113,6 +113,7 @@ public class SessionListFacade(
 
         dataService.DiffStatsCache.Remove(session.Id);
         dataService.RebuildOrderedSessions();
+        dataService.NotifyDataChanged();
         snackbar.SessionDeleted();
     }
 

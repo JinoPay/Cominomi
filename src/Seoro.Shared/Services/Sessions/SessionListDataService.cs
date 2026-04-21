@@ -30,6 +30,8 @@ public class SessionListDataService : IDisposable
 
     public event Action? OnDataChanged;
 
+    public void NotifyDataChanged() => OnDataChanged?.Invoke();
+
     public void Dispose()
     {
         _workspaceService.OnWorkspaceSaved -= HandleWorkspaceSaved;
