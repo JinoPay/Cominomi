@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.17.26",
+    "date": "2026-04-21",
+    "changes": [
+      { "type": "fix", "description": "머지 후 세션 삭제 시 사이드바에 반영되지 않던 문제 수정 — OnDataChanged 이벤트 누락 수정" },
+      { "type": "fix", "description": "머지 완료 후 세션 삭제 버튼 중복 표시 제거 — 인라인 확인 배너와 동시에 표시되지 않도록 수정" }
+    ]
+  },
+  {
     "version": "1.17.25",
     "date": "2026-04-21",
     "changes": [
