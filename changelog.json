@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.17.27",
+    "date": "2026-04-22",
+    "changes": [
+      { "type": "fix", "description": "세션별 추가 작업 디렉토리 팝업 클릭 및 오버플로 문제 수정" },
+      { "type": "refactor", "description": "머지 탭 버튼을 상태 머신으로 리팩토링 — 상태별 단일 액션만 표시" }
+    ]
+  },
+  {
     "version": "1.17.26",
     "date": "2026-04-21",
     "changes": [
