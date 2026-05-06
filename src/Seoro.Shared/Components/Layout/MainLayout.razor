@@ -48,7 +48,7 @@
         <SidebarToolbar SidebarOpen="_sidebarOpen"
                         OnToggleSidebar="@(() => _sidebarOpen = !_sidebarOpen)"
                         OnOpenNotifications="OpenNotifications"/>
-        <SessionList/>
+        <SessionList SidebarOpen="_sidebarOpen" OnExpandSidebar="ExpandSidebar"/>
         <SidebarFooter OnOpenSettings="@(() => ChatState.OpenSettings())"/>
     </aside>
 
@@ -426,6 +426,15 @@
     private void OpenNotifications()
     {
         ChatState.OpenNotifications();
+    }
+
+    private void ExpandSidebar()
+    {
+        if (!_sidebarOpen)
+        {
+            _sidebarOpen = true;
+            StateHasChanged();
+        }
     }
 
     // --- Onboarding / What's New sequencing ---

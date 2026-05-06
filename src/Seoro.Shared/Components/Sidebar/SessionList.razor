@@ -15,15 +15,18 @@
 <div class="sidebar-tree">
     @if (DataService.Workspaces.Count > 0)
     {
-        <SessionListToolbar FilterVisible="_filterVisible"
-                            FilterText="@_filterText"
-                            OnToggleFilter="ToggleFilter"
-                            OnCreateWorkspace="@(() => _createDialogOpen = true)"
-                            FilterTextChanged="@(v =>
-                                               {
-                                                   _filterText = v;
-                                                   RebuildFlatRows();
-                                               })"/>
+        @if (SidebarOpen)
+        {
+            <SessionListToolbar FilterVisible="_filterVisible"
+                                FilterText="@_filterText"
+                                OnToggleFilter="ToggleFilter"
+                                OnCreateWorkspace="@(() => _createDialogOpen = true)"
+                                FilterTextChanged="@(v =>
+                                                   {
+                                                       _filterText = v;
+                                                       RebuildFlatRows();
+                                                   })"/>
+        }
 
         @* Tree body — single Virtualize over flat list *@
         <div class="tree-body">
@@ -32,9 +35,12 @@
                 {
                     case SidebarRowKind.ProjectHeader:
                         var isExpanded = _expandedProjects.Contains(row.ProjectName!);
+                        var isActiveProject = ChatState.CurrentWorkspace != null
+                                              && row.WorkspacesInGroup!.Any(w => w.Id == ChatState.CurrentWorkspace.Id);
                         <div @key="@($"ph-{row.ProjectName}")"
-                             class="project-header @(row.HasStreamingSession && !isExpanded ? "has-streaming" : "") @(_draggedProject == row.ProjectName ? "dragging" : "") @(_dropTargetProject == row.ProjectName ? "drop-target" : "")"
+                             class="project-header @(isActiveProject ? "active-workspace" : "") @(row.HasStreamingSession && !isExpanded ? "has-streaming" : "") @(_draggedProject == row.ProjectName ? "dragging" : "") @(_dropTargetProject == row.ProjectName ? "drop-target" : "")"
                              draggable="true"
+                             title="@(SidebarOpen ? null : row.ProjectName)"
                              @ondragstart="@(() => OnProjectDragStart(row.ProjectName!))"
                              @ondragover="@(() => OnProjectDragOver(row.ProjectName!))"
                              @ondragover:preventDefault="true"
@@ -159,6 +165,10 @@
 <CreateWorkspaceDialog @bind-IsOpen="_createDialogOpen" OnWorkspaceCreated="ReloadWorkspaces"/>
 
 @code {
+    [Parameter] public bool SidebarOpen { get; set; } = true;
+    [Parameter] public EventCallback OnExpandSidebar { get; set; }
+
+    private bool _prevSidebarOpen = true;
     private readonly HashSet<string> _expandedProjects = new();
     private bool _createDialogOpen;
     private bool _isCreatingSession;
@@ -224,6 +234,7 @@
                 projectName, workspacesInGroup,
                 SessionCount: sessionCount, HasStreamingSession: hasStreaming));
 
+            if (!SidebarOpen) continue;
             if (!_expandedProjects.Contains(projectName)) continue;
 
             var showSubheaders = workspacesInGroup.Count > 1;
@@ -387,6 +398,15 @@
         }
     }
 
+    protected override void OnParametersSet()
+    {
+        if (_prevSidebarOpen != SidebarOpen)
+        {
+            _prevSidebarOpen = SidebarOpen;
+            RebuildFlatRows();
+        }
+    }
+
     [JSInvokable]
     public void OnCtrlStateChanged(bool pressed)
     {
@@ -504,6 +524,15 @@
 
     private async Task ToggleProject(string projectName)
     {
+        if (!SidebarOpen)
+        {
+            if (_expandedProjects.Add(projectName))
+                await DataService.LoadSessionsForProjectAsync(projectName);
+            await OnExpandSidebar.InvokeAsync();
+            RebuildFlatRows();
+            return;
+        }
+
         if (!_expandedProjects.Add(projectName))
         {
             _expandedProjects.Remove(projectName);

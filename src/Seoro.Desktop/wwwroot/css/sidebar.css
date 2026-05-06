@@ -95,8 +95,7 @@
 
 /* ===== Mini Sidebar (Collapsed) ===== */
 .sidebar-collapsed .sidebar-brand-text,
-.sidebar-collapsed .sidebar-footer-btn span,
-.sidebar-collapsed .sidebar-tree {
+.sidebar-collapsed .sidebar-footer-btn span {
     display: none;
 }
 
@@ -124,6 +123,46 @@
     padding: var(--space-1);
     width: 36px;
     height: 36px;
+}
+
+/* Collapsed sidebar — workspace icons only */
+.sidebar-collapsed .welcome-container {
+    display: none;
+}
+
+.sidebar-collapsed .tree-body {
+    padding: var(--space-1) 0;
+}
+
+.sidebar-collapsed .project-header {
+    justify-content: center;
+    padding: var(--space-1) 0;
+    gap: 0;
+    position: relative;
+}
+
+.sidebar-collapsed .project-header .project-chevron,
+.sidebar-collapsed .project-header .project-name,
+.sidebar-collapsed .project-header .project-session-count,
+.sidebar-collapsed .project-header .project-actions {
+    display: none;
+}
+
+.sidebar-collapsed .project-header .project-letter {
+    width: 28px;
+    height: 28px;
+    font-size: var(--text-sm);
+}
+
+.sidebar-collapsed .project-header.active-workspace .project-letter {
+    background: var(--accent-dim);
+    color: var(--accent);
+}
+
+.sidebar-collapsed .project-header .project-streaming-dot {
+    position: absolute;
+    top: 4px;
+    right: 8px;
 }
 
 /* ===== Tree Sidebar ===== */
