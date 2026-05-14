@@ -195,6 +195,7 @@ public static class Program
         appBuilder.Services.AddSingleton<IActiveSessionRegistry, ActiveSessionRegistry>();
         appBuilder.Services.AddSingleton<IChatEventBus, ChatEventBus>();
         appBuilder.Services.AddSingleton<IChatState, ChatState>();
+        appBuilder.Services.AddSingleton<IMessageQueueService, MessageQueueService>();
         appBuilder.Services.AddSingleton<LightboxService>();
         appBuilder.Services.AddSingleton<IGitService, GitService>();
         appBuilder.Services.AddSingleton<IGitBranchWatcherService, GitBranchWatcherService>();

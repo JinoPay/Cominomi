@@ -363,6 +363,17 @@
   <data name="Chat_Toolbar_WebSearchOff" xml:space="preserve"><value>웹 검색 꺼짐</value></data>
   <data name="Chat_Toolbar_ViewPlan" xml:space="preserve"><value>플랜 보기</value></data>
   <data name="Chat_Toolbar_Stop" xml:space="preserve"><value>중지</value></data>
+  <data name="Chat_Toolbar_QueueMessage" xml:space="preserve"><value>예약 추가</value></data>
+  <data name="Chat_Toolbar_SendNow" xml:space="preserve"><value>즉시 전송</value></data>
+  <data name="Chat_Toolbar_SendNow_Hint" xml:space="preserve"><value>현재 응답을 취소하고 바로 전송 · Alt+Enter</value></data>
+  <data name="Chat_Queue_Toast_Enqueued" xml:space="preserve"><value>메시지가 예약되었습니다</value></data>
+  <data name="Chat_Queue_SentNow_Toast" xml:space="preserve"><value>현재 응답을 취소하고 새 메시지를 전송했습니다</value></data>
+  <data name="Chat_Queue_AutoDispatching" xml:space="preserve"><value>예약된 메시지를 전송합니다 ({0}개 남음)</value></data>
+  <data name="Chat_Queue_OverflowMore" xml:space="preserve"><value>+{0}개 더</value></data>
+  <data name="Chat_Queue_RemoveTooltip" xml:space="preserve"><value>예약 취소</value></data>
+  <data name="Chat_Queue_EditTooltip" xml:space="preserve"><value>예약 편집</value></data>
+  <data name="Chat_Queue_EditBlocked" xml:space="preserve"><value>입력란을 비운 뒤에 예약 메시지를 편집할 수 있습니다</value></data>
+  <data name="Chat_Queue_ClearAll" xml:space="preserve"><value>전체 취소</value></data>
   <data name="Chat_Toolbar_ToolPicker" xml:space="preserve"><value>도구</value></data>
   <data name="Chat_ToolPicker_McpServers" xml:space="preserve"><value>MCP 서버</value></data>
   <data name="Chat_ToolPicker_ManageMcp" xml:space="preserve"><value>MCP 설정 관리...</value></data>

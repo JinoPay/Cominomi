@@ -11,6 +11,7 @@
 @inject INotificationHistoryService NotificationHistory
 @inject IChatEventBus EventBus
 @inject ISettingsService SettingsService
+@inject IMessageQueueService MessageQueue
 @using Microsoft.Extensions.Logging
 @implements IDisposable
 
@@ -94,7 +95,7 @@
             @* 입력 영역 *@
             @if (session != null)
             {
-                <InputArea OnSend="HandleSend" OnCancel="HandleCancel"
+                <InputArea OnSend="HandleSend" OnSendNow="HandleSendNow" OnCancel="HandleCancel"
                            IsStreaming="ChatState.IsStreaming"
                            Disabled="@(session.Status is SessionStatus.Archived or SessionStatus.Pending or SessionStatus.Initializing)"
                            PermissionMode="@(session.PermissionMode ?? "bypassAll")"
@@ -503,9 +504,17 @@
 
     private Task HandleSend(ChatInputMessage input)
     {
-        if (ChatState.CurrentSession == null || ChatState.IsStreaming
-                                             || (string.IsNullOrWhiteSpace(input.Text) && input.Attachments.Count == 0))
+        if (ChatState.CurrentSession == null
+            || (string.IsNullOrWhiteSpace(input.Text) && input.Attachments.Count == 0))
             return Task.CompletedTask;
+
+        // 스트리밍 중에는 큐로 라우팅
+        if (ChatState.IsStreaming)
+        {
+            MessageQueue.Enqueue(ChatState.CurrentSession.Id, input);
+            Snackbar.Add(Strings.Chat_Queue_Toast_Enqueued, Severity.Info);
+            return Task.CompletedTask;
+        }
 
         // 지우기 전에 플랜 리뷰 상태 캡처
         var wasPlanReviewVisible = _planReviewVisible;
@@ -557,6 +566,20 @@
             {
                 var result = await Orchestrator.SendAsync(session, input, branch, workspace, ct);
                 await ApplyResultAsync(result, session);
+
+                // 정상 완료 시 큐 자동 드레인 (사용자가 Stop을 누르면 WasCancelled=true → 건너뜀)
+                if (!ct.IsCancellationRequested
+                    && !result.WasCancelled
+                    && MessageQueue.TryDequeue(sessionId, out var next)
+                    && next != null)
+                {
+                    var remaining = MessageQueue.Count(sessionId);
+                    await InvokeAsync(async () =>
+                    {
+                        Snackbar.Add(Strings.Chat_Queue_AutoDispatching(remaining), Severity.Info);
+                        await HandleSend(next.Input);
+                    });
+                }
             }
             catch (OperationCanceledException)
             {
@@ -573,6 +596,28 @@
 
         _sessionTasks[sessionId] = (cts, task);
         return Task.CompletedTask;
+    }
+
+    private async Task HandleSendNow(ChatInputMessage input)
+    {
+        if (ChatState.CurrentSession == null
+            || (string.IsNullOrWhiteSpace(input.Text) && input.Attachments.Count == 0))
+            return;
+
+        var sessionId = ChatState.CurrentSession.Id;
+
+        // 현재 스트림 취소
+        if (_sessionTasks.TryGetValue(sessionId, out var prev))
+        {
+            prev.Cts.Cancel();
+            try { await prev.Task; } catch { /* 취소된 작업 무시 */ }
+            _sessionTasks.Remove(sessionId);
+        }
+
+        Snackbar.Add(Strings.Chat_Queue_SentNow_Toast, Severity.Info);
+
+        // 스트리밍 상태가 finally 블록에서 false로 전이된 후에 새 메시지 전송
+        await HandleSend(input);
     }
 
     private async Task ApplyResultAsync(StreamResult result, Session session)

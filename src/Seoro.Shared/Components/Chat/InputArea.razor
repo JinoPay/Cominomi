@@ -4,6 +4,7 @@
 @inject IChatState ChatState
 @inject ISessionService SessionService
 @inject ISnackbar Snackbar
+@inject IMessageQueueService MessageQueue
 @implements IAsyncDisposable
 
 <div class="input-area-container" id="input-area">
@@ -33,6 +34,10 @@
             </div>
         }
 
+        <QueuedMessageChips Queue="_queueForSession"
+                            OnRemove="HandleRemoveQueued"
+                            OnEditInPlace="HandleEditQueued"/>
+
         <AttachmentChips Attachments="_pendingAttachments" OnRemove="RemoveAttachment"/>
 
         <MudTextField T="string" Value="@_inputText" ValueChanged="@HandleInputValueChanged"
@@ -43,7 +48,6 @@
                       MaxLines="8"
                       Immediate="true"
                       Disabled="Disabled"
-                      ReadOnly="IsStreaming"
                       Class="input-textarea-full"
                       Style="font-size: var(--text-base);"/>
 
@@ -58,7 +62,10 @@
                       Disabled="Disabled"
                       HasInput="@(!string.IsNullOrWhiteSpace(_inputText) || _pendingSkill != null)"
                       HasAttachments="@(_pendingAttachments.Count > 0)"
+                      QueueCount="@_queueForSession.Count"
                       OnSend="Send"
+                      OnSendNow="SendNow"
+                      OnClearQueue="ClearQueue"
                       OnCancel="@(() => OnCancel.InvokeAsync())"
                       OnPickFiles="PickFiles"
                       OnModelMenuClosed="RefocusTextarea"
@@ -77,6 +84,7 @@
 
 @code {
     [Parameter] public EventCallback<ChatInputMessage> OnSend { get; set; }
+    [Parameter] public EventCallback<ChatInputMessage> OnSendNow { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public bool IsStreaming { get; set; }
     [Parameter] public bool Disabled { get; set; }
@@ -101,6 +109,7 @@
     private string _inputText = string.Empty;
     private readonly List<PendingAttachment> _pendingAttachments = [];
     private SkillDefinition? _pendingSkill;
+    private IReadOnlyList<QueuedMessage> _queueForSession = [];
     private const int DraftSaveDebounceMs = 400;
     private DotNetObjectReference<InputArea>? _dotNetRef;
     private bool _handlersRegistered;
@@ -164,6 +173,7 @@
 
             _trackedSession = CurrentSession;
             _trackedSessionId = newSessionId;
+            RefreshQueueSnapshot();
 
             // 세션 변경 시 로컬 복사본을 부모 파라미터에서 무조건 동기화 (stale optimistic state 방지)
             _currentPermissionMode = PermissionMode;
@@ -649,6 +659,8 @@
 
     public async ValueTask DisposeAsync()
     {
+        MessageQueue.OnQueueChanged -= HandleQueueChanged;
+
         PersistDraftState(_trackedSession, _inputText, _pendingAttachments, immediate: true);
         if (_draftSaveTask != null)
             await _draftSaveTask;
@@ -667,6 +679,147 @@
 
         _dotNetRef?.Dispose();
         _draftSaveCts?.Dispose();
+    }
+
+    // ─── Message Queue ───
+
+    protected override void OnInitialized()
+    {
+        MessageQueue.OnQueueChanged += HandleQueueChanged;
+        RefreshQueueSnapshot();
+    }
+
+    private void HandleQueueChanged(string sessionId)
+    {
+        if (_trackedSessionId == null || sessionId != _trackedSessionId)
+            return;
+
+        RefreshQueueSnapshot();
+        InvokeAsync(() =>
+        {
+            _forceRender = true;
+            StateHasChanged();
+        });
+    }
+
+    private void RefreshQueueSnapshot()
+    {
+        _queueForSession = _trackedSessionId != null
+            ? MessageQueue.GetQueue(_trackedSessionId)
+            : [];
+    }
+
+    private async Task HandleRemoveQueued(QueuedMessage msg)
+    {
+        if (_trackedSessionId == null) return;
+        MessageQueue.Remove(_trackedSessionId, msg.Id);
+        await Task.CompletedTask;
+    }
+
+    private async Task HandleEditQueued(QueuedMessage msg)
+    {
+        if (_trackedSessionId == null) return;
+        if (!MessageQueue.Remove(_trackedSessionId, msg.Id)) return;
+
+        // 입력란이 비어있을 때만 안전하게 복원 (사용자가 이미 타이핑 중이면 덮어쓰지 않음)
+        if (!string.IsNullOrEmpty(_inputText) || _pendingAttachments.Count > 0)
+        {
+            // 입력란이 차있으면 다시 큐 끝에 추가
+            MessageQueue.Enqueue(_trackedSessionId, msg.Input);
+            Snackbar.Add(Strings.Chat_Queue_EditBlocked, Severity.Warning);
+            return;
+        }
+
+        _inputText = msg.Input.Text;
+        _pendingAttachments.Clear();
+        _pendingAttachments.AddRange(msg.Input.Attachments);
+        PersistDraftState(_trackedSession, _inputText, _pendingAttachments, immediate: true);
+        _forceRender = true;
+        StateHasChanged();
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("focusInputArea", "input-area");
+        }
+        catch (JSDisconnectedException) { }
+    }
+
+    private void ClearQueue()
+    {
+        if (_trackedSessionId == null) return;
+        MessageQueue.Clear(_trackedSessionId);
+    }
+
+    private async Task SendNow()
+    {
+        if (Disabled || (string.IsNullOrWhiteSpace(_inputText) && _pendingAttachments.Count == 0 && _pendingSkill == null))
+            return;
+
+        var input = BuildInputMessageAndClear();
+        if (input == null) return;
+        await OnSendNow.InvokeAsync(input);
+    }
+
+    [JSInvokable]
+    public async Task SendNowFromJs()
+    {
+        await SendNow();
+    }
+
+    private ChatInputMessage? BuildInputMessageAndClear()
+    {
+        var text = (_inputText ?? string.Empty).Trim();
+        List<SkillChainStep>? pendingChain = null;
+
+        if (_pendingSkill != null)
+        {
+            var skill = _pendingSkill;
+            _pendingSkill = null;
+            if (CurrentSession != null)
+                text = SkillRegistry.ExpandSkill(skill, string.IsNullOrEmpty(text) ? null : text, CurrentSession);
+        }
+        else if (CurrentSession != null && SkillRegistry.TryParseSkillChain(text, CurrentSession, out var chainSteps))
+        {
+            text = chainSteps[0].ExpandedText;
+            pendingChain = chainSteps.Count > 1 ? chainSteps.GetRange(1, chainSteps.Count - 1) : null;
+        }
+        else
+        {
+            var skillName = SkillRegistry.TryParseSkillCommand(text, out var skillArgs);
+            if (skillName != null)
+            {
+                var skill = SkillRegistry.Find(skillName);
+                if (skill != null && CurrentSession != null)
+                    text = SkillRegistry.ExpandSkill(skill, skillArgs, CurrentSession);
+            }
+        }
+
+        var input = new ChatInputMessage
+        {
+            Text = text,
+            Attachments = [.. _pendingAttachments],
+            PendingChain = pendingChain
+        };
+
+        _suppressInputUpdates = true;
+        _inputText = string.Empty;
+        if (_trackedSessionId != null)
+        {
+            ChatState.SetInputDraft(_trackedSessionId, string.Empty);
+            ChatState.SetAttachmentDraft(_trackedSessionId, []);
+            ChatState.SetSkillDraft(_trackedSessionId, null);
+        }
+        PersistDraftState(_trackedSession, string.Empty, [], immediate: true);
+        _pendingAttachments.Clear();
+        StateHasChanged();
+
+        try
+        {
+            _ = JSRuntime.InvokeVoidAsync("clearInputArea", "input-area");
+        }
+        catch (JSDisconnectedException) { }
+
+        _suppressInputUpdates = false;
+        return input;
     }
 
     private string GetRestoredInputDraft(Session session)

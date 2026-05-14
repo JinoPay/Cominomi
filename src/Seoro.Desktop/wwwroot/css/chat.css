@@ -917,6 +917,54 @@
     overflow-y: auto;
 }
 
+/* ===== Queued Message Chips ===== */
+.queued-message-chips .queued-chip-next {
+    animation: queued-chip-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes queued-chip-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+.queued-overflow-popover {
+    max-width: 360px;
+    min-width: 240px;
+    padding: 6px 0;
+}
+
+.queued-overflow-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.queued-overflow-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+}
+
+.queued-overflow-row:hover {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+}
+
+.queued-overflow-index {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.queued-overflow-text {
+    flex: 1;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ===== Tool Picker ===== */
 .tool-picker-btn-wrapper {
     position: relative;

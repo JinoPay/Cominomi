@@ -363,6 +363,17 @@
   <data name="Chat_Toolbar_WebSearchOff" xml:space="preserve"><value>Web search off</value></data>
   <data name="Chat_Toolbar_ViewPlan" xml:space="preserve"><value>View plan</value></data>
   <data name="Chat_Toolbar_Stop" xml:space="preserve"><value>Stop</value></data>
+  <data name="Chat_Toolbar_QueueMessage" xml:space="preserve"><value>Queue message</value></data>
+  <data name="Chat_Toolbar_SendNow" xml:space="preserve"><value>Send now</value></data>
+  <data name="Chat_Toolbar_SendNow_Hint" xml:space="preserve"><value>Cancel current response and send · Alt+Enter</value></data>
+  <data name="Chat_Queue_Toast_Enqueued" xml:space="preserve"><value>Message queued</value></data>
+  <data name="Chat_Queue_SentNow_Toast" xml:space="preserve"><value>Cancelled current response and sent new message</value></data>
+  <data name="Chat_Queue_AutoDispatching" xml:space="preserve"><value>Sending queued message ({0} remaining)</value></data>
+  <data name="Chat_Queue_OverflowMore" xml:space="preserve"><value>+{0} more</value></data>
+  <data name="Chat_Queue_RemoveTooltip" xml:space="preserve"><value>Remove from queue</value></data>
+  <data name="Chat_Queue_EditTooltip" xml:space="preserve"><value>Edit queued message</value></data>
+  <data name="Chat_Queue_EditBlocked" xml:space="preserve"><value>Clear the input before editing a queued message</value></data>
+  <data name="Chat_Queue_ClearAll" xml:space="preserve"><value>Clear queue</value></data>
   <data name="Chat_Toolbar_ToolPicker" xml:space="preserve"><value>Tools</value></data>
   <data name="Chat_ToolPicker_McpServers" xml:space="preserve"><value>MCP Servers</value></data>
   <data name="Chat_ToolPicker_ManageMcp" xml:space="preserve"><value>Manage MCP Settings...</value></data>

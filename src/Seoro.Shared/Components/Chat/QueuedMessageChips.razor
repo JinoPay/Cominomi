@@ -1,0 +1,74 @@
+@inject IMessageQueueService MessageQueue
+
+@if (Queue.Count > 0)
+{
+    <div class="attachment-chips queued-message-chips">
+        @{
+            var visible = Queue.Take(MaxVisible).ToList();
+            var hidden = Queue.Skip(MaxVisible).ToList();
+        }
+        @foreach (var (msg, index) in visible.Select((m, i) => (m, i)))
+        {
+            <MudTooltip Text="@msg.Input.Text" Placement="Placement.Top">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                         Color="@(index == 0 ? Color.Primary : Color.Default)"
+                         Icon="@Icons.Material.Filled.Schedule"
+                         OnClose="@(() => HandleRemove(msg))"
+                         OnClick="@(() => HandleEdit(msg))"
+                         Class="@(index == 0 ? "queued-chip-next" : null)"
+                         Style="font-size: 0.75rem; cursor: pointer;">
+                    @($"{index + 1}. {msg.PreviewText}")
+                </MudChip>
+            </MudTooltip>
+        }
+        @if (hidden.Count > 0)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                     Icon="@Icons.Material.Filled.MoreHoriz"
+                     OnClick="@TogglePopover"
+                     Style="font-size: 0.75rem; cursor: pointer;">
+                @Strings.Chat_Queue_OverflowMore(hidden.Count)
+            </MudChip>
+            <MudPopover Open="_popoverOpen" AnchorOrigin="Origin.TopLeft"
+                        TransformOrigin="Origin.BottomLeft" Class="queued-overflow-popover">
+                <MudClickAwayListener OnClickAway="ClosePopover"/>
+                <div class="queued-overflow-content">
+                    @foreach (var (msg, idx) in Queue.Select((m, i) => (m, i)).Skip(MaxVisible))
+                    {
+                        <div class="queued-overflow-row">
+                            <span class="queued-overflow-index">@($"{idx + 1}.")</span>
+                            <span class="queued-overflow-text" @onclick="@(() => HandleEditFromPopover(msg))">
+                                @msg.PreviewText
+                            </span>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                           Size="Size.Small"
+                                           OnClick="@(() => HandleRemove(msg))"/>
+                        </div>
+                    }
+                </div>
+            </MudPopover>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<QueuedMessage> Queue { get; set; } = [];
+    [Parameter] public EventCallback<QueuedMessage> OnRemove { get; set; }
+    [Parameter] public EventCallback<QueuedMessage> OnEditInPlace { get; set; }
+
+    private const int MaxVisible = 3;
+    private bool _popoverOpen;
+
+    private void TogglePopover() => _popoverOpen = !_popoverOpen;
+    private void ClosePopover() => _popoverOpen = false;
+
+    private Task HandleRemove(QueuedMessage msg) => OnRemove.InvokeAsync(msg);
+
+    private Task HandleEdit(QueuedMessage msg) => OnEditInPlace.InvokeAsync(msg);
+
+    private async Task HandleEditFromPopover(QueuedMessage msg)
+    {
+        _popoverOpen = false;
+        await OnEditInPlace.InvokeAsync(msg);
+    }
+}

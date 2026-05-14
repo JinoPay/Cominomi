@@ -113,6 +113,47 @@
                        Style="border-radius: 20px; text-transform: none; min-width: 72px;">
                 @Strings.Chat_Toolbar_Stop
             </MudButton>
+
+            @if (HasInput || HasAttachments || QueueCount > 0)
+            {
+                <MudTooltip Text="@Strings.Chat_Toolbar_QueueMessage" Placement="Placement.Top">
+                    <MudIconButton Icon="@Icons.Material.Filled.Schedule"
+                                   Color="Color.Primary"
+                                   Variant="Variant.Filled"
+                                   OnClick="@(() => OnSend.InvokeAsync())"
+                                   Disabled="@(Disabled || (!HasInput && !HasAttachments))"
+                                   Size="Size.Small"
+                                   Style="border-radius: 50%;"/>
+                </MudTooltip>
+                <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown"
+                         Size="Size.Small"
+                         AnchorOrigin="Origin.TopRight"
+                         TransformOrigin="Origin.BottomRight">
+                    @if (HasInput || HasAttachments)
+                    {
+                        <MudMenuItem Icon="@Icons.Material.Filled.FlashOn"
+                                     IconColor="Color.Warning"
+                                     OnClick="@(() => OnSendNow.InvokeAsync())">
+                            <div>
+                                <div style="font-size: 0.85rem; font-weight: 500;">@Strings.Chat_Toolbar_SendNow</div>
+                                <div style="font-size: 0.7rem; opacity: 0.7;">@Strings.Chat_Toolbar_SendNow_Hint</div>
+                            </div>
+                        </MudMenuItem>
+                    }
+                    @if (QueueCount > 0)
+                    {
+                        @if (HasInput || HasAttachments)
+                        {
+                            <MudDivider/>
+                        }
+                        <MudMenuItem Icon="@Icons.Material.Filled.DeleteSweep"
+                                     IconColor="Color.Error"
+                                     OnClick="@(() => OnClearQueue.InvokeAsync())">
+                            @($"{Strings.Chat_Queue_ClearAll} ({QueueCount})")
+                        </MudMenuItem>
+                    }
+                </MudMenu>
+            }
         }
         else
         {
@@ -142,6 +183,9 @@
     [Parameter] public bool HasInput { get; set; }
     [Parameter] public bool HasAttachments { get; set; }
     [Parameter] public EventCallback OnSend { get; set; }
+    [Parameter] public EventCallback OnSendNow { get; set; }
+    [Parameter] public EventCallback OnClearQueue { get; set; }
+    [Parameter] public int QueueCount { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public EventCallback OnPickFiles { get; set; }
     [Parameter] public EventCallback OnModelMenuClosed { get; set; }

@@ -385,6 +385,17 @@ public static class Strings
     public static string Chat_Toolbar_WebSearchOff => Get(nameof(Chat_Toolbar_WebSearchOff));
     public static string Chat_Toolbar_ViewPlan => Get(nameof(Chat_Toolbar_ViewPlan));
     public static string Chat_Toolbar_Stop => Get(nameof(Chat_Toolbar_Stop));
+    public static string Chat_Toolbar_QueueMessage => Get(nameof(Chat_Toolbar_QueueMessage));
+    public static string Chat_Toolbar_SendNow => Get(nameof(Chat_Toolbar_SendNow));
+    public static string Chat_Toolbar_SendNow_Hint => Get(nameof(Chat_Toolbar_SendNow_Hint));
+    public static string Chat_Queue_Toast_Enqueued => Get(nameof(Chat_Queue_Toast_Enqueued));
+    public static string Chat_Queue_SentNow_Toast => Get(nameof(Chat_Queue_SentNow_Toast));
+    public static string Chat_Queue_AutoDispatching(int n) => Get(nameof(Chat_Queue_AutoDispatching), n.ToString());
+    public static string Chat_Queue_OverflowMore(int n) => Get(nameof(Chat_Queue_OverflowMore), n.ToString());
+    public static string Chat_Queue_RemoveTooltip => Get(nameof(Chat_Queue_RemoveTooltip));
+    public static string Chat_Queue_EditTooltip => Get(nameof(Chat_Queue_EditTooltip));
+    public static string Chat_Queue_EditBlocked => Get(nameof(Chat_Queue_EditBlocked));
+    public static string Chat_Queue_ClearAll => Get(nameof(Chat_Queue_ClearAll));
     public static string Chat_Toolbar_ToolPicker => Get(nameof(Chat_Toolbar_ToolPicker));
     public static string Chat_ToolPicker_McpServers => Get(nameof(Chat_ToolPicker_McpServers));
     public static string Chat_ToolPicker_ManageMcp => Get(nameof(Chat_ToolPicker_ManageMcp));

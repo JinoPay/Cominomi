@@ -202,6 +202,12 @@
                     var modKey = isMac ? e.metaKey : e.ctrlKey;
                     // Ctrl/Cmd+Enter → let it bubble to panel shortcuts (plan approve)
                     if (modKey) return;
+                    // Alt+Enter → send-now (cancel current response and send immediately)
+                    if (e.altKey) {
+                        e.preventDefault();
+                        dotNetRef.invokeMethodAsync('SendNowFromJs');
+                        return;
+                    }
                     e.preventDefault();
                     if (e.shiftKey) {
                         var start = inputEl.selectionStart;
