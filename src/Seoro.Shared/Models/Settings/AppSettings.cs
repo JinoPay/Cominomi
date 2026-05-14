@@ -40,6 +40,7 @@ public class AppSettings
     public string LastWorkspaceId { get; set; } = "";
     public string NotificationSoundName { get; set; } = "default";
     public string Theme { get; set; } = "dark";
+    public string DiffViewMode { get; set; } = "unified"; // "unified" | "split"
     public string? ClaudePath { get; set; }
     public string? CodexPath { get; set; }
     public string DefaultCodexModel { get; set; } = "gpt-5.4";

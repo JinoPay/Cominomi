@@ -325,6 +325,26 @@ function getCurrentTheme() {
   });
 };
 
+(window as any).seoroSetupSplitScrollSync = function (oldId: string, newId: string) {
+  const oldEl = document.getElementById(oldId);
+  const newEl = document.getElementById(newId);
+  if (!oldEl || !newEl) return;
+  if ((oldEl as HTMLElement).dataset.scrollSync === '1' && (newEl as HTMLElement).dataset.scrollSync === '1') return;
+
+  let isSyncing = false;
+  const sync = (src: HTMLElement, dst: HTMLElement) => () => {
+    if (isSyncing) return;
+    isSyncing = true;
+    dst.scrollLeft = src.scrollLeft;
+    dst.scrollTop = src.scrollTop;
+    requestAnimationFrame(() => { isSyncing = false; });
+  };
+  oldEl.addEventListener('scroll', sync(oldEl as HTMLElement, newEl as HTMLElement));
+  newEl.addEventListener('scroll', sync(newEl as HTMLElement, oldEl as HTMLElement));
+  (oldEl as HTMLElement).dataset.scrollSync = '1';
+  (newEl as HTMLElement).dataset.scrollSync = '1';
+};
+
 (window as any).highlightDiffBlock = function (elementId: string, language: string) {
   const el = document.getElementById(elementId);
   if (!el) return;
@@ -332,6 +352,7 @@ function getCurrentTheme() {
   const codeSpans = el.querySelectorAll('.diff-code');
   codeSpans.forEach(function (span) {
     if ((span as HTMLElement).dataset.highlighted) return;
+    if ((span as HTMLElement).dataset.wordDiff === '1') return;
     const text = span.textContent;
     if (!text) return;
     try {

@@ -702,3 +702,129 @@
     opacity: 0.65;
 }
 
+/* === Side-by-side (split) === */
+.filediff-content.split {
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+.split-pane {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: auto;
+}
+
+.split-pane.old-pane {
+    border-right: 1px solid var(--border-subtle);
+}
+
+.split-pane > .diff-cell {
+    width: max-content;
+    min-width: 100%;
+    background: var(--bg-base);
+}
+
+.diff-cell {
+    display: flex;
+    align-items: flex-start;
+    padding: 0 var(--space-2);
+    white-space: pre;
+}
+
+.diff-cell.hunk-header {
+    color: var(--diff-hunk-fg);
+    opacity: 0.85;
+}
+
+.diff-cell.hunk-header.expandable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.diff-cell.hunk-header.expandable:hover {
+    background: var(--bg-hover);
+}
+
+.split-pane > .diff-cell.expanded-context {
+    background: var(--bg-hover);
+    opacity: 0.65;
+}
+
+.diff-gutter {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    display: flex;
+    flex-shrink: 0;
+    background: inherit;
+}
+
+.diff-cell .diff-lineno {
+    flex-shrink: 0;
+    width: 4ch;
+    text-align: right;
+    padding-right: var(--space-2);
+    opacity: 0.45;
+    user-select: none;
+}
+
+.diff-cell .diff-prefix {
+    flex-shrink: 0;
+    width: 1ch;
+    user-select: none;
+    opacity: 0.5;
+}
+
+.diff-cell .diff-code {
+    white-space: pre;
+    min-width: 0;
+}
+
+.split-pane > .diff-cell.old.modified,
+.split-pane > .diff-cell.old.delete-only {
+    background: var(--color-error-bg);
+}
+
+.diff-cell.old.modified .diff-prefix,
+.diff-cell.old.delete-only .diff-prefix {
+    color: var(--color-error);
+    opacity: 1;
+}
+
+.split-pane > .diff-cell.new.modified,
+.split-pane > .diff-cell.new.add-only {
+    background: var(--color-success-bg);
+}
+
+.diff-cell.new.modified .diff-prefix,
+.diff-cell.new.add-only .diff-prefix {
+    color: var(--color-success);
+    opacity: 1;
+}
+
+.split-pane > .diff-cell.old.add-only,
+.split-pane > .diff-cell.new.delete-only {
+    background: var(--bg-hover);
+    opacity: 0.35;
+}
+
+.diff-cell.old .word-changed {
+    background: rgba(252, 165, 165, 0.35);
+    border-radius: 2px;
+}
+
+.diff-cell.new .word-changed {
+    background: rgba(134, 239, 172, 0.40);
+    border-radius: 2px;
+}
+
+[data-theme="light"] .diff-cell.old .word-changed {
+    background: rgba(220, 38, 38, 0.20);
+}
+
+[data-theme="light"] .diff-cell.new .word-changed {
+    background: rgba(22, 163, 74, 0.22);
+}
+

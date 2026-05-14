@@ -1,6 +1,7 @@
 @inject IJSRuntime JS
 @inject IGitService GitService
 @inject IChatState ChatState
+@inject ISettingsService SettingsService
 
 <div class="filediff-view">
     <div class="filediff-header">
@@ -17,9 +18,14 @@
                 <span class="deletions">-@Diff.Deletions</span>
             }
         </div>
+        <MudIconButton Icon="@(_isSplit ? Icons.Material.Filled.ViewStream : Icons.Material.Filled.ViewColumn)"
+                       Size="Size.Small"
+                       Title="@(_isSplit ? "Unified로 보기" : "분할 보기")"
+                       OnClick="ToggleViewModeAsync"
+                       Style="margin-left: var(--space-2);"/>
     </div>
 
-    <div id="@_elementId" class="filediff-content">
+    <div id="@_elementId" class="filediff-content @(_isSplit ? "split" : "")">
         @if (_parsed == null || _parsed.Hunks.Count == 0)
         {
             @if (string.IsNullOrWhiteSpace(Diff.UnifiedDiff))
@@ -30,7 +36,7 @@
                 </div>
             }
         }
-        else
+        else if (!_isSplit)
         {
             @foreach (var hunk in _parsed.Hunks)
             {
@@ -70,6 +76,117 @@
                 }
             }
         }
+        else
+        {
+            <div id="@_oldPaneId" class="split-pane old-pane">
+                @foreach (var hunk in _parsed.Hunks)
+                {
+                    var hasGap = hunk.GapEndLine > hunk.GapStartLine;
+
+                    @if (hunk is { IsExpanded: true, ExpandedLines: not null })
+                    {
+                        var ctxNo = hunk.GapStartLine;
+                        @foreach (var line in hunk.ExpandedLines)
+                        {
+                            <div class="diff-cell old expanded-context">
+                                <div class="diff-gutter">
+                                    <span class="diff-lineno">@ctxNo</span>
+                                    <span class="diff-prefix"> </span>
+                                </div>
+                                <span class="diff-code">@line.Text</span>
+                            </div>
+                            ctxNo++;
+                        }
+                    }
+
+                    @if (hasGap)
+                    {
+                        <div class="diff-cell hunk-header expandable" @onclick="() => ToggleHunkAsync(hunk)">
+                            <span class="hunk-expand-icon @(hunk.IsExpanded ? "expanded" : "")">▶</span>
+                            <span class="diff-code">@hunk.HeaderText</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="diff-cell hunk-header">
+                            <span class="diff-code">@hunk.HeaderText</span>
+                        </div>
+                    }
+
+                    @foreach (var row in SideBySideDiffBuilder.Build(hunk))
+                    {
+                        <div class="diff-cell old @GetRowClass(row.Kind)">
+                            <div class="diff-gutter">
+                                <span class="diff-lineno">@(row.OldLineNumber?.ToString() ?? "")</span>
+                                <span class="diff-prefix">@(row.Kind is SideBySideRowKind.Modified or SideBySideRowKind.DeleteOnly ? "-" : " ")</span>
+                            </div>
+                            @if (row.OldSegments != null)
+                            {
+                                <span class="diff-code" data-word-diff="1">@((MarkupString)RenderSegments(row.OldSegments))</span>
+                            }
+                            else
+                            {
+                                <span class="diff-code">@row.OldText</span>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+            <div id="@_newPaneId" class="split-pane new-pane">
+                @foreach (var hunk in _parsed.Hunks)
+                {
+                    var hasGap = hunk.GapEndLine > hunk.GapStartLine;
+
+                    @if (hunk is { IsExpanded: true, ExpandedLines: not null })
+                    {
+                        var ctxNo = hunk.GapStartLine;
+                        @foreach (var line in hunk.ExpandedLines)
+                        {
+                            <div class="diff-cell new expanded-context">
+                                <div class="diff-gutter">
+                                    <span class="diff-lineno">@ctxNo</span>
+                                    <span class="diff-prefix"> </span>
+                                </div>
+                                <span class="diff-code">@line.Text</span>
+                            </div>
+                            ctxNo++;
+                        }
+                    }
+
+                    @if (hasGap)
+                    {
+                        <div class="diff-cell hunk-header expandable" @onclick="() => ToggleHunkAsync(hunk)">
+                            <span class="hunk-expand-icon @(hunk.IsExpanded ? "expanded" : "")">▶</span>
+                            <span class="diff-code">@hunk.HeaderText</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="diff-cell hunk-header">
+                            <span class="diff-code">@hunk.HeaderText</span>
+                        </div>
+                    }
+
+                    @foreach (var row in SideBySideDiffBuilder.Build(hunk))
+                    {
+                        <div class="diff-cell new @GetRowClass(row.Kind)">
+                            <div class="diff-gutter">
+                                <span class="diff-lineno">@(row.NewLineNumber?.ToString() ?? "")</span>
+                                <span class="diff-prefix">@(row.Kind is SideBySideRowKind.Modified or SideBySideRowKind.AddOnly ? "+" : " ")</span>
+                            </div>
+                            @if (row.NewSegments != null)
+                            {
+                                <span class="diff-code" data-word-diff="1">@((MarkupString)RenderSegments(row.NewSegments))</span>
+                            }
+                            else
+                            {
+                                <span class="diff-code">@row.NewText</span>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        }
     </div>
 </div>
 
@@ -77,10 +194,19 @@
     [Parameter][EditorRequired] public FileDiff Diff { get; set; } = null!;
 
     private string _elementId = "";
+    private string _oldPaneId = "";
+    private string _newPaneId = "";
     private string _language = "";
     private bool _needsHighlight;
     private string? _lastFilePath;
     private ParsedDiff? _parsed;
+    private bool _isSplit;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await SettingsService.LoadAsync();
+        _isSplit = settings.DiffViewMode == "split";
+    }
 
     protected override void OnParametersSet()
     {
@@ -88,7 +214,10 @@
         if (_lastFilePath == filePath) return;
         _lastFilePath = filePath;
 
-        _elementId = $"diff-{filePath.GetHashCode():x8}";
+        var hash = $"{filePath.GetHashCode():x8}";
+        _elementId = $"diff-{hash}";
+        _oldPaneId = $"diff-old-{hash}";
+        _newPaneId = $"diff-new-{hash}";
         _language = GetLanguage(filePath);
         _parsed = DiffParser.Parse(Diff.UnifiedDiff);
         _needsHighlight = _parsed.Hunks.Count > 0 && _language.Length > 0;
@@ -108,6 +237,27 @@
                 // JS interop이 처리 중에 실패할 수 있습니다
             }
         }
+
+        if (_isSplit && _parsed is { Hunks.Count: > 0 })
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("seoroSetupSplitScrollSync", _oldPaneId, _newPaneId);
+            }
+            catch
+            {
+                // 동기화 등록 실패는 무시
+            }
+        }
+    }
+
+    private async Task ToggleViewModeAsync()
+    {
+        _isSplit = !_isSplit;
+        var settings = await SettingsService.LoadAsync();
+        settings.DiffViewMode = _isSplit ? "split" : "unified";
+        await SettingsService.SaveAsync(settings);
+        _needsHighlight = _parsed is { Hunks.Count: > 0 } && _language.Length > 0;
     }
 
     private async Task ToggleHunkAsync(DiffHunk hunk)
@@ -166,6 +316,35 @@
             DiffLineType.Hunk => "hunk",
             _ => ""
         };
+    }
+
+    private static string GetRowClass(SideBySideRowKind kind)
+    {
+        return kind switch
+        {
+            SideBySideRowKind.Modified => "modified",
+            SideBySideRowKind.AddOnly => "add-only",
+            SideBySideRowKind.DeleteOnly => "delete-only",
+            _ => "context"
+        };
+    }
+
+    private static string RenderSegments(IReadOnlyList<DiffSegment> segments)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var seg in segments)
+        {
+            var encoded = System.Net.WebUtility.HtmlEncode(seg.Text);
+            if (seg.Changed)
+            {
+                sb.Append("<span class=\"word-changed\">").Append(encoded).Append("</span>");
+            }
+            else
+            {
+                sb.Append(encoded);
+            }
+        }
+        return sb.ToString();
     }
 
     private static string GetFileIcon(FileChangeType type)

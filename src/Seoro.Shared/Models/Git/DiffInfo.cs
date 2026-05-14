@@ -65,3 +65,24 @@ public class ParsedDiff
     public List<DiffHunk> Hunks { get; set; } = [];
     public List<DiffLine> MetaLines { get; set; } = [];
 }
+
+public enum SideBySideRowKind
+{
+    Context,
+    Modified,
+    AddOnly,
+    DeleteOnly
+}
+
+public record DiffSegment(string Text, bool Changed);
+
+public class SideBySideRow
+{
+    public SideBySideRowKind Kind { get; init; }
+    public int? OldLineNumber { get; init; }
+    public int? NewLineNumber { get; init; }
+    public string OldText { get; init; } = "";
+    public string NewText { get; init; } = "";
+    public IReadOnlyList<DiffSegment>? OldSegments { get; init; }
+    public IReadOnlyList<DiffSegment>? NewSegments { get; init; }
+}
