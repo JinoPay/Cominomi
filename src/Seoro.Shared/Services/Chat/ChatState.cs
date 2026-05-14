@@ -340,7 +340,11 @@ public class ChatState : IChatState
         Tabs.Reset(session?.Title);
 
         if (session != null)
+        {
             Streaming.ClearCompleted(session.Id);
+            RightPanel = RightPanelMode.Explorer;
+            _eventBus.Publish(new RightPanelChangedEvent(RightPanel));
+        }
 
         // 세션 전환 시 플로터 상태 리셋
         if (old?.Id != session?.Id)
