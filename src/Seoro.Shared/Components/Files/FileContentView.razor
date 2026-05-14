@@ -1,7 +1,6 @@
 @using Markdig
 @using Seoro.Shared.Helpers
-@using Seoro.Shared.Services.Git
-@using Seoro.Shared.Services.Chat
+@using System.Text.RegularExpressions
 @using Timer = System.Timers.Timer
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -19,19 +18,24 @@
         {
             <span class="filediff-badge" title="파일이 너무 커서 읽기 전용입니다">읽기 전용 (큰 파일)</span>
         }
+        @if (_isMarkdown && !_readOnlyOversize)
+        {
+            <MudIconButton Icon="@(_previewMode ? Icons.Material.Filled.Edit : Icons.Material.Filled.Visibility)"
+                           Size="Size.Small"
+                           Style="margin-left: auto; width: 24px; height: 24px;"
+                           OnClick="TogglePreviewAsync"
+                           title="@(_previewMode ? "편집 모드" : "미리보기")"/>
+        }
     </div>
 
-    @if (_viewMode == FileViewMode.Markdown)
+    <div id="@_elementId" class="cm-host" style="@(_previewMode ? "display:none;" : "")"></div>
+    @if (_isMarkdown)
     {
-        <div class="filecontent-markdown">
-            <div id="@_elementId" class="filecontent-markdown-inner markdown-body">
-                @((MarkupString)_renderedHtml)
+        <div class="filecontent-markdown" style="@(_previewMode ? "" : "display:none;")">
+            <div id="@_previewElementId" class="filecontent-markdown-inner markdown-body">
+                @((MarkupString)_previewHtml)
             </div>
         </div>
-    }
-    else
-    {
-        <div id="@_elementId" class="cm-host"></div>
     }
 </div>
 
@@ -42,18 +46,15 @@
 
     [Parameter] public string? WorkingDir { get; set; }
 
-    private enum FileViewMode
-    {
-        Code,
-        Markdown
-    }
-
-    private FileViewMode _viewMode;
     private string _language = "";
     private string _elementId = "";
-    private string _renderedHtml = "";
+    private string _previewElementId = "";
     private bool _needsCreate;
     private bool _readOnlyOversize;
+    private bool _isMarkdown;
+    private bool _previewMode;
+    private string _previewHtml = "";
+    private bool _previewNeedsHighlight;
     private string? _lastFilePath;
     private DotNetObjectReference<FileContentView>? _selfRef;
     private FileSystemWatcher? _watcher;
@@ -70,32 +71,120 @@
         _lastFilePath = FilePath;
 
         _readOnlyOversize = Content.Length > 500_000;
-        _viewMode = GetViewMode(FilePath);
         _language = GetLanguage(FilePath);
         _elementId = $"cm-{FilePath.GetHashCode():x8}";
-
-        if (_viewMode == FileViewMode.Markdown && !string.IsNullOrEmpty(Content))
-        {
-            _renderedHtml = Markdown.ToHtml(Content, MarkdownHelper.TrustedPipeline);
-        }
+        _previewElementId = $"mdp-{FilePath.GetHashCode():x8}";
+        _isMarkdown = IsMarkdownFile(FilePath);
+        _previewMode = false;
 
         _needsCreate = true;
         StartWatching();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async Task TogglePreviewAsync()
     {
-        if (!_needsCreate) return;
-        _needsCreate = false;
+        if (!_isMarkdown || _readOnlyOversize) return;
+        if (_previewMode)
+        {
+            _previewMode = false;
+            StateHasChanged();
+            return;
+        }
 
         try
         {
-            if (_viewMode == FileViewMode.Markdown)
+            var text = await JS.InvokeAsync<string>("getEditorContent", _elementId);
+            var html = Markdown.ToHtml(text, MarkdownHelper.TrustedPipeline);
+            _previewHtml = ResolveLocalAssets(html, EffectiveWorkingDir, FilePath);
+            _previewMode = true;
+            _previewNeedsHighlight = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"미리보기 생성 실패: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private static bool IsMarkdownFile(string filePath)
+    {
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        return ext is ".md" or ".mdx";
+    }
+
+    private const long MaxInlineAssetBytes = 5 * 1024 * 1024;
+    private static readonly Regex ImgSrcRegex = new("""<img\s+[^>]*?src=(?:"([^"]+)"|'([^']+)')""",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static string ResolveLocalAssets(string html, string workingDir, string mdRelPath)
+    {
+        if (string.IsNullOrEmpty(html) || string.IsNullOrEmpty(workingDir)) return html;
+        string root;
+        try { root = Path.GetFullPath(workingDir); }
+        catch { return html; }
+        var rootSep = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
+        var mdDir = Path.GetDirectoryName(mdRelPath) ?? "";
+
+        return ImgSrcRegex.Replace(html, m =>
+        {
+            var raw = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+            if (string.IsNullOrEmpty(raw)) return m.Value;
+            if (raw.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
+                raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                raw.StartsWith("//"))
+                return m.Value;
+
+            string src;
+            try { src = Uri.UnescapeDataString(raw.Split('?', '#')[0]); }
+            catch { src = raw; }
+
+            string fullPath;
+            try
             {
-                if (!string.IsNullOrEmpty(Content))
-                    await JS.InvokeVoidAsync("enhanceMarkdownCodeBlocks", _elementId, false);
+                fullPath = src.StartsWith("/")
+                    ? Path.GetFullPath(Path.Combine(root, src.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)))
+                    : Path.GetFullPath(Path.Combine(root, mdDir, src.Replace('/', Path.DirectorySeparatorChar)));
             }
-            else
+            catch { return m.Value; }
+
+            if (!fullPath.StartsWith(rootSep, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(fullPath, root, StringComparison.OrdinalIgnoreCase))
+                return m.Value;
+            if (!File.Exists(fullPath)) return m.Value;
+            var info = new FileInfo(fullPath);
+            if (info.Length > MaxInlineAssetBytes) return m.Value;
+
+            try
+            {
+                var bytes = File.ReadAllBytes(fullPath);
+                var mime = GuessImageMime(Path.GetExtension(fullPath).ToLowerInvariant());
+                var dataUri = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+                return m.Value.Replace(raw, dataUri);
+            }
+            catch { return m.Value; }
+        });
+    }
+
+    private static string GuessImageMime(string ext) => ext switch
+    {
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".gif" => "image/gif",
+        ".svg" => "image/svg+xml",
+        ".webp" => "image/webp",
+        ".bmp" => "image/bmp",
+        ".ico" => "image/x-icon",
+        ".avif" => "image/avif",
+        _ => "application/octet-stream"
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needsCreate)
+        {
+            _needsCreate = false;
+            try
             {
                 _selfRef ??= DotNetObjectReference.Create(this);
                 await JS.InvokeVoidAsync(
@@ -106,10 +195,17 @@
                     _readOnlyOversize,
                     _readOnlyOversize ? null : _selfRef);
             }
+            catch
+            {
+                // JS interop이 처리 중에 실패할 수 있습니다
+            }
         }
-        catch
+
+        if (_previewNeedsHighlight && _previewMode)
         {
-            // JS interop이 처리 중에 실패할 수 있습니다
+            _previewNeedsHighlight = false;
+            try { await JS.InvokeVoidAsync("enhanceMarkdownCodeBlocks", _previewElementId, false); }
+            catch { /* 무시 */ }
         }
     }
 
@@ -128,7 +224,7 @@
 
     private async Task SaveAsync()
     {
-        if (_saveInProgress || _readOnlyOversize || _viewMode == FileViewMode.Markdown) return;
+        if (_saveInProgress || _readOnlyOversize) return;
         var workingDir = EffectiveWorkingDir;
         if (string.IsNullOrEmpty(workingDir))
         {
@@ -309,7 +405,7 @@
     public async ValueTask DisposeAsync()
     {
         StopWatching();
-        if (_viewMode == FileViewMode.Code && !string.IsNullOrEmpty(_elementId))
+        if (!string.IsNullOrEmpty(_elementId))
         {
             try { await JS.InvokeVoidAsync("destroyCodeMirrorView", _elementId); }
             catch { /* 폐기 중 JS interop 실패 가능 */ }
@@ -318,21 +414,12 @@
         _selfRef = null;
     }
 
-    private static FileViewMode GetViewMode(string filePath)
-    {
-        var ext = Path.GetExtension(filePath).ToLowerInvariant();
-        return ext switch
-        {
-            ".md" or ".mdx" => FileViewMode.Markdown,
-            _ => FileViewMode.Code
-        };
-    }
-
     private static string GetLanguage(string filePath)
     {
         var ext = Path.GetExtension(filePath).ToLowerInvariant();
         return ext switch
         {
+            ".md" or ".mdx" => "markdown",
             ".cs" => "csharp",
             ".js" or ".jsx" => "javascript",
             ".ts" or ".tsx" => "typescript",
