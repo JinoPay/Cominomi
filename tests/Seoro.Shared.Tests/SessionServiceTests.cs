@@ -285,6 +285,10 @@ public class SessionServiceTests : IDisposable
             => Task.FromResult(NextResult);
         public Task<string> ReadFileAsync(string workingDir, string relativePath, CancellationToken ct = default)
             => Task.FromResult("");
+        public Task WriteFileAsync(string workingDir, string relativePath, string content, CancellationToken ct = default)
+            => Task.CompletedTask;
+        public Task<DateTime?> GetFileMtimeUtcAsync(string workingDir, string relativePath)
+            => Task.FromResult<DateTime?>(null);
         public Task<(int Additions, int Deletions)> GetDiffStatAsync(string workingDir, string baseBranch, CancellationToken ct = default)
             => Task.FromResult((0, 0));
         public Task<DiffSummary> GetDiffSummaryAsync(string workingDir, string baseBranch, CancellationToken ct = default)

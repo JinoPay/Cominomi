@@ -44,9 +44,17 @@ public class ContentBlockDeltaHandler(IChatState chatState, IChatEventBus eventB
         else if (evt.Delta?.Type == "input_json_delta" && evt.Delta.PartialJson != null && ctx.CurrentToolCall != null)
         {
             ctx.CurrentToolCall.Input += evt.Delta.PartialJson;
+            TryUpdateTodoSnapshot(ctx.CurrentToolCall);
         }
 
         return Task.CompletedTask;
+    }
+
+    private void TryUpdateTodoSnapshot(ToolCall tool)
+    {
+        if (!TodoSnapshotParser.IsTodoWriteTool(tool.Name)) return;
+        if (TodoSnapshotParser.TryParse(tool.Input, out var snap))
+            chatState.UpdateTodoSnapshot(snap);
     }
 
     /// <summary>

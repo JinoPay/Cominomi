@@ -58,6 +58,9 @@
                 case WidgetType.WebSearch:
                     <WebSearchWidget Tool="Tool"/>
                     break;
+                case WidgetType.TodoWrite:
+                    <TodoWriteWidget Tool="Tool"/>
+                    break;
                 default:
                     @* 일반 폴백 *@
                     @if (!string.IsNullOrEmpty(Tool.Input))
@@ -141,7 +144,8 @@
         Glob,
         AskUserQuestion,
         Agent,
-        WebSearch
+        WebSearch,
+        TodoWrite
     }
 
     private WidgetType GetWidgetType()
@@ -157,6 +161,7 @@
             "askuserquestion" or "ask_user_question" => WidgetType.AskUserQuestion,
             "agent" => WidgetType.Agent,
             "websearch" or "web_search" => WidgetType.WebSearch,
+            "todowrite" or "todo_write" => WidgetType.TodoWrite,
             _ => WidgetType.Generic
         };
     }

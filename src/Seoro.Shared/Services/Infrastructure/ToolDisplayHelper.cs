@@ -139,10 +139,15 @@ public static class ToolDisplayHelper
     /// </summary>
     public static string? GetCompactResult(ToolCall tool)
     {
+        var name = NormalizeToolName(tool.Name);
+
+        // TodoWrite는 Output이 의미 없으므로 Input의 todos 카운트로 hint 생성
+        if (name == "TodoWrite")
+            return GetTodoWriteHint(tool.Input);
+
         if (!tool.IsComplete || string.IsNullOrEmpty(tool.Output))
             return null;
 
-        var name = NormalizeToolName(tool.Name);
         return name switch
         {
             "Read" => GetReadHint(tool.Output),
@@ -151,6 +156,13 @@ public static class ToolDisplayHelper
             "Agent" => GetAgentHint(tool.Output),
             _ => null
         };
+    }
+
+    private static string? GetTodoWriteHint(string? input)
+    {
+        if (!TodoSnapshotParser.TryParse(input, out var snap) || snap.Total == 0)
+            return null;
+        return $"{snap.Completed} / {snap.Total}";
     }
 
     private static int CountLines(string text)

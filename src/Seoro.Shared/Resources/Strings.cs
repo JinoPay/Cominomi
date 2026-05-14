@@ -481,6 +481,7 @@ public static class Strings
     public static string Tool_GrepSingle => Get(nameof(Tool_GrepSingle));
     public static string Tool_NotebookSingle => Get(nameof(Tool_NotebookSingle));
     public static string Tool_TodoWriteDone => Get(nameof(Tool_TodoWriteDone));
+    public static string Todo_FloaterTitle => Get(nameof(Todo_FloaterTitle));
     public static string Tool_WebFetchSingle => Get(nameof(Tool_WebFetchSingle));
     public static string Tool_WebSearchSingle => Get(nameof(Tool_WebSearchSingle));
 

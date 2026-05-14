@@ -14,6 +14,11 @@ public class ContentBlockStopHandler(IChatState chatState, ISessionService sessi
         else if (ctx.CurrentToolCall != null)
         {
             ctx.CurrentToolCall.IsComplete = true;
+            if (TodoSnapshotParser.IsTodoWriteTool(ctx.CurrentToolCall.Name)
+                && TodoSnapshotParser.TryParse(ctx.CurrentToolCall.Input, out var snap))
+            {
+                chatState.UpdateTodoSnapshot(snap);
+            }
             ctx.CurrentToolCall = null;
             chatState.NotifyStateChanged();
         }

@@ -342,6 +342,13 @@ public class ChatState : IChatState
         if (session != null)
             Streaming.ClearCompleted(session.Id);
 
+        // 세션 전환 시 플로터 상태 리셋
+        if (old?.Id != session?.Id)
+        {
+            CurrentTodos = null;
+            TodoFloaterState = TodoFloaterVisibility.Hidden;
+        }
+
         _eventBus.Publish(new SessionChangedEvent(old, session));
         NotifyStateChanged();
     }
@@ -386,6 +393,31 @@ public class ChatState : IChatState
     public void UnregisterActiveSession(string sessionId)
     {
         Streaming.UnregisterActiveSession(sessionId);
+    }
+
+    // --- Todo floater state ---
+    public TodoSnapshot? CurrentTodos { get; private set; }
+    public TodoFloaterVisibility TodoFloaterState { get; private set; } = TodoFloaterVisibility.Hidden;
+
+    public void UpdateTodoSnapshot(TodoSnapshot snapshot)
+    {
+        CurrentTodos = snapshot;
+        // 새 스냅샷 도착 시 Hidden 상태였다면 Chip으로 자동 승격 (재등장)
+        if (TodoFloaterState == TodoFloaterVisibility.Hidden)
+            TodoFloaterState = TodoFloaterVisibility.Chip;
+        NotifyStateChanged();
+    }
+
+    public void SetTodoFloaterState(TodoFloaterVisibility state)
+    {
+        TodoFloaterState = state;
+        NotifyStateChanged();
+    }
+
+    public void DismissTodoFloater()
+    {
+        TodoFloaterState = TodoFloaterVisibility.Hidden;
+        NotifyStateChanged();
     }
 
     // Navigation state

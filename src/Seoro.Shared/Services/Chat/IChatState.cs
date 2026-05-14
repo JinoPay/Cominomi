@@ -28,6 +28,10 @@ public interface IChatState : IDisposable
     // Navigation state
     Workspace? CurrentWorkspace { get; }
 
+    // Todo floater state
+    TodoSnapshot? CurrentTodos { get; }
+    TodoFloaterVisibility TodoFloaterState { get; }
+
     // Events
     event Action? OnChange;
     event Action? OnRequestCreateWorkspace;
@@ -91,4 +95,9 @@ public interface IChatState : IDisposable
     void SetWorkspace(Workspace workspace);
     void ToggleRightPanel(RightPanelMode mode);
     void UnregisterActiveSession(string sessionId);
+
+    // Todo floater
+    void UpdateTodoSnapshot(TodoSnapshot snapshot);
+    void SetTodoFloaterState(TodoFloaterVisibility state);
+    void DismissTodoFloater();
 }

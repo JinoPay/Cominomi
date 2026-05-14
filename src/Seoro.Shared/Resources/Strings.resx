@@ -487,6 +487,7 @@
   <data name="Tool_NotebookSingle" xml:space="preserve"><value>노트북 수정됨</value></data>
   <data name="Tool_NotebookMultiple" xml:space="preserve"><value>노트북 {0}회 수정됨</value></data>
   <data name="Tool_TodoWriteDone" xml:space="preserve"><value>할일 목록 업데이트됨</value></data>
+  <data name="Todo_FloaterTitle" xml:space="preserve"><value>할일</value></data>
   <data name="Tool_DefaultMultiple" xml:space="preserve"><value>{0} {1}회</value></data>
   <data name="Tool_ReadHint" xml:space="preserve"><value>{0}줄 읽음</value></data>
   <data name="Tool_GrepHint" xml:space="preserve"><value>{0}개 결과</value></data>

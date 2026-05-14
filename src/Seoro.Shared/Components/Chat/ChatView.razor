@@ -22,7 +22,7 @@
     {
         var session = ChatState.CurrentSession;
 
-        <div class="chat-container">
+        <div class="chat-container @(_askUserBarVisible ? "askbar-active" : "")">
             @* 메시지 영역 *@
             <CascadingValue Value="_askUserResponseCallback" Name="OnAskUserResponse">
                 <div class="message-area" id="message-list">
@@ -63,6 +63,15 @@
                          @onclick="ScrollToBottom">
                         <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small"/>
                     </div>
+                }
+                @* TodoWrite 진행 위젯 (우하단 부유) *@
+                @if (session != null)
+                {
+                    <TodoFloater Snapshot="ChatState.CurrentTodos"
+                                 State="ChatState.TodoFloaterState"
+                                 OnRequestExpand="@(() => ChatState.SetTodoFloaterState(TodoFloaterVisibility.Expanded))"
+                                 OnRequestCollapse="@(() => ChatState.SetTodoFloaterState(TodoFloaterVisibility.Chip))"
+                                 OnDismiss="@(() => ChatState.DismissTodoFloater())"/>
                 }
             </CascadingValue>
 

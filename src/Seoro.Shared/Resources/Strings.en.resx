@@ -488,6 +488,7 @@
   <data name="Tool_NotebookSingle" xml:space="preserve"><value>Notebook edited</value></data>
   <data name="Tool_NotebookMultiple" xml:space="preserve"><value>{0} notebook edits</value></data>
   <data name="Tool_TodoWriteDone" xml:space="preserve"><value>Todo list updated</value></data>
+  <data name="Todo_FloaterTitle" xml:space="preserve"><value>Tasks</value></data>
   <data name="Tool_DefaultMultiple" xml:space="preserve"><value>{0} ×{1}</value></data>
   <data name="Tool_ReadHint" xml:space="preserve"><value>{0} lines read</value></data>
   <data name="Tool_GrepHint" xml:space="preserve"><value>{0} results</value></data>

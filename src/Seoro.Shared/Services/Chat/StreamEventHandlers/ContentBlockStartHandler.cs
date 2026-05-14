@@ -36,6 +36,12 @@ public class ContentBlockStartHandler(IChatState chatState, IGitBranchWatcherSer
                 chatState.SetPhase(StreamingPhase.UsingTool, evt.ContentBlock.Name, ctx.Session.Id);
                 if (evt.ContentBlock.Name == "ExitPlanMode")
                     ctx.ExitPlanModeDetected = true;
+                // Codex: Input이 ContentBlock에 즉시 도착하는 경우 스냅샷 즉시 갱신
+                if (TodoSnapshotParser.IsTodoWriteTool(ctx.CurrentToolCall.Name)
+                    && TodoSnapshotParser.TryParse(ctx.CurrentToolCall.Input, out var snap))
+                {
+                    chatState.UpdateTodoSnapshot(snap);
+                }
                 break;
 
             case "server_tool_result":

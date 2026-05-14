@@ -1,0 +1,83 @@
+.tool-widget-todo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.todo-widget-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 4px;
+}
+
+.todo-widget-counter {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+    min-width: 48px;
+}
+
+.todo-widget-progress {
+    flex: 1;
+    height: 4px;
+    background: var(--mud-palette-action-disabled-background, rgba(255, 255, 255, 0.08));
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.todo-widget-progress-fill {
+    height: 100%;
+    background: var(--mud-palette-success, #4caf50);
+    transition: width 200ms ease-out;
+}
+
+.todo-widget-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.todo-widget-item {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 4px;
+    border-radius: 4px;
+    transition: background 150ms;
+}
+
+.todo-widget-item:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.todo-widget-text {
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.todo-status-completed .todo-widget-text {
+    text-decoration: line-through;
+    opacity: 0.55;
+}
+
+.todo-status-inprogress .todo-widget-text {
+    font-weight: 500;
+}
+
+.todo-status-pending .todo-widget-text {
+    opacity: 0.75;
+}
+
+.todo-fallback {
+    margin: 0;
+    padding: 8px;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    white-space: pre-wrap;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+}
