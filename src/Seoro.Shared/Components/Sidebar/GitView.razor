@@ -1,0 +1,761 @@
+@inject IChatState ChatState
+@inject IChatEventBus EventBus
+@inject IGitService GitService
+@inject IMergeStatusService MergeStatusService
+@inject IWorkspaceService WorkspaceService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILogger<GitView> Logger
+@using System.Timers
+@using Microsoft.Extensions.Logging
+@using Seoro.Shared.Components.Chat
+@implements IDisposable
+
+@*
+    GitView — VS Code 스타일 통합 Git 패널.
+    Staged / Changes / Untracked 3그룹 + 커밋 박스 + 동기화 바를 단일 뷰로 구성.
+    SidebarChanges 및 MergePanel(슬림 배너로 분리)을 대체.
+*@
+
+<div class="git-view">
+    @{
+        var session = ChatState.CurrentSession;
+        var workspace = ChatState.CurrentWorkspace;
+        var streaming = session != null && ChatState.IsSessionStreaming(session.Id);
+        var blocked = streaming || _busy;
+    }
+
+    @if (session == null || session.Status == SessionStatus.Pending || string.IsNullOrEmpty(session.Git.WorktreePath))
+    {
+        <div class="git-view-empty">
+            <MudIcon Icon="@Icons.Material.Outlined.CallMerge" Style="width: 28px; height: 28px; opacity: 0.3;"/>
+            <span>@Strings.Git_NoSession</span>
+        </div>
+    }
+    else
+    {
+        var totalCount = _stagedFiles.Count + _unstagedFiles.Count + _untrackedFiles.Count;
+        var hasStaged = _stagedFiles.Count > 0;
+
+        @* ── 헤더 ── *@
+        <div class="git-view-header">
+            <span class="git-view-title">
+                @(totalCount > 0 ? $"{totalCount} {Strings.Git_Changes}" : Strings.Git_Changes)
+            </span>
+            <div class="git-view-header-actions">
+                @if (_aheadBehind is { Ahead: > 0 } or { Behind: > 0 })
+                {
+                    <span class="ahead-behind-badge">
+                        @if (_aheadBehind.Value.Ahead > 0) { <span class="ahead">↑@(_aheadBehind.Value.Ahead)</span> }
+                        @if (_aheadBehind.Value.Behind > 0) { <span class="behind">↓@(_aheadBehind.Value.Behind)</span> }
+                    </span>
+                }
+                <MudTooltip Text="@Strings.Git_StageAll" Placement="Placement.Bottom">
+                    <MudIconButton Icon="@Icons.Material.Filled.AddCircleOutline"
+                                   Size="Size.Small"
+                                   Disabled="@(blocked || totalCount == 0 || _unstagedFiles.Count + _untrackedFiles.Count == 0)"
+                                   OnClick="StageAllAsync"
+                                   Style="width: 22px; height: 22px; opacity: 0.7;"/>
+                </MudTooltip>
+                <MudTooltip Text="@Strings.Git_Refresh" Placement="Placement.Bottom">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                   Size="Size.Small"
+                                   Disabled="@_loading"
+                                   OnClick="LoadAsync"
+                                   Style="width: 22px; height: 22px; opacity: 0.5;"/>
+                </MudTooltip>
+            </div>
+        </div>
+
+        @* ── 머지 상태 배너 (워크트리 + GitHub 원격) ── *@
+        @if (ShowMergeBanner(session, workspace))
+        {
+            <MergeStatusBanner/>
+        }
+
+        @* ── 본문 (스크롤) ── *@
+        <div class="git-view-files">
+            @if (_loading && totalCount == 0)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="my-2"/>
+            }
+            else if (_error != null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="my-2">@_error</MudAlert>
+            }
+            else if (totalCount == 0)
+            {
+                <div class="git-view-no-changes">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline"
+                             Size="Size.Large" Style="opacity: 0.15;"/>
+                    <span>@Strings.Git_NoChanges</span>
+                </div>
+            }
+            else
+            {
+                @if (hasStaged)
+                {
+                    @RenderGroup("staged", Strings.Git_Group_Staged, _stagedFiles, true, blocked)
+                }
+                @if (_unstagedFiles.Count > 0)
+                {
+                    @RenderGroup("changes", Strings.Git_Group_Changes, _unstagedFiles, false, blocked)
+                }
+                @if (_untrackedFiles.Count > 0)
+                {
+                    @RenderGroup("untracked", Strings.Git_Group_Untracked, _untrackedFiles, false, blocked)
+                }
+            }
+        </div>
+
+        @* ── 커밋 박스 ── *@
+        <div class="git-commit-box">
+            <textarea class="git-commit-textarea"
+                      @bind="_commitMessage"
+                      @bind:event="oninput"
+                      placeholder="@Strings.Git_CommitMessagePlaceholder"
+                      rows="2"
+                      disabled="@blocked"></textarea>
+            <div class="git-commit-actions">
+                <button class="git-btn-primary @(CanCommit(blocked) ? "" : "disabled")"
+                        @onclick="CommitAsync"
+                        disabled="@(!CanCommit(blocked))">
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Style="width: 13px; height: 13px;"/>
+                    <span>@(hasStaged ? Strings.Git_Commit : Strings.Git_CommitAll)</span>
+                </button>
+                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                         Size="Size.Small" Dense="true"
+                         Disabled="@blocked"
+                         AnchorOrigin="Origin.TopRight"
+                         TransformOrigin="Origin.BottomRight">
+                    <MudMenuItem Icon="@Icons.Material.Outlined.SmartToy" OnClick="CommitViaAiAsync">
+                        @Strings.Git_AskAi_Commit
+                    </MudMenuItem>
+                </MudMenu>
+            </div>
+        </div>
+
+        @* ── 동기화 바 ── *@
+        <div class="git-sync-bar">
+            <button class="git-sync-btn @(blocked ? "disabled" : "")"
+                    @onclick="FetchAsync" disabled="@blocked"
+                    title="@Strings.Git_Fetch">
+                <MudIcon Icon="@Icons.Material.Filled.CloudDownload" Style="width: 14px; height: 14px;"/>
+                <span>@Strings.Git_Fetch</span>
+            </button>
+            <button class="git-sync-btn @(blocked ? "disabled" : "")"
+                    @onclick="PullAsync" disabled="@blocked"
+                    title="@Strings.Git_Pull">
+                <MudIcon Icon="@Icons.Material.Filled.Download" Style="width: 14px; height: 14px;"/>
+                <span>@Strings.Git_Pull</span>
+                @if (_aheadBehind is { Behind: > 0 })
+                {
+                    <span class="git-sync-badge">@_aheadBehind.Value.Behind</span>
+                }
+            </button>
+            <button class="git-sync-btn @(blocked ? "disabled" : "") @(_aheadBehind is { Ahead: > 0 } ? "highlight" : "")"
+                    @onclick="PushAsync" disabled="@blocked"
+                    title="@Strings.Git_Push">
+                <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Style="width: 14px; height: 14px;"/>
+                <span>@Strings.Git_Push</span>
+                @if (_aheadBehind is { Ahead: > 0 })
+                {
+                    <span class="git-sync-badge">@_aheadBehind.Value.Ahead</span>
+                }
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading;
+    private bool _busy;
+    private string? _error;
+    private string? _lastSessionId;
+    private string _commitMessage = "";
+
+    private (int Ahead, int Behind)? _aheadBehind;
+
+    private List<FileDiff> _stagedFiles = [];
+    private List<FileDiff> _unstagedFiles = [];
+    private List<FileDiff> _untrackedFiles = [];
+    private readonly HashSet<string> _collapsedGroups = [];
+
+    private FileSystemWatcher? _watcher;
+    private Timer? _debounceTimer;
+    private HashSet<string> _conflictPredictedFiles = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        ChatState.OnChange += HandleStateChanged;
+        MergeStatusService.StatusChanged += HandleMergeStatusChanged;
+        RefreshConflictPredictions();
+        await LoadAsync();
+        StartWatching();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var sid = ChatState.CurrentSession?.Id;
+        if (sid != _lastSessionId)
+        {
+            _lastSessionId = sid;
+            _stagedFiles = []; _unstagedFiles = []; _untrackedFiles = [];
+            _aheadBehind = null;
+            _error = null;
+            _loading = true;
+            StateHasChanged();
+            await LoadAsync();
+            StartWatching();
+        }
+    }
+
+    private RenderFragment RenderGroup(string key, string label, List<FileDiff> files, bool isStaged, bool blocked) => builder =>
+    {
+        var collapsed = _collapsedGroups.Contains(key);
+        builder.AddMarkupContent(0, "");
+        builder.OpenElement(1, "div");
+        builder.AddAttribute(2, "class", "git-group");
+
+        builder.OpenElement(3, "div");
+        builder.AddAttribute(4, "class", "git-group-header");
+        builder.AddAttribute(5, "onclick", EventCallback.Factory.Create(this, () => ToggleGroup(key)));
+        builder.OpenComponent<MudIcon>(6);
+        builder.AddAttribute(7, "Icon", collapsed
+            ? Icons.Material.Filled.ChevronRight
+            : Icons.Material.Filled.ExpandMore);
+        builder.AddAttribute(8, "Size", Size.Small);
+        builder.AddAttribute(9, "Style", "width: 14px; height: 14px; opacity: 0.6;");
+        builder.CloseComponent();
+        builder.OpenElement(10, "span");
+        builder.AddAttribute(11, "class", "git-group-label");
+        builder.AddContent(12, label);
+        builder.CloseElement();
+        builder.OpenElement(13, "span");
+        builder.AddAttribute(14, "class", "git-group-count");
+        builder.AddContent(15, files.Count);
+        builder.CloseElement();
+        builder.CloseElement();
+
+        if (!collapsed)
+        {
+            builder.OpenElement(20, "div");
+            builder.AddAttribute(21, "class", "git-group-body");
+            foreach (var file in files)
+            {
+                var path = file.FilePath;
+                var conflict = _conflictPredictedFiles.Contains(path);
+                builder.OpenElement(30, "div");
+                builder.AddAttribute(31, "class", $"git-file-row {(conflict ? "git-file-conflict" : "")}");
+                builder.AddAttribute(32, "title", conflict ? Strings.Sidebar_Changes_ConflictTooltip(path) : path);
+                builder.SetKey(path + (isStaged ? ":s" : ":u"));
+
+                builder.OpenElement(33, "div");
+                builder.AddAttribute(34, "class", "git-file-main");
+                builder.AddAttribute(35, "onclick", EventCallback.Factory.Create(this, () => OpenFileDiff(file)));
+
+                builder.OpenComponent<MudIcon>(36);
+                builder.AddAttribute(37, "Icon", GetFileIcon(file.ChangeType));
+                builder.AddAttribute(38, "Size", Size.Small);
+                builder.AddAttribute(39, "Style", $"width: 14px; height: 14px; flex-shrink: 0; {GetFileIconStyle(file.ChangeType)}");
+                builder.CloseComponent();
+
+                builder.OpenElement(40, "span");
+                builder.AddAttribute(41, "class", "git-file-name");
+                builder.AddContent(42, GetFileName(path));
+                builder.CloseElement();
+
+                builder.OpenElement(43, "span");
+                builder.AddAttribute(44, "class", "git-file-dir");
+                builder.AddContent(45, GetDirName(path));
+                builder.CloseElement();
+
+                if (conflict)
+                {
+                    builder.OpenComponent<MudIcon>(46);
+                    builder.AddAttribute(47, "Icon", Icons.Material.Filled.Warning);
+                    builder.AddAttribute(48, "Size", Size.Small);
+                    builder.AddAttribute(49, "Style", "width: 11px; height: 11px; color: var(--color-error); flex-shrink: 0;");
+                    builder.CloseComponent();
+                }
+
+                builder.CloseElement();
+
+                // hover actions
+                builder.OpenElement(50, "div");
+                builder.AddAttribute(51, "class", "git-file-actions");
+
+                if (isStaged)
+                {
+                    AddIconBtn(builder, 52, Icons.Material.Filled.Remove, Strings.Git_UnstageFile, blocked, () => UnstageFileAsync(path));
+                }
+                else
+                {
+                    if (file.ChangeType != FileChangeType.Untracked || file.Staging != FileStagingState.Both)
+                    {
+                        AddIconBtn(builder, 53, Icons.Material.Filled.Undo, Strings.Git_DiscardFile, blocked, () => DiscardFileAsync(path));
+                    }
+                    AddIconBtn(builder, 54, Icons.Material.Filled.Add, Strings.Git_StageFile, blocked, () => StageFileAsync(path));
+                }
+
+                builder.CloseElement();
+
+                // diff stats
+                if (!file.IsBinary)
+                {
+                    var adds = isStaged ? file.StagedAdditions : file.Additions;
+                    var dels = isStaged ? file.StagedDeletions : file.Deletions;
+                    if (adds > 0 || dels > 0)
+                    {
+                        builder.OpenElement(60, "div");
+                        builder.AddAttribute(61, "class", "git-file-stats");
+                        if (adds > 0)
+                        {
+                            builder.OpenElement(62, "span");
+                            builder.AddAttribute(63, "class", "additions");
+                            builder.AddContent(64, $"+{adds}");
+                            builder.CloseElement();
+                        }
+                        if (dels > 0)
+                        {
+                            builder.OpenElement(65, "span");
+                            builder.AddAttribute(66, "class", "deletions");
+                            builder.AddContent(67, $"-{dels}");
+                            builder.CloseElement();
+                        }
+                        builder.CloseElement();
+                    }
+                }
+
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    private static void AddIconBtn(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, int seq,
+        string icon, string title, bool disabled, Action onClick)
+    {
+        b.OpenElement(seq, "button");
+        b.AddAttribute(seq + 1, "class", "git-file-action-btn");
+        b.AddAttribute(seq + 2, "title", title);
+        b.AddAttribute(seq + 3, "disabled", disabled);
+        b.AddAttribute(seq + 4, "onclick", (Microsoft.AspNetCore.Components.Web.MouseEventArgs e) =>
+        {
+            // 부모(파일 행) 클릭 핸들러 호출 방지
+            onClick();
+        });
+        b.AddEventStopPropagationAttribute(seq + 5, "onclick", true);
+        b.OpenComponent<MudIcon>(seq + 6);
+        b.AddAttribute(seq + 7, "Icon", icon);
+        b.AddAttribute(seq + 8, "Size", Size.Small);
+        b.AddAttribute(seq + 9, "Style", "width: 13px; height: 13px;");
+        b.CloseComponent();
+        b.CloseElement();
+    }
+
+    private bool ShowMergeBanner(Session session, Workspace? workspace)
+    {
+        if (workspace == null) return false;
+        if (session.Git.IsLocalDir) return false;
+        return WorkspaceService.GetRemoteInfo(workspace.Id).Mode == RemoteMode.GitHub;
+    }
+
+    private bool CanCommit(bool blocked)
+    {
+        if (blocked) return false;
+        if (string.IsNullOrWhiteSpace(_commitMessage)) return false;
+        return _stagedFiles.Count > 0 || _unstagedFiles.Count > 0 || _untrackedFiles.Count > 0;
+    }
+
+    private void ToggleGroup(string key)
+    {
+        if (!_collapsedGroups.Remove(key))
+            _collapsedGroups.Add(key);
+    }
+
+    // ─── 데이터 로딩 ───
+
+    private async Task LoadAsync()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null || session.Status == SessionStatus.Pending ||
+            string.IsNullOrEmpty(session.Git.WorktreePath))
+        {
+            _stagedFiles = []; _unstagedFiles = []; _untrackedFiles = [];
+            _aheadBehind = null;
+            _error = null;
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            _ = MergeStatusService.RefreshAsync(session.Id);
+
+            var statusTask = GitService.GetWorkingTreeStatusAsync(session.Git.WorktreePath);
+            var ahdBhdTask = GitService.GetAheadBehindAsync(session.Git.WorktreePath);
+
+            var status = await statusTask;
+            _aheadBehind = await ahdBhdTask;
+
+            _stagedFiles = status.Files
+                .Where(f => f.Staging == FileStagingState.Staged || f.Staging == FileStagingState.Both)
+                .OrderBy(f => f.FilePath, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _unstagedFiles = status.Files
+                .Where(f => (f.Staging == FileStagingState.Unstaged || f.Staging == FileStagingState.Both)
+                            && f.ChangeType != FileChangeType.Untracked)
+                .OrderBy(f => f.FilePath, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _untrackedFiles = status.Files
+                .Where(f => f.ChangeType == FileChangeType.Untracked)
+                .OrderBy(f => f.FilePath, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Logger.LogWarning(ex, "GitView load 실패");
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RefreshConflictPredictions()
+    {
+        var sid = ChatState.CurrentSession?.Id;
+        if (string.IsNullOrEmpty(sid))
+        {
+            _conflictPredictedFiles = new(StringComparer.OrdinalIgnoreCase);
+            return;
+        }
+
+        var status = MergeStatusService.GetCurrent(sid);
+        _conflictPredictedFiles = status.ConflictingFiles is { Count: > 0 }
+            ? new(status.ConflictingFiles, StringComparer.OrdinalIgnoreCase)
+            : new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void HandleMergeStatusChanged(string sessionId)
+    {
+        if (ChatState.CurrentSession?.Id != sessionId) return;
+        _ = InvokeAsync(() =>
+        {
+            RefreshConflictPredictions();
+            StateHasChanged();
+        });
+    }
+
+    private void StartWatching()
+    {
+        StopWatching();
+        var path = ChatState.CurrentSession?.Git.WorktreePath;
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
+
+        _watcher = new FileSystemWatcher(path)
+        {
+            IncludeSubdirectories = true,
+            NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+            EnableRaisingEvents = true
+        };
+
+        _debounceTimer = new Timer(1500) { AutoReset = false };
+        _debounceTimer.Elapsed += async (_, _) =>
+        {
+            try { await InvokeAsync(LoadAsync); }
+            catch { /* disposed */ }
+        };
+
+        void OnChange(object sender, FileSystemEventArgs e)
+        {
+            if (e.FullPath.Contains(Path.DirectorySeparatorChar + ".git" + Path.DirectorySeparatorChar) ||
+                e.FullPath.EndsWith(Path.DirectorySeparatorChar + ".git"))
+                return;
+            _debounceTimer.Stop();
+            _debounceTimer.Start();
+        }
+
+        _watcher.Changed += OnChange;
+        _watcher.Created += OnChange;
+        _watcher.Deleted += OnChange;
+        _watcher.Renamed += OnChange;
+    }
+
+    private void StopWatching()
+    {
+        if (_watcher != null)
+        {
+            _watcher.EnableRaisingEvents = false;
+            _watcher.Dispose();
+            _watcher = null;
+        }
+        _debounceTimer?.Dispose();
+        _debounceTimer = null;
+    }
+
+    // ─── 액션 ───
+
+    private async Task StageAllAsync()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        _busy = true;
+        try
+        {
+            var res = await GitService.StageAllAsync(session.Git.WorktreePath);
+            if (!res.Success)
+                Snackbar.Add(Strings.Snackbar_StageError(res.Error), Severity.Error);
+            await LoadAsync();
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task StageFileAsync(string path)
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        _busy = true;
+        try
+        {
+            var res = await GitService.StageFileAsync(session.Git.WorktreePath, path);
+            if (!res.Success)
+                Snackbar.Add(Strings.Snackbar_StageError(res.Error), Severity.Error);
+            await LoadAsync();
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task UnstageFileAsync(string path)
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        _busy = true;
+        try
+        {
+            var res = await GitService.UnstageFileAsync(session.Git.WorktreePath, path);
+            if (!res.Success)
+                Snackbar.Add(Strings.Snackbar_UnstageError(res.Error), Severity.Error);
+            await LoadAsync();
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task DiscardFileAsync(string path)
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+
+        var confirm = await DialogService.ShowMessageBoxAsync(
+            Strings.Git_DiscardConfirmTitle,
+            Strings.Git_DiscardConfirmBody(path),
+            yesText: Strings.Git_DiscardFile,
+            cancelText: Strings.Common_Cancel);
+        if (confirm != true) return;
+
+        _busy = true;
+        try
+        {
+            var res = await GitService.DiscardFileAsync(session.Git.WorktreePath, path);
+            if (!res.Success)
+                Snackbar.Add(Strings.Snackbar_DiscardError(res.Error), Severity.Error);
+            await LoadAsync();
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task CommitAsync()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null || string.IsNullOrWhiteSpace(_commitMessage)) return;
+        _busy = true;
+        try
+        {
+            // staged 가 없으면 전체 stage 후 커밋
+            if (_stagedFiles.Count == 0)
+            {
+                var stage = await GitService.StageAllAsync(session.Git.WorktreePath);
+                if (!stage.Success)
+                {
+                    Snackbar.Add(Strings.Snackbar_StageError(stage.Error), Severity.Error);
+                    return;
+                }
+            }
+
+            var res = await GitService.CommitAsync(session.Git.WorktreePath, _commitMessage);
+            if (res.Success)
+            {
+                _commitMessage = "";
+                Snackbar.Add(Strings.Snackbar_CommitSuccess, Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(Strings.Snackbar_CommitError(res.Error), Severity.Error);
+            }
+        }
+        finally { _busy = false; }
+    }
+
+    private void CommitViaAiAsync()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+
+        var prompt = string.IsNullOrWhiteSpace(_commitMessage)
+            ? Strings.Prompt_AiCommitAuto
+            : Strings.Prompt_AiCommitWithMessage(_commitMessage);
+
+        var msg = new ChatInputMessage { Text = prompt };
+        EventBus.Publish(new MergeRequestedEvent(msg));
+        Snackbar.Add(Strings.Git_AskAi_Commit, Severity.Info);
+    }
+
+    private async Task FetchAsync()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        _busy = true;
+        try
+        {
+            var res = await GitService.FetchAsync(session.Git.WorktreePath);
+            if (res.Success)
+                Snackbar.Add(Strings.Snackbar_FetchSuccess, Severity.Success);
+            else
+                Snackbar.Add(Strings.Snackbar_FetchError(res.Error), Severity.Error);
+            await LoadAsync();
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task PullAsync()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        _busy = true;
+        try
+        {
+            var res = await GitService.PullAsync(session.Git.WorktreePath, rebase: true);
+            if (res.Success)
+                Snackbar.Add(Strings.Snackbar_PullSuccess, Severity.Success);
+            else
+                Snackbar.Add(Strings.Snackbar_PullError(res.Error), Severity.Error);
+            await LoadAsync();
+        }
+        finally { _busy = false; }
+    }
+
+    private async Task PushAsync()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        _busy = true;
+        try
+        {
+            var res = await GitService.PushAsync(session.Git.WorktreePath);
+            if (!res.Success)
+            {
+                // upstream 미설정 자동 재시도
+                if (res.Error.Contains("no upstream", StringComparison.OrdinalIgnoreCase) ||
+                    res.Error.Contains("set-upstream", StringComparison.OrdinalIgnoreCase))
+                {
+                    res = await GitService.PushAsync(session.Git.WorktreePath, setUpstream: true);
+                }
+            }
+
+            if (res.Success)
+                Snackbar.Add(Strings.Snackbar_PushSuccess(session.Git.BranchName ?? ""), Severity.Success);
+            else
+                Snackbar.Add(Strings.Snackbar_PushError(res.Error), Severity.Error);
+            await LoadAsync();
+        }
+        finally { _busy = false; }
+    }
+
+    // ─── 헬퍼 ───
+
+    private void OpenFileDiff(FileDiff file)
+    {
+        ChatState.Tabs.OpenFileDiffTab(file.FilePath, file);
+    }
+
+    private static string GetFileName(string path)
+    {
+        var idx = path.LastIndexOfAny(['/', '\\']);
+        return idx >= 0 ? path[(idx + 1)..] : path;
+    }
+
+    private static string GetDirName(string path)
+    {
+        var idx = path.LastIndexOfAny(['/', '\\']);
+        return idx >= 0 ? path[..idx] : "";
+    }
+
+    private static string GetFileIcon(FileChangeType type) => type switch
+    {
+        FileChangeType.Added => Icons.Material.Filled.NoteAdd,
+        FileChangeType.Deleted => Icons.Material.Filled.Delete,
+        FileChangeType.Renamed => Icons.Material.Filled.DriveFileRenameOutline,
+        FileChangeType.Untracked => Icons.Material.Filled.AddCircleOutline,
+        _ => Icons.Material.Filled.EditNote
+    };
+
+    private static string GetFileIconStyle(FileChangeType type) => type switch
+    {
+        FileChangeType.Added => "color: var(--color-success);",
+        FileChangeType.Deleted => "color: var(--color-error);",
+        FileChangeType.Renamed => "color: var(--color-warning);",
+        FileChangeType.Untracked => "color: var(--mud-palette-text-secondary);",
+        _ => "color: var(--color-info);"
+    };
+
+    private void HandleStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            var sid = ChatState.CurrentSession?.Id;
+            if (sid != _lastSessionId)
+            {
+                _lastSessionId = sid;
+                _stagedFiles = []; _unstagedFiles = []; _untrackedFiles = [];
+                _aheadBehind = null;
+                _commitMessage = "";
+                _error = null;
+
+                if (sid != null)
+                {
+                    _loading = true;
+                    StateHasChanged();
+                    await LoadAsync();
+                    StartWatching();
+                }
+                else
+                {
+                    StopWatching();
+                    StateHasChanged();
+                }
+                return;
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        ChatState.OnChange -= HandleStateChanged;
+        MergeStatusService.StatusChanged -= HandleMergeStatusChanged;
+        StopWatching();
+    }
+}

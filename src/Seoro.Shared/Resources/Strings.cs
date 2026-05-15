@@ -476,6 +476,43 @@ public static class Strings
     public static string Sidebar_Changes_GroupRenamed => Get(nameof(Sidebar_Changes_GroupRenamed));
     public static string Sidebar_Changes_GroupUntracked => Get(nameof(Sidebar_Changes_GroupUntracked));
     public static string Sidebar_Changes_GroupOther => Get(nameof(Sidebar_Changes_GroupOther));
+
+    // ── Git View (VS Code 스타일 통합 패널) ──
+    public static string Git_Changes => Get(nameof(Git_Changes));
+    public static string Git_NoChanges => Get(nameof(Git_NoChanges));
+    public static string Git_StageAll => Get(nameof(Git_StageAll));
+    public static string Git_StageFile => Get(nameof(Git_StageFile));
+    public static string Git_UnstageFile => Get(nameof(Git_UnstageFile));
+    public static string Git_UnstageAll => Get(nameof(Git_UnstageAll));
+    public static string Git_DiscardFile => Get(nameof(Git_DiscardFile));
+    public static string Git_DiscardConfirmTitle => Get(nameof(Git_DiscardConfirmTitle));
+    public static string Git_DiscardConfirmBody(string path) => Get(nameof(Git_DiscardConfirmBody), path);
+    public static string Git_Commit => Get(nameof(Git_Commit));
+    public static string Git_CommitAll => Get(nameof(Git_CommitAll));
+    public static string Git_CommitMessagePlaceholder => Get(nameof(Git_CommitMessagePlaceholder));
+    public static string Git_AskAi_Commit => Get(nameof(Git_AskAi_Commit));
+    public static string Git_AskAi_Push => Get(nameof(Git_AskAi_Push));
+    public static string Git_Refresh => Get(nameof(Git_Refresh));
+    public static string Git_Fetch => Get(nameof(Git_Fetch));
+    public static string Git_Pull => Get(nameof(Git_Pull));
+    public static string Git_Push => Get(nameof(Git_Push));
+    public static string Git_Group_Staged => Get(nameof(Git_Group_Staged));
+    public static string Git_Group_Changes => Get(nameof(Git_Group_Changes));
+    public static string Git_Group_Untracked => Get(nameof(Git_Group_Untracked));
+    public static string Git_NoSession => Get(nameof(Git_NoSession));
+    public static string Prompt_AiCommitAuto => Get(nameof(Prompt_AiCommitAuto));
+    public static string Prompt_AiCommitWithMessage(string message) => Get(nameof(Prompt_AiCommitWithMessage), message);
+    public static string Prompt_AiPush => Get(nameof(Prompt_AiPush));
+    public static string Snackbar_CommitSuccess => Get(nameof(Snackbar_CommitSuccess));
+    public static string Snackbar_CommitError(string error) => Get(nameof(Snackbar_CommitError), error);
+    public static string Snackbar_FetchSuccess => Get(nameof(Snackbar_FetchSuccess));
+    public static string Snackbar_FetchError(string error) => Get(nameof(Snackbar_FetchError), error);
+    public static string Snackbar_PullSuccess => Get(nameof(Snackbar_PullSuccess));
+    public static string Snackbar_PullError(string error) => Get(nameof(Snackbar_PullError), error);
+    public static string Snackbar_StageError(string error) => Get(nameof(Snackbar_StageError), error);
+    public static string Snackbar_UnstageError(string error) => Get(nameof(Snackbar_UnstageError), error);
+    public static string Snackbar_DiscardError(string error) => Get(nameof(Snackbar_DiscardError), error);
+
     public static string Sidebar_Explorer_NoFilesFound => Get(nameof(Sidebar_Explorer_NoFilesFound));
     public static string Sidebar_Explorer_FileReadError(string error) => Get(nameof(Sidebar_Explorer_FileReadError), error);
 

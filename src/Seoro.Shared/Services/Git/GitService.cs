@@ -438,6 +438,256 @@ public class GitService(
         return result;
     }
 
+    public async Task<GitResult> StageFileAsync(string workingDir, string relativePath, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return new GitResult(false, "", "relativePath is empty");
+        var result = await RunGitAsync(workingDir, ct, "add", "--", relativePath);
+        if (result.Success)
+            logger.LogDebug("staged: {Path}", relativePath);
+        return result;
+    }
+
+    public async Task<GitResult> UnstageFileAsync(string workingDir, string relativePath,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return new GitResult(false, "", "relativePath is empty");
+        // git restore --staged 는 git 2.23+ 에서 추가됨. 실패 시 reset HEAD 로 폴백.
+        var restore = await RunGitAsync(workingDir, ct, "restore", "--staged", "--", relativePath);
+        if (restore.Success)
+        {
+            logger.LogDebug("unstaged: {Path}", relativePath);
+            return restore;
+        }
+
+        var reset = await RunGitAsync(workingDir, ct, "reset", "HEAD", "--", relativePath);
+        if (reset.Success)
+            logger.LogDebug("unstaged via reset HEAD: {Path}", relativePath);
+        return reset;
+    }
+
+    public async Task<GitResult> DiscardFileAsync(string workingDir, string relativePath,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return new GitResult(false, "", "relativePath is empty");
+
+        // 추적 여부 판정 — ls-files 가 결과를 돌려주면 추적 중
+        var lsFiles = await RunGitAsync(workingDir, ct, "ls-files", "--error-unmatch", "--", relativePath);
+        if (lsFiles.Success)
+            return await CheckoutFilesAsync(workingDir, new[] { relativePath }, ct);
+
+        // untracked — 파일 시스템에서 직접 삭제 (워크트리 경계 검증)
+        try
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(workingDir, relativePath));
+            var rootFull = Path.GetFullPath(workingDir);
+            if (!fullPath.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
+                return new GitResult(false, "", $"path escapes workspace: {relativePath}");
+
+            if (File.Exists(fullPath))
+            {
+                File.Delete(fullPath);
+                logger.LogDebug("untracked file deleted: {Path}", relativePath);
+            }
+
+            return new GitResult(true, "", "");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "discard 실패: {Path}", relativePath);
+            return new GitResult(false, "", ex.Message);
+        }
+    }
+
+    public async Task<GitResult> PushAsync(string workingDir, bool setUpstream = false,
+        CancellationToken ct = default)
+    {
+        GitResult result;
+        if (setUpstream)
+        {
+            var branch = await GetCurrentBranchAsync(workingDir);
+            if (string.IsNullOrEmpty(branch))
+                return new GitResult(false, "", "current branch unknown");
+            result = await RunGitAsync(workingDir, ct, "push", "--set-upstream", "origin", branch);
+        }
+        else
+        {
+            result = await RunGitAsync(workingDir, ct, "push");
+        }
+
+        if (result.Success)
+            logger.LogInformation("push 완료 {WorkingDir}", workingDir);
+        else
+            logger.LogWarning("push 실패 {WorkingDir}: {Error}", workingDir, result.Error);
+        return result;
+    }
+
+    public async Task<GitResult> PullAsync(string workingDir, bool rebase = true, CancellationToken ct = default)
+    {
+        var args = rebase
+            ? new[] { "pull", "--rebase" }
+            : new[] { "pull" };
+        var result = await RunGitAsync(workingDir, ct, args);
+        if (result.Success)
+        {
+            InvalidateBranchCaches(workingDir);
+            logger.LogInformation("pull 완료 {WorkingDir} (rebase={Rebase})", workingDir, rebase);
+        }
+        else
+        {
+            logger.LogWarning("pull 실패 {WorkingDir}: {Error}", workingDir, result.Error);
+        }
+
+        return result;
+    }
+
+    public async Task<DiffSummary> GetWorkingTreeStatusAsync(string workingDir, CancellationToken ct = default)
+    {
+        var summary = new DiffSummary();
+
+        // 1) staged numstat (HEAD ↔ index)
+        var stagedNumstatTask = RunGitBoundedAsync(workingDir, ct, "diff", "--cached", "--numstat");
+        // 2) unstaged numstat (index ↔ worktree)
+        var unstagedNumstatTask = RunGitBoundedAsync(workingDir, ct, "diff", "--numstat");
+        // 3) porcelain (XY 상태)
+        var porcelainTask = GetStatusPorcelainAsync(workingDir, ct);
+
+        var stagedNumstat = await stagedNumstatTask;
+        var unstagedNumstat = await unstagedNumstatTask;
+        var porcelain = await porcelainTask;
+
+        var stagedStats = ParseNumstat(stagedNumstat.Success ? stagedNumstat.Output : "");
+        var unstagedStats = ParseNumstat(unstagedNumstat.Success ? unstagedNumstat.Output : "");
+
+        // porcelain → XY 파싱 → 파일맵
+        // 형식: "XY path" 또는 rename은 "R  old -> new"
+        var entries = new Dictionary<string, (char X, char Y)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in porcelain)
+        {
+            if (raw.Length < 3) continue;
+            var x = raw[0];
+            var y = raw[1];
+            var path = raw[3..].Trim();
+
+            // rename 표기 정규화: "old -> new" → new
+            var arrow = path.IndexOf(" -> ", StringComparison.Ordinal);
+            if (arrow >= 0)
+                path = path[(arrow + 4)..];
+
+            // 따옴표 제거
+            if (path.Length >= 2 && path[0] == '"' && path[^1] == '"')
+                path = path[1..^1];
+
+            entries[path] = (x, y);
+        }
+
+        foreach (var (path, xy) in entries)
+        {
+            // untracked
+            if (xy.X == '?' && xy.Y == '?')
+            {
+                int addCount = 0;
+                var isBinary = IsLikelyBinary(path);
+                if (!isBinary)
+                    try
+                    {
+                        var fullPath = Path.Combine(workingDir, path.Replace('/', Path.DirectorySeparatorChar));
+                        if (File.Exists(fullPath))
+                        {
+                            var content = await File.ReadAllTextAsync(fullPath, ct);
+                            addCount = content.Split('\n').Length;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogDebug(ex, "untracked 라인 카운트 실패: {Path}", path);
+                    }
+
+                summary.Files.Add(new FileDiff
+                {
+                    FilePath = path,
+                    ChangeType = FileChangeType.Untracked,
+                    Staging = FileStagingState.Unstaged,
+                    IsBinary = isBinary,
+                    Additions = addCount,
+                    Deletions = 0
+                });
+                continue;
+            }
+
+            // 충돌(unmerged) — UU/AA/DD/AU/UA/DU/UD — 우선 unstaged 로 표시
+            var stagedActive = xy.X != ' ' && xy.X != '?';
+            var unstagedActive = xy.Y != ' ' && xy.Y != '?';
+
+            var staging = (stagedActive, unstagedActive) switch
+            {
+                (true, true) => FileStagingState.Both,
+                (true, false) => FileStagingState.Staged,
+                _ => FileStagingState.Unstaged
+            };
+
+            var changeType = MapStatusToChangeType(stagedActive ? xy.X : xy.Y);
+
+            var stagedHas = stagedStats.TryGetValue(path, out var s);
+            var unstagedHas = unstagedStats.TryGetValue(path, out var u);
+
+            summary.Files.Add(new FileDiff
+            {
+                FilePath = path,
+                ChangeType = changeType,
+                Staging = staging,
+                Additions = unstagedHas ? u.Additions : 0,
+                Deletions = unstagedHas ? u.Deletions : 0,
+                StagedAdditions = stagedHas ? s.Additions : 0,
+                StagedDeletions = stagedHas ? s.Deletions : 0,
+                IsBinary = (stagedHas && s.IsBinary) || (unstagedHas && u.IsBinary)
+            });
+        }
+
+        return summary;
+    }
+
+    private static Dictionary<string, (int Additions, int Deletions, bool IsBinary)> ParseNumstat(string output)
+    {
+        var map = new Dictionary<string, (int, int, bool)>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(output)) return map;
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = line.TrimEnd('\r');
+            var parts = trimmed.Split('\t');
+            if (parts.Length < 3) continue;
+
+            var addsRaw = parts[0];
+            var delsRaw = parts[1];
+            var path = parts[2];
+
+            // rename: "old => new" 또는 "{old => new}" — numstat 은 단순화된 경로만
+            var arrow = path.IndexOf(" => ", StringComparison.Ordinal);
+            if (arrow >= 0)
+                path = path[(arrow + 4)..];
+
+            var binary = addsRaw == "-" && delsRaw == "-";
+            int.TryParse(addsRaw, out var adds);
+            int.TryParse(delsRaw, out var dels);
+            map[path] = (adds, dels, binary);
+        }
+
+        return map;
+    }
+
+    private static FileChangeType MapStatusToChangeType(char code) => code switch
+    {
+        'A' => FileChangeType.Added,
+        'D' => FileChangeType.Deleted,
+        'R' => FileChangeType.Renamed,
+        'C' => FileChangeType.Renamed,
+        'M' => FileChangeType.Modified,
+        'U' => FileChangeType.Modified,
+        _ => FileChangeType.Modified
+    };
+
     public async Task<List<BranchGroup>> ListAllBranchesGroupedAsync(string repoDir)
     {
         var key = Path.GetFullPath(repoDir);

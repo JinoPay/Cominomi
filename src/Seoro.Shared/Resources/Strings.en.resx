@@ -454,6 +454,40 @@
   <data name="Sidebar_Changes_GroupRenamed" xml:space="preserve"><value>Renamed</value></data>
   <data name="Sidebar_Changes_GroupUntracked" xml:space="preserve"><value>Untracked</value></data>
   <data name="Sidebar_Changes_GroupOther" xml:space="preserve"><value>Other</value></data>
+  <data name="Git_Changes" xml:space="preserve"><value>Changes</value></data>
+  <data name="Git_NoChanges" xml:space="preserve"><value>No changes</value></data>
+  <data name="Git_StageAll" xml:space="preserve"><value>Stage All</value></data>
+  <data name="Git_StageFile" xml:space="preserve"><value>Stage</value></data>
+  <data name="Git_UnstageFile" xml:space="preserve"><value>Unstage</value></data>
+  <data name="Git_UnstageAll" xml:space="preserve"><value>Unstage All</value></data>
+  <data name="Git_DiscardFile" xml:space="preserve"><value>Discard Changes</value></data>
+  <data name="Git_DiscardConfirmTitle" xml:space="preserve"><value>Discard changes?</value></data>
+  <data name="Git_DiscardConfirmBody" xml:space="preserve"><value>Changes to '{0}' will be lost permanently. Continue?</value></data>
+  <data name="Git_Commit" xml:space="preserve"><value>Commit</value></data>
+  <data name="Git_CommitAll" xml:space="preserve"><value>Commit All</value></data>
+  <data name="Git_CommitMessagePlaceholder" xml:space="preserve"><value>Enter commit message...</value></data>
+  <data name="Git_AskAi_Commit" xml:space="preserve"><value>Ask AI to commit</value></data>
+  <data name="Git_AskAi_Push" xml:space="preserve"><value>Ask AI to push</value></data>
+  <data name="Git_Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Git_Fetch" xml:space="preserve"><value>Fetch</value></data>
+  <data name="Git_Pull" xml:space="preserve"><value>Pull</value></data>
+  <data name="Git_Push" xml:space="preserve"><value>Push</value></data>
+  <data name="Git_Group_Staged" xml:space="preserve"><value>Staged</value></data>
+  <data name="Git_Group_Changes" xml:space="preserve"><value>Changes</value></data>
+  <data name="Git_Group_Untracked" xml:space="preserve"><value>Untracked</value></data>
+  <data name="Git_NoSession" xml:space="preserve"><value>Select a session</value></data>
+  <data name="Prompt_AiCommitAuto" xml:space="preserve"><value>Please commit the current changes with an appropriate message.</value></data>
+  <data name="Prompt_AiCommitWithMessage" xml:space="preserve"><value>Please commit the current changes with this message: {0}</value></data>
+  <data name="Prompt_AiPush" xml:space="preserve"><value>Please push the current branch to origin.</value></data>
+  <data name="Snackbar_CommitSuccess" xml:space="preserve"><value>Committed.</value></data>
+  <data name="Snackbar_CommitError" xml:space="preserve"><value>Commit failed: {0}</value></data>
+  <data name="Snackbar_FetchSuccess" xml:space="preserve"><value>Fetch complete.</value></data>
+  <data name="Snackbar_FetchError" xml:space="preserve"><value>Fetch failed: {0}</value></data>
+  <data name="Snackbar_PullSuccess" xml:space="preserve"><value>Pull complete.</value></data>
+  <data name="Snackbar_PullError" xml:space="preserve"><value>Pull failed: {0}</value></data>
+  <data name="Snackbar_StageError" xml:space="preserve"><value>Stage failed: {0}</value></data>
+  <data name="Snackbar_UnstageError" xml:space="preserve"><value>Unstage failed: {0}</value></data>
+  <data name="Snackbar_DiscardError" xml:space="preserve"><value>Discard failed: {0}</value></data>
   <data name="Sidebar_Explorer_NoFilesFound" xml:space="preserve"><value>No files found</value></data>
   <data name="Sidebar_Explorer_FileReadError" xml:space="preserve"><value>File read error: {0}</value></data>
 

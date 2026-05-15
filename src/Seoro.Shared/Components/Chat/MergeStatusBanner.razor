@@ -1,0 +1,688 @@
+@inject IChatState ChatState
+@inject IChatEventBus EventBus
+@inject IGitService GitService
+@inject ISessionInitializer SessionInitializer
+@inject IMergeStatusService MergeStatusService
+@inject ISessionService SessionService
+@inject ISessionListFacade SessionListFacade
+@inject ISettingsService SettingsService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IPullRequestService PullRequestService
+@inject IWorkspaceService WorkspaceService
+@inject ILogger<MergeStatusBanner> Logger
+@using Microsoft.Extensions.Logging
+@using System.Diagnostics
+@implements IDisposable
+
+@*
+    MergeStatusBanner — GitView 상단의 슬림 머지 상태 배너.
+    워크트리 세션 + GitHub 원격에서만 노출. 1~2행 컴팩트 UI:
+      ① 브랜치 → 타겟 + 상태 라벨
+      ② (선택) PR 카드
+      ③ (선택) 상황별 단일 액션 버튼
+*@
+
+@{
+    var session = ChatState.CurrentSession;
+    var workspace = ChatState.CurrentWorkspace;
+    if (session == null || workspace == null || session.Git.IsLocalDir)
+    {
+        // 노출 조건 미충족
+    }
+}
+
+@if (session != null && workspace != null && !session.Git.IsLocalDir)
+{
+    var status = MergeStatusService.GetCurrent(session.Id);
+    var streaming = ChatState.IsSessionStreaming(session.Id);
+    var blocked = streaming || _busy;
+    var noTarget = string.IsNullOrEmpty(_targetBranch);
+    var isEmpty = status.Kind != MergeStatusKind.InConflict
+                  && (status.AheadCount ?? 0) == 0
+                  && status.UncommittedChangeCount == 0;
+    var action = ResolveAction(session, status, _upstreamAhead, isEmpty);
+
+    <div class="merge-status-banner @StatusCssClass(status.Kind)">
+        <div class="msb-row">
+            <div class="msb-branch-wrap">
+                <button class="msb-branch-btn @(blocked ? "disabled" : "")"
+                        @onclick="ToggleBranchMenu" disabled="@blocked">
+                    <MudIcon Icon="@Icons.Material.Filled.CallMerge" Style="width: 12px; height: 12px; opacity: 0.6; flex-shrink: 0;"/>
+                    <span class="msb-branch-current">@(session.Git.BranchName ?? "—")</span>
+                    <span class="msb-branch-arrow">→</span>
+                    <span class="msb-branch-target @(noTarget ? "placeholder" : "")">
+                        @(_targetBranch ?? "타겟 선택")
+                    </span>
+                    <MudIcon Icon="@Icons.Material.Filled.UnfoldMore" Style="width: 12px; height: 12px; opacity: 0.4; flex-shrink: 0;"/>
+                </button>
+
+                <MudPopover Open="@_branchMenuOpen" AnchorOrigin="Origin.BottomLeft"
+                            TransformOrigin="Origin.TopLeft" Class="branch-popover">
+                    <div class="branch-search-container">
+                        <MudTextField T="string" @bind-Value="_branchSearchText"
+                                      Placeholder="@Strings.Common_Search"
+                                      Variant="Variant.Text" Immediate="true"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      Style="font-size: var(--text-sm);"/>
+                    </div>
+                    <MudList T="string" Dense="true" Class="branch-list">
+                        @foreach (var group in FilteredBranchGroups)
+                        {
+                            <div class="branch-group-header">@group.Name</div>
+                            @foreach (var branch in group.Branches)
+                            {
+                                <MudListItem T="string" OnClick="@(() => SelectTargetBranch(branch))"
+                                             Class="@(branch == _targetBranch ? "branch-item-active" : "")">
+                                    <div class="branch-item-content">
+                                        <MudIcon Icon="@Icons.Material.Filled.AccountTree"
+                                                 Style="font-size: 14px; opacity: 0.5;"/>
+                                        <span class="branch-item-name">@branch</span>
+                                        @if (branch == _targetBranch)
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.Check"
+                                                     Style="font-size: 14px; color: var(--accent);"/>
+                                        }
+                                    </div>
+                                </MudListItem>
+                            }
+                        }
+                        @if (!FilteredBranchGroups.Any())
+                        {
+                            <div class="branch-no-results">일치하는 브랜치 없음</div>
+                        }
+                    </MudList>
+                </MudPopover>
+
+                @if (_branchMenuOpen)
+                {
+                    <MudOverlay Visible="true" OnClick="CloseBranchMenu" DarkBackground="false" ZIndex="1"/>
+                }
+            </div>
+
+            <MudTooltip Text="@BuildStatusTooltip(status)" Placement="Placement.Bottom">
+                <span class="msb-status-chip @StatusCssClass(status.Kind)">
+                    <MudIcon Icon="@StatusIcon(status.Kind, status.AheadCount ?? 0)"
+                             Style="width: 11px; height: 11px;"/>
+                    <span>@BuildStatusLabel(status)</span>
+                </span>
+            </MudTooltip>
+
+            <MudTooltip Text="@Strings.Git_Refresh" Placement="Placement.Bottom">
+                <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                               Size="Size.Small" Disabled="@blocked"
+                               OnClick="HandleManualRefresh"
+                               Style="width: 22px; height: 22px; opacity: 0.6;"/>
+            </MudTooltip>
+        </div>
+
+        @if (session.Git.TrackedPr is { } pr && action != WorktreeAction.CreatePr)
+        {
+            <div class="msb-pr-row">
+                <span class="pr-badge @PrBadgeCssClass(pr)">
+                    <MudIcon Icon="@PrStatusIcon(pr)" Style="width: 10px; height: 10px;"/>
+                    <span>#@pr.Number</span>
+                </span>
+                <span class="msb-pr-title" title="@pr.Title">@pr.Title</span>
+                <MudTooltip Text="PR 새로고침" Placement="Placement.Top">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                   Size="Size.Small" Disabled="@(blocked || _prLoading)"
+                                   OnClick="HandleRefreshPr"
+                                   Style="width: 20px; height: 20px; opacity: 0.5;"/>
+                </MudTooltip>
+                <MudTooltip Text="GitHub에서 열기" Placement="Placement.Top">
+                    <MudIconButton Icon="@Icons.Material.Outlined.OpenInNew"
+                                   Size="Size.Small" Disabled="@blocked"
+                                   OnClick="OpenSavedPr"
+                                   Style="width: 20px; height: 20px; opacity: 0.5;"/>
+                </MudTooltip>
+            </div>
+        }
+
+        @if (action != WorktreeAction.None)
+        {
+            <div class="msb-action-row">
+                @if (action == WorktreeAction.InConflict)
+                {
+                    <button class="msb-action-btn msb-action-conflict @(blocked ? "disabled" : "")"
+                            @onclick="HandleResolveConflict" disabled="@blocked">
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" Style="width: 13px; height: 13px;"/>
+                        <span>AI 충돌 해결</span>
+                    </button>
+                }
+                else if (action == WorktreeAction.NeedsRebase)
+                {
+                    <button class="msb-action-btn msb-action-conflict @(blocked ? "disabled" : "")"
+                            @onclick="HandleResolveExpectedConflict" disabled="@blocked">
+                        <MudIcon Icon="@Icons.Material.Filled.Warning" Style="width: 13px; height: 13px;"/>
+                        <span>충돌 해결 (rebase)</span>
+                    </button>
+                }
+                else if (action == WorktreeAction.CanMerge)
+                {
+                    <div class="msb-strategy-pills">
+                        @foreach (var strat in new[]
+                                  {
+                                      PullRequestMergeStrategy.Merge,
+                                      PullRequestMergeStrategy.Squash,
+                                      PullRequestMergeStrategy.Rebase
+                                  })
+                        {
+                            <button class="msb-pill @(_selectedMergeStrategy == strat ? "active" : "")"
+                                    @onclick="() => _selectedMergeStrategy = strat" disabled="@blocked">
+                                @MergeMethodLabel(strat)
+                            </button>
+                        }
+                    </div>
+                    <button class="msb-action-btn @((!session.Git.TrackedPr!.CanMerge || blocked || _prMerging) ? "disabled" : "")"
+                            @onclick="HandleMergePr"
+                            disabled="@(!session.Git.TrackedPr!.CanMerge || blocked || _prMerging)">
+                        @if (_prMerging)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                                 Style="width: 13px; height: 13px;"/>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.CallMerge" Style="width: 13px; height: 13px;"/>
+                        }
+                        <span>@MergeMethodLabel(_selectedMergeStrategy) 머지</span>
+                    </button>
+                }
+                else if (action == WorktreeAction.CreatePr)
+                {
+                    <button class="msb-action-btn @((blocked || noTarget) ? "disabled" : "")"
+                            @onclick="HandleCreatePrViaAi"
+                            disabled="@(blocked || noTarget)">
+                        <MudIcon Icon="@Icons.Material.Outlined.CallMerge" Style="width: 13px; height: 13px;"/>
+                        <span>PR 생성 요청</span>
+                    </button>
+                    <button class="msb-action-secondary @((blocked || _prLoading) ? "disabled" : "")"
+                            @onclick="HandleCheckPr" disabled="@(blocked || _prLoading)">
+                        @if (_prLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true"
+                                                 Style="width: 11px; height: 11px;"/>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="width: 11px; height: 11px;"/>
+                        }
+                        <span>PR 확인</span>
+                    </button>
+                }
+                else if (action == WorktreeAction.PostMerged)
+                {
+                    <button class="msb-action-btn msb-action-danger @(blocked ? "disabled" : "")"
+                            @onclick="HandleDeleteSession" disabled="@blocked">
+                        <MudIcon Icon="@Icons.Material.Outlined.DeleteOutline" Style="width: 13px; height: 13px;"/>
+                        <span>세션 삭제</span>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private enum WorktreeAction { None, InConflict, PostMerged, NeedsPush, NeedsRebase, CanMerge, CreatePr }
+
+    private List<BranchGroup> _branchGroups = [];
+    private string? _targetBranch;
+    private bool _branchMenuOpen;
+    private string _branchSearchText = "";
+    private bool _busy;
+    private bool _prLoading;
+    private bool _prMerging;
+    private PullRequestMergeStrategy _selectedMergeStrategy = PullRequestMergeStrategy.Squash;
+    private AppSettings? _appSettings;
+    private int _upstreamAhead;
+
+    private IDisposable? _sessionChangedSub;
+    private IDisposable? _streamingStoppedSub;
+    private IDisposable? _branchChangedSub;
+    private IDisposable? _conflictSub;
+
+    private IEnumerable<BranchGroup> FilteredBranchGroups =>
+        _branchGroups
+            .Where(g => !g.Name.Equals("로컬", StringComparison.OrdinalIgnoreCase))
+            .Select(g => string.IsNullOrWhiteSpace(_branchSearchText)
+                ? g
+                : new BranchGroup(g.Name,
+                    g.Branches.Where(b => b.Contains(_branchSearchText, StringComparison.OrdinalIgnoreCase)).ToList()))
+            .Where(g => g.Branches.Count > 0)
+            .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ChatState.OnChange += HandleStateChanged;
+
+        _sessionChangedSub = EventBus.Subscribe<SessionChangedEvent>(_ =>
+            InvokeAsync(async () => await OnSessionChangedAsync()));
+
+        _streamingStoppedSub = EventBus.Subscribe<StreamingStoppedEvent>(_ =>
+            InvokeAsync(async () =>
+            {
+                await ReloadBranchesAsync(forceCacheInvalidate: false);
+                var sess = ChatState.CurrentSession;
+                if (sess != null && !string.IsNullOrEmpty(_targetBranch))
+                    await MergeStatusService.RefreshAsync(sess.Id, BranchRefNormalizer.Normalize(_targetBranch));
+                if (sess != null) await RefreshUpstreamAheadAsync(sess);
+            }));
+
+        _branchChangedSub = EventBus.Subscribe<BranchChangedEvent>(_ =>
+            InvokeAsync(StateHasChanged));
+        _conflictSub = EventBus.Subscribe<ConflictDetectedEvent>(_ =>
+            InvokeAsync(StateHasChanged));
+        MergeStatusService.StatusChanged += HandleMergeStatusChanged;
+
+        _appSettings = await SettingsService.LoadAsync();
+        _selectedMergeStrategy = Enum.TryParse<PullRequestMergeStrategy>(
+            _appSettings.DefaultMergeStrategy, out var parsed) ? parsed : PullRequestMergeStrategy.Squash;
+
+        await OnSessionChangedAsync();
+    }
+
+    private async Task OnSessionChangedAsync()
+    {
+        _targetBranch = null;
+        _branchGroups = [];
+        _branchMenuOpen = false;
+        _branchSearchText = "";
+        await ReloadBranchesAsync(forceCacheInvalidate: false);
+        StateHasChanged();
+    }
+
+    private async Task ReloadBranchesAsync(bool forceCacheInvalidate)
+    {
+        var session = ChatState.CurrentSession;
+        var workspace = ChatState.CurrentWorkspace;
+        if (session == null || workspace == null || string.IsNullOrEmpty(workspace.RepoLocalPath))
+            return;
+        if (session.Git.IsLocalDir) return;
+
+        if (forceCacheInvalidate)
+            await GitService.InvalidateBranchCacheAsync(workspace.RepoLocalPath);
+
+        try
+        {
+            var (groups, defaultBranch) = await SessionInitializer.LoadBranchesAsync(workspace.RepoLocalPath);
+            _branchGroups = groups;
+
+            var remoteGroups = groups
+                .Where(g => !g.Name.Equals("로컬", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var storedBase = session.Git.BaseBranch;
+            var matched = BranchRefNormalizer.MatchInGroups(storedBase, remoteGroups)
+                          ?? BranchRefNormalizer.MatchInGroups(defaultBranch, remoteGroups);
+            _targetBranch = matched;
+
+            if (!string.IsNullOrEmpty(_targetBranch))
+            {
+                var normalized = BranchRefNormalizer.Normalize(_targetBranch);
+                MergeStatusService.SetTargetBranch(session.Id, normalized);
+                await MergeStatusService.RefreshAsync(session.Id, normalized);
+            }
+            else
+            {
+                await MergeStatusService.RefreshAsync(session.Id);
+            }
+            await RefreshUpstreamAheadAsync(session);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "MergeStatusBanner branch load 실패");
+        }
+    }
+
+    private async Task RefreshUpstreamAheadAsync(Session session)
+    {
+        if (string.IsNullOrEmpty(session.Git.WorktreePath)) return;
+        try
+        {
+            var (ahead, _) = await GitService.GetAheadBehindAsync(session.Git.WorktreePath);
+            _upstreamAhead = ahead;
+        }
+        catch
+        {
+            _upstreamAhead = 0;
+        }
+    }
+
+    private void HandleMergeStatusChanged(string sessionId)
+    {
+        var current = ChatState.CurrentSession;
+        if (current == null || current.Id != sessionId) return;
+        InvokeAsync(async () =>
+        {
+            await RefreshUpstreamAheadAsync(current);
+            StateHasChanged();
+        });
+    }
+
+    private void HandleStateChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task HandleManualRefresh()
+    {
+        _busy = true;
+        try
+        {
+            await ReloadBranchesAsync(forceCacheInvalidate: true);
+            var session = ChatState.CurrentSession;
+            if (session != null)
+            {
+                if (!string.IsNullOrEmpty(_targetBranch))
+                    await MergeStatusService.RefreshAsync(session.Id, BranchRefNormalizer.Normalize(_targetBranch));
+                await RefreshUpstreamAheadAsync(session);
+            }
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleBranchMenu()
+    {
+        _branchMenuOpen = !_branchMenuOpen;
+        if (!_branchMenuOpen) _branchSearchText = "";
+    }
+
+    private void CloseBranchMenu()
+    {
+        _branchMenuOpen = false;
+        _branchSearchText = "";
+    }
+
+    private async Task SelectTargetBranch(string branch)
+    {
+        _targetBranch = branch;
+        _branchMenuOpen = false;
+        _branchSearchText = "";
+
+        var session = ChatState.CurrentSession;
+        if (session != null)
+        {
+            MergeStatusService.SetTargetBranch(session.Id, BranchRefNormalizer.Normalize(branch));
+            await MergeStatusService.RefreshAsync(session.Id, BranchRefNormalizer.Normalize(branch));
+        }
+    }
+
+    // ── 상태 머신 ──
+    private WorktreeAction ResolveAction(Session session, MergeStatus status, int upstreamAhead, bool isEmpty)
+    {
+        if (status.Kind == MergeStatusKind.InConflict) return WorktreeAction.InConflict;
+        if (session.Git.TrackedPr?.IsMerged == true) return WorktreeAction.PostMerged;
+        if (session.Git.TrackedPr?.State == PullRequestLifecycleState.Open)
+        {
+            if (upstreamAhead > 0 || status.UncommittedChangeCount > 0) return WorktreeAction.NeedsPush;
+            if (status.Kind == MergeStatusKind.ConflictExpected || session.Git.TrackedPr.IsMergeable == false)
+                return WorktreeAction.NeedsRebase;
+            return WorktreeAction.CanMerge;
+        }
+        if (!isEmpty) return WorktreeAction.CreatePr;
+        return WorktreeAction.None;
+    }
+
+    // ── 액션 ──
+
+    private Task OpenSavedPr()
+    {
+        var session = ChatState.CurrentSession;
+        var url = session?.Git.TrackedPr?.Url ?? session?.Git.LastPrUrl;
+        if (!string.IsNullOrEmpty(url) &&
+            (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+             url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+        {
+            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+            catch (Exception ex) { Logger.LogWarning(ex, "브라우저 오픈 실패"); }
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleCheckPr()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        _prLoading = true;
+        StateHasChanged();
+        try
+        {
+            var pr = await PullRequestService.GetPrForBranchAsync(session);
+            if (pr != null)
+            {
+                await SessionService.SaveSessionAsync(session);
+                Snackbar.Add($"PR #{pr.Number} 발견: {pr.Title}", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("이 브랜치에 연결된 PR이 없습니다.", Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "PR 확인 실패");
+            Snackbar.Add($"PR 확인 실패: {ex.Message}", Severity.Error);
+        }
+        finally { _prLoading = false; StateHasChanged(); }
+    }
+
+    private async Task HandleRefreshPr()
+    {
+        var session = ChatState.CurrentSession;
+        if (session?.Git.TrackedPr == null) return;
+        _prLoading = true;
+        StateHasChanged();
+        try
+        {
+            var pr = await PullRequestService.RefreshAsync(session);
+            if (pr != null) await SessionService.SaveSessionAsync(session);
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "PR 새로고침 실패"); }
+        finally { _prLoading = false; StateHasChanged(); }
+    }
+
+    private async Task HandleMergePr()
+    {
+        var session = ChatState.CurrentSession;
+        if (session?.Git.TrackedPr is not { CanMerge: true }) return;
+        var ok = await DialogService.ShowMessageBoxAsync(
+            "PR 머지",
+            $"PR #{session.Git.TrackedPr.Number}을 '{MergeMethodLabel(_selectedMergeStrategy)}' 방식으로 머지합니다. 계속할까요?",
+            yesText: "계속", cancelText: "취소");
+        if (ok != true) return;
+
+        _prMerging = true;
+        StateHasChanged();
+        try
+        {
+            var result = await PullRequestService.MergeAsync(session, _selectedMergeStrategy);
+            if (result.Success)
+            {
+                await SessionService.SaveSessionAsync(session);
+                Snackbar.Add($"PR #{session.Git.TrackedPr.Number} 머지 완료!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"PR 머지 실패: {result.ErrorMessage}", Severity.Error);
+                await HandleRefreshPr();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"PR 머지 중 오류: {ex.Message}", Severity.Error);
+            Logger.LogError(ex, "HandleMergePr 예외");
+        }
+        finally { _prMerging = false; StateHasChanged(); }
+    }
+
+    private async Task HandleDeleteSession()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        try { await SessionListFacade.RemoveSessionAsync(session); }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "세션 삭제 실패");
+            Snackbar.Add($"세션 삭제 실패: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private void HandleResolveConflict()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null) return;
+        var status = MergeStatusService.GetCurrent(session.Id);
+        var conflictFiles = status.ConflictingFiles is { Count: > 0 }
+            ? string.Join("\n- ", status.ConflictingFiles)
+            : "(상태 재확인 필요)";
+        var template = _appSettings?.MergePromptResolveConflict ?? SeoroConstants.DefaultMergePromptResolveConflict;
+        var prompt = template.Replace("{conflictFiles}", conflictFiles);
+
+        var msg = BuildPromptMessage("첨부된 프롬프트를 읽고 머지 충돌을 해결해주세요.", prompt, "merge-resolve-conflict.txt");
+        EventBus.Publish(new MergeRequestedEvent(msg));
+        Snackbar.Add("AI에게 충돌 해결을 요청했습니다.", Severity.Info);
+    }
+
+    private void HandleResolveExpectedConflict()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null || string.IsNullOrEmpty(_targetBranch)) return;
+
+        var branch = session.Git.BranchName ?? "";
+        var target = BranchRefNormalizer.Normalize(_targetBranch);
+        var template = _appSettings?.MergePromptRebaseOnTarget ?? SeoroConstants.DefaultMergePromptRebaseOnTarget;
+        var prompt = template.Replace("{branch}", branch).Replace("{target}", target);
+
+        var msg = BuildPromptMessage("첨부된 프롬프트를 읽고 타겟 브랜치에 rebase해주세요.", prompt, "merge-rebase-on-target.txt");
+        EventBus.Publish(new MergeRequestedEvent(msg));
+        Snackbar.Add("AI에게 충돌 해결(rebase)을 요청했습니다.", Severity.Info);
+    }
+
+    private void HandleCreatePrViaAi()
+    {
+        var session = ChatState.CurrentSession;
+        if (session == null || string.IsNullOrEmpty(_targetBranch)) return;
+        var branch = session.Git.BranchName ?? "";
+        var target = BranchRefNormalizer.Normalize(_targetBranch);
+        var status = MergeStatusService.GetCurrent(session.Id);
+        var uncommittedNote = status.UncommittedChangeCount > 0
+            ? $"\n- 미커밋 변경이 {status.UncommittedChangeCount}개 있습니다. 먼저 변경 내용을 요약한 메시지로 커밋하세요."
+            : "";
+        var template = _appSettings?.MergePromptCreatePr ?? SeoroConstants.DefaultMergePromptCreatePr;
+        var prompt = template
+            .Replace("{branch}", branch).Replace("{target}", target).Replace("{uncommittedNote}", uncommittedNote);
+
+        var msg = BuildPromptMessage("첨부된 프롬프트를 읽고 PR을 생성해주세요.", prompt, "merge-create-pr.txt");
+        msg.ModelOverride = "haiku";
+        EventBus.Publish(new MergeRequestedEvent(msg));
+        Snackbar.Add("AI에게 PR 생성을 요청했습니다.", Severity.Info);
+    }
+
+    private static ChatInputMessage BuildPromptMessage(string chatText, string promptContent, string fileName)
+    {
+        var data = System.Text.Encoding.UTF8.GetBytes(promptContent);
+        return new ChatInputMessage
+        {
+            Text = chatText,
+            Attachments =
+            [
+                new PendingAttachment
+                {
+                    FileName = fileName,
+                    ContentType = "text/plain",
+                    Data = data
+                }
+            ]
+        };
+    }
+
+    // ── 헬퍼: 상태 아이콘/라벨/배지 ──
+    private static string StatusIcon(MergeStatusKind kind, int aheadCount = 0) => kind switch
+    {
+        MergeStatusKind.Clean when aheadCount == 0 => Icons.Material.Outlined.CheckCircle,
+        MergeStatusKind.Clean => Icons.Material.Filled.CheckCircle,
+        MergeStatusKind.BehindTarget => Icons.Material.Filled.Warning,
+        MergeStatusKind.ConflictExpected => Icons.Material.Filled.Error,
+        MergeStatusKind.UncommittedDirty => Icons.Material.Outlined.EditNote,
+        MergeStatusKind.InConflict => Icons.Material.Filled.Warning,
+        MergeStatusKind.NetworkError => Icons.Material.Filled.WifiOff,
+        _ => Icons.Material.Outlined.HourglassEmpty
+    };
+
+    private static string StatusCssClass(MergeStatusKind kind) => kind switch
+    {
+        MergeStatusKind.Clean => "status-clean",
+        MergeStatusKind.BehindTarget => "status-behind",
+        MergeStatusKind.ConflictExpected => "status-conflict",
+        MergeStatusKind.UncommittedDirty => "status-uncommitted",
+        MergeStatusKind.InConflict => "status-in-conflict",
+        MergeStatusKind.NetworkError => "status-offline",
+        _ => "status-unknown"
+    };
+
+    private static string BuildStatusLabel(MergeStatus status) => status.Kind switch
+    {
+        MergeStatusKind.Unknown => "확인 중...",
+        MergeStatusKind.Clean when (status.AheadCount ?? 0) == 0 => "변경 없음",
+        MergeStatusKind.Clean => "머지 가능",
+        MergeStatusKind.BehindTarget => "타겟이 앞섬",
+        MergeStatusKind.ConflictExpected => "충돌 예상",
+        MergeStatusKind.UncommittedDirty => "미커밋 있음",
+        MergeStatusKind.InConflict => "충돌 진행 중",
+        MergeStatusKind.NetworkError => "오프라인",
+        _ => ""
+    };
+
+    private static string BuildStatusTooltip(MergeStatus status) => status.Kind switch
+    {
+        MergeStatusKind.Clean when (status.AheadCount ?? 0) == 0 =>
+            "타겟 브랜치와 동일 — 머지할 변경사항이 없습니다",
+        MergeStatusKind.Clean => $"머지 가능 (ahead {status.AheadCount ?? 0}, behind {status.BehindCount ?? 0})",
+        MergeStatusKind.BehindTarget => $"타겟이 {status.BehindCount ?? 0}커밋 앞섰습니다 — stale 경고",
+        MergeStatusKind.ConflictExpected => $"머지 시 {status.ConflictingFiles?.Count ?? 0}개 파일 충돌 예상",
+        MergeStatusKind.UncommittedDirty => $"미커밋 변경 {status.UncommittedChangeCount}개",
+        MergeStatusKind.InConflict => "머지 진행 중 — 충돌 해결 필요",
+        MergeStatusKind.NetworkError => $"오프라인 — 마지막 확인 {status.LastCheckedAt:HH:mm:ss}",
+        _ => ""
+    };
+
+    private static string PrStatusIcon(TrackedPullRequest pr) => pr switch
+    {
+        { IsDraft: true } => Icons.Material.Outlined.EditNote,
+        { IsMerged: true } => Icons.Material.Filled.CheckCircle,
+        { IsMergeable: true } => Icons.Material.Filled.CheckCircle,
+        { IsMergeable: false } => Icons.Material.Filled.Error,
+        _ => Icons.Material.Outlined.HourglassEmpty
+    };
+
+    private static string PrBadgeCssClass(TrackedPullRequest pr) => pr switch
+    {
+        { IsMerged: true } => "pr-badge-merged",
+        { IsDraft: true } => "pr-badge-draft",
+        { IsMergeable: true } => "pr-badge-mergeable",
+        { IsMergeable: false, MergeStateStatus: "BLOCKED" } => "pr-badge-blocked",
+        { IsMergeable: false } => "pr-badge-conflict",
+        _ => "pr-badge-unknown"
+    };
+
+    private static string MergeMethodLabel(PullRequestMergeStrategy method) => method switch
+    {
+        PullRequestMergeStrategy.Merge => "Merge",
+        PullRequestMergeStrategy.Squash => "Squash",
+        PullRequestMergeStrategy.Rebase => "Rebase",
+        _ => "Squash"
+    };
+
+    public void Dispose()
+    {
+        ChatState.OnChange -= HandleStateChanged;
+        MergeStatusService.StatusChanged -= HandleMergeStatusChanged;
+        _sessionChangedSub?.Dispose();
+        _streamingStoppedSub?.Dispose();
+        _branchChangedSub?.Dispose();
+        _conflictSub?.Dispose();
+    }
+}

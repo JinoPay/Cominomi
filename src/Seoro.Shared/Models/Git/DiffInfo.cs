@@ -12,6 +12,14 @@ public enum FileChangeType
     Untracked
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum FileStagingState
+{
+    Unstaged,
+    Staged,
+    Both
+}
+
 public class FileDiff
 {
     public FileChangeType ChangeType { get; set; }
@@ -20,6 +28,10 @@ public class FileDiff
     public bool IsBinary { get; set; }
     public string FilePath { get; set; } = "";
     public string UnifiedDiff { get; set; } = "";
+
+    public FileStagingState Staging { get; set; } = FileStagingState.Unstaged;
+    public int StagedAdditions { get; set; }
+    public int StagedDeletions { get; set; }
 }
 
 public class DiffSummary

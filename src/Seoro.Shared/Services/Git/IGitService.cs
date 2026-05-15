@@ -75,6 +75,15 @@ public interface IGitService
     Task<bool> IsGitRepoAsync(string path);
     Task<DiffSummary> GetDiffSummaryAsync(string workingDir, string baseBranch, CancellationToken ct = default);
 
+    /// <summary>
+    ///     워킹 트리의 현재 상태(HEAD 기준)를 staged/unstaged/untracked 로 분리해서 돌려준다.
+    ///     VS Code 스타일 Git 패널이 사용한다. <c>git diff --cached --numstat</c> +
+    ///     <c>git diff --numstat</c> + <c>git status --porcelain</c> + untracked 목록을 합성.
+    ///     각 <see cref="FileDiff"/> 의 <see cref="FileDiff.Staging"/> / <see cref="FileDiff.Additions"/> /
+    ///     <see cref="FileDiff.StagedAdditions"/> 가 채워진다.
+    /// </summary>
+    Task<DiffSummary> GetWorkingTreeStatusAsync(string workingDir, CancellationToken ct = default);
+
     Task<GitResult> AddWorktreeAsync(string repoDir, string worktreePath, string branchName, string baseBranch,
         CancellationToken ct = default);
 
@@ -96,6 +105,38 @@ public interface IGitService
         CancellationToken ct = default);
 
     Task<GitResult> StageAllAsync(string workingDir, CancellationToken ct = default);
+
+    /// <summary>
+    ///     단일 파일을 인덱스에 stage 한다 (<c>git add -- &lt;path&gt;</c>).
+    ///     상대 경로는 워크트리 루트 기준. untracked 파일도 추가 가능.
+    /// </summary>
+    Task<GitResult> StageFileAsync(string workingDir, string relativePath, CancellationToken ct = default);
+
+    /// <summary>
+    ///     인덱스에서 단일 파일을 unstage 한다 (<c>git restore --staged -- &lt;path&gt;</c>).
+    ///     워킹 트리는 건드리지 않는다. fallback: <c>git reset HEAD -- &lt;path&gt;</c>.
+    /// </summary>
+    Task<GitResult> UnstageFileAsync(string workingDir, string relativePath, CancellationToken ct = default);
+
+    /// <summary>
+    ///     단일 파일의 unstaged 변경을 폐기한다.
+    ///     - 추적 중: <c>git checkout -- &lt;path&gt;</c> (CheckoutFilesAsync 위임)
+    ///     - untracked: 파일 시스템 삭제 (워크트리 경계 검증)
+    /// </summary>
+    Task<GitResult> DiscardFileAsync(string workingDir, string relativePath, CancellationToken ct = default);
+
+    /// <summary>
+    ///     현재 브랜치를 origin에 push 한다 (<c>git push</c> 또는 <c>git push --set-upstream origin &lt;branch&gt;</c>).
+    ///     upstream 미설정 시 자동으로 <paramref name="setUpstream"/>를 true로 호출하는 것은 호출자 책임.
+    /// </summary>
+    Task<GitResult> PushAsync(string workingDir, bool setUpstream = false, CancellationToken ct = default);
+
+    /// <summary>
+    ///     원격에서 pull 한다.
+    ///     기본 전략은 rebase (<c>git pull --rebase</c>) — Seoro 워크트리 격리 규칙과 호환.
+    ///     충돌 시 GitResult.Success=false, <see cref="ConflictWatcherService"/>가 별도로 감지.
+    /// </summary>
+    Task<GitResult> PullAsync(string workingDir, bool rebase = true, CancellationToken ct = default);
 
     Task<List<BranchGroup>> ListAllBranchesGroupedAsync(string repoDir);
     Task<List<string>> GetChangedFilesAsync(string workingDir, string baseBranch, CancellationToken ct = default);

@@ -319,8 +319,6 @@ public class SessionServiceTests : IDisposable
         // Phase 1 신규 API — 테스트에서는 기본값만 반환
         public Task<string?> GetRemoteUrlAsync(string repoDir, string remoteName = "origin", CancellationToken ct = default)
             => Task.FromResult<string?>(null);
-        public Task<GitResult> PushAsync(string workingDir, string remote, string branch, CancellationToken ct = default)
-            => Task.FromResult(NextResult);
         public Task<bool> HasUnresolvedConflictsAsync(string workingDir, CancellationToken ct = default)
             => Task.FromResult(false);
         public Task<(int Ahead, int Behind)?> FetchAndCompareAsync(string repoDir, string sourceRef, string targetRef, CancellationToken ct = default)
@@ -332,6 +330,20 @@ public class SessionServiceTests : IDisposable
         public Task<SquashMergeResult> SquashMergeViaTempCloneAsync(string mainRepoDir, string sourceWorktreePath, string sourceBranchName, string targetBranchName, string commitMessage, IProgress<string>? progress = null, CancellationToken ct = default)
             => Task.FromResult(SquashMergeResult.Succeeded(""));
         public Task InvalidateBranchCacheAsync(string repoDir) => Task.CompletedTask;
+
+        // GitView 도입으로 추가된 API
+        public Task<DiffSummary> GetWorkingTreeStatusAsync(string workingDir, CancellationToken ct = default)
+            => Task.FromResult(new DiffSummary());
+        public Task<GitResult> StageFileAsync(string workingDir, string relativePath, CancellationToken ct = default)
+            => Task.FromResult(NextResult);
+        public Task<GitResult> UnstageFileAsync(string workingDir, string relativePath, CancellationToken ct = default)
+            => Task.FromResult(NextResult);
+        public Task<GitResult> DiscardFileAsync(string workingDir, string relativePath, CancellationToken ct = default)
+            => Task.FromResult(NextResult);
+        public Task<GitResult> PushAsync(string workingDir, bool setUpstream = false, CancellationToken ct = default)
+            => Task.FromResult(NextResult);
+        public Task<GitResult> PullAsync(string workingDir, bool rebase = true, CancellationToken ct = default)
+            => Task.FromResult(NextResult);
     }
 
     private class FakeWorkspaceService : IWorkspaceService

@@ -1,13 +1,11 @@
 @inject IChatState ChatState
 @inject IMergeStatusService MergeStatusService
 @inject IWorkspaceService WorkspaceService
-@inject IChatEventBus EventBus
 @implements IDisposable
 
 @*
     슬림 MergeToolbar (36px) — 상태 아이콘 + 한 줄 요약만 표시.
-    클릭 시 EmbeddedDiffPanel 의 Merge 탭으로 전환 (MergeTabRequestedEvent).
-    상세 머지 컨트롤은 MergePanel.razor (Merge 탭 내부) 에서 처리.
+    클릭 시 우측 패널의 Git 모드로 전환. 상세 머지 컨트롤은 GitView/MergeStatusBanner 에서 처리.
 *@
 
 @{
@@ -23,8 +21,8 @@
     var session = _toolbarSession!;
     var status = MergeStatusService.GetCurrent(session.Id);
     <div class="merge-toolbar" @onclick="HandleToolbarClick" title="클릭하여 Merge 탭 열기">
-        <span class="merge-status-icon @MergePanel.StatusCssClass(status.Kind)">
-            <MudIcon Icon="@MergePanel.StatusIcon(status.Kind, status.AheadCount ?? 0)" Style="width: 14px; height: 14px;"/>
+        <span class="merge-status-icon @MergeStatusUi.StatusCssClass(status.Kind)">
+            <MudIcon Icon="@MergeStatusUi.StatusIcon(status.Kind, status.AheadCount ?? 0)" Style="width: 14px; height: 14px;"/>
         </span>
 
         @if (session.Git.IsLocalDir)
@@ -75,7 +73,6 @@
     private void HandleToolbarClick()
     {
         ChatState.SetRightPanel(RightPanelMode.Git);
-        EventBus.Publish(new MergeTabRequestedEvent());
     }
 
     private static string BuildLocalDirSummary(MergeStatus status, RemoteInfo remoteInfo)
