@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.18.3",
+    "date": "2026-05-17",
+    "changes": [
+      { "type": "feat", "description": "채팅 입력창 컴팩트화 및 진행표시 인라인 이동 — 입력 영역 높이를 줄이고 진행 표시를 입력창 옆 인라인으로 배치하여 화면 공간 효율 개선" },
+      { "type": "feat", "description": "Git 뷰에 force-push 지원 추가 및 GitView UI 개선 — 강제 푸시 옵션과 시각적 피드백 보강" }
+    ]
+  },
+  {
     "version": "1.18.2",
     "date": "2026-05-15",
     "changes": [
